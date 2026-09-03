@@ -94,7 +94,10 @@ func (p Position) pawnMoves(moves []Move, from Square, color Color) []Move {
 		if target := p.board[to]; !target.IsEmpty() && target.Color != color {
 			moves = addPawnMove(moves, from, to, promotionRank, Capture)
 		} else if to == p.enPassant {
-			moves = append(moves, Move{From: from, To: to, Flags: Capture | EnPassant})
+			captured := p.board[int(to)-direction*8]
+			if captured == (Piece{Type: Pawn, Color: color.Opponent()}) {
+				moves = append(moves, Move{From: from, To: to, Flags: Capture | EnPassant})
+			}
 		}
 	}
 	return moves

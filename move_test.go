@@ -50,6 +50,15 @@ func TestApplyMoveLifecycle(t *testing.T) {
 	}
 }
 
+func TestEnPassantRequiresCapturablePawn(t *testing.T) {
+	position, _ := ParseFEN("7k/8/8/4P3/8/8/8/K7 w - d6 0 1")
+	for _, move := range position.LegalMoves() {
+		if move.UCI() == "e5d6" {
+			t.Fatal("generated en passant capture without a capturable pawn")
+		}
+	}
+}
+
 func TestCastlingAndPromotion(t *testing.T) {
 	position, _ := ParseFEN("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
 	game := NewGameFromPosition(position)
