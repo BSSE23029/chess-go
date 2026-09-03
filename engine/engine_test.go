@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	chess "github.com/raza/chess-go"
+	chess "github.com/BSSE23029/chess-go"
 )
 
 var _ chess.Player = (*Bot)(nil)

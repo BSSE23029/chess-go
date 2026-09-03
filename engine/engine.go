@@ -5,7 +5,7 @@ import (
 	"errors"
 	"slices"
 
-	chess "github.com/raza/chess-go"
+	chess "github.com/BSSE23029/chess-go"
 )
 
 type Score int
