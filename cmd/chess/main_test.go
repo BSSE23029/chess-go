@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"os"
@@ -141,6 +142,84 @@ func TestBotUndoRedoTravelsCompleteTurnsAtomically(t *testing.T) {
 	}
 	if s.game.Position().FEN() != chess.InitialFEN {
 		t.Fatal("failed paired redo partially changed position")
+	}
+}
+
+func TestInteractiveSelectionPlaysLegalMove(t *testing.T) {
+	s := session{game: chess.NewGame(), human: chess.White}
+	e2, _ := chess.ParseSquare("e2")
+	e4, _ := chess.ParseSquare("e4")
+	ui := boardUI{cursor: e2, selected: chess.NoSquare}
+
+	if s.handleKey(&ui, keySelect) || ui.selected != e2 {
+		t.Fatalf("piece was not selected: %#v", ui)
+	}
+	ui.cursor = e4
+	if s.handleKey(&ui, keySelect) || ui.selected != chess.NoSquare {
+		t.Fatalf("move was not completed: %#v", ui)
+	}
+	if moves := s.game.Moves(); len(moves) != 1 || moves[0].UCI() != "e2e4" {
+		t.Fatalf("interactive move history = %#v", moves)
+	}
+
+	s.handleKey(&ui, keyUndo)
+	if s.game.Position().FEN() != chess.InitialFEN {
+		t.Fatal("interactive undo did not restore the position")
+	}
+	s.handleKey(&ui, keyRedo)
+	if len(s.game.Moves()) != 1 {
+		t.Fatal("interactive redo did not restore the move")
+	}
+	s.handleKey(&ui, keyNew)
+	if s.game.Position().FEN() != chess.InitialFEN || len(s.game.Moves()) != 0 {
+		t.Fatal("interactive new game did not reset the session")
+	}
+}
+
+func TestInteractiveNavigationAndKeyDecoding(t *testing.T) {
+	d4, _ := chess.ParseSquare("d4")
+	d5, _ := chess.ParseSquare("d5")
+	if got := moveCursor(d4, keyUp, false); got != d5 {
+		t.Fatalf("white up = %s", got)
+	}
+	if got := moveCursor(d4, keyDown, true); got != d5 {
+		t.Fatalf("flipped down = %s", got)
+	}
+	a1, _ := chess.ParseSquare("a1")
+	if got := moveCursor(a1, keyLeft, false); got != a1 {
+		t.Fatalf("cursor escaped board to %s", got)
+	}
+
+	reader := bufio.NewReader(strings.NewReader("\x1b[A\x1b[B\x1b[C\x1b[D\r?:q"))
+	want := []key{keyUp, keyDown, keyRight, keyLeft, keySelect, keyHelp, keyCommand, keyQuit}
+	for index, expected := range want {
+		got, err := readKey(reader)
+		if err != nil || got != expected {
+			t.Fatalf("key %d = %v, %v; want %v", index, got, err, expected)
+		}
+	}
+	var output bytes.Buffer
+	line, err := readRawLine(bufio.NewReader(strings.NewReader("savx\x7fe game.pgn\r")), &output)
+	if err != nil || line != "save game.pgn" || output.String() != "savx\b \be game.pgn\n" {
+		t.Fatalf("raw command = %q, %v; output %q", line, err, output.String())
+	}
+}
+
+func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
+	game := chess.NewGame()
+	if err := game.PlayUCI("e2e4"); err != nil {
+		t.Fatal(err)
+	}
+	e7, _ := chess.ParseSquare("e7")
+	e6, _ := chess.ParseSquare("e6")
+	ui := boardUI{cursor: e6, selected: e7}
+	var output bytes.Buffer
+	renderInteractive(&output, game, ui, false)
+	text := output.String()
+	for _, want := range []string{"\x1b[H\x1b[2J", "\x1b[7m", "\x1b[46m", "\x1b[42m", "\x1b[43m", "8 ", "  a  b  c  d  e  f  g  h", "Black to move"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("interactive rendering lacks %q:\n%s", want, text)
+		}
 	}
 }
 

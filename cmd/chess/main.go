@@ -90,6 +90,9 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 }
 
 func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) error {
+	if isInteractiveTerminal(input, output) {
+		return s.playInteractive(ctx, input, output)
+	}
 	scanner := bufio.NewScanner(input)
 	fmt.Fprintln(output, "Commands: SAN or UCI move, moves, undo, redo, fen FEN, load FILE, save FILE, help, quit")
 	for {
