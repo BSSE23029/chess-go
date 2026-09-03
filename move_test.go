@@ -112,6 +112,9 @@ func TestMakeUnmakeMoveLifecycle(t *testing.T) {
 			if err != nil || position.FEN() == before {
 				t.Fatalf("MakeMove(%s) failed: %v", test.move, err)
 			}
+			if position.Hash() != position.calculateHash() {
+				t.Fatalf("MakeMove(%s) produced an incorrect incremental hash", test.move)
+			}
 			position.UnmakeMove(undo)
 			if position.FEN() != before || position.Hash() != hash {
 				t.Fatalf("UnmakeMove(%s) restored %q, want %q", test.move, position.FEN(), before)
@@ -458,6 +461,9 @@ func TestPGNCustomPositionAndValidation(t *testing.T) {
 
 func TestPositionHash(t *testing.T) {
 	initial := NewPosition()
+	if initial.Hash() != 0x63b5cf5c00a21380 {
+		t.Fatalf("initial hash changed: %x", initial.Hash())
+	}
 	sameBoard, _ := ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 42 99")
 	blackTurn, _ := ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")
 	noCastling, _ := ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1")
@@ -469,5 +475,16 @@ func TestPositionHash(t *testing.T) {
 	}
 	if initial.Hash() != NewPosition().Hash() {
 		t.Fatal("position hash is not deterministic")
+	}
+	for _, move := range initial.LegalMoves() {
+		position := initial
+		undo := position.MakeLegalMove(move)
+		if position.Hash() != position.calculateHash() {
+			t.Fatalf("incremental hash is wrong after %s", move.UCI())
+		}
+		position.UnmakeMove(undo)
+		if position.Hash() != initial.Hash() {
+			t.Fatalf("hash was not restored after %s", move.UCI())
+		}
 	}
 }

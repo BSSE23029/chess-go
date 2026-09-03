@@ -43,6 +43,7 @@ type Undo struct {
 	enPassant      Square
 	halfmoveClock  uint16
 	fullmoveNumber uint16
+	hash           uint64
 	valid          bool
 }
 
@@ -63,6 +64,7 @@ func (p *Position) MakeLegalMove(move Move) Undo {
 		enPassant:      p.enPassant,
 		halfmoveClock:  p.halfmoveClock,
 		fullmoveNumber: p.fullmoveNumber,
+		hash:           p.hash,
 		valid:          true,
 	}
 	undo.remember(p, move.From)
@@ -97,6 +99,7 @@ func (p *Position) UnmakeMove(undo Undo) {
 	p.enPassant = undo.enPassant
 	p.halfmoveClock = undo.halfmoveClock
 	p.fullmoveNumber = undo.fullmoveNumber
+	p.hash = undo.hash
 	for index := uint8(0); index < undo.count; index++ {
 		state := undo.squares[index]
 		p.board[state.square] = state.piece
@@ -332,24 +335,33 @@ func (p Position) applyUnchecked(move Move) Position {
 }
 
 func (p *Position) makeUnchecked(move Move) {
+	p.hash ^= zobrist.castling[p.castling]
+	if p.enPassant != NoSquare {
+		p.hash ^= zobrist.enPassant[p.enPassant]
+	}
 	piece, captured := p.board[move.From], p.board[move.To]
-	p.board[move.From] = Piece{}
-	p.board[move.To] = piece
+	p.setPiece(move.From, Piece{})
+	p.setPiece(move.To, piece)
 	if move.Flags&EnPassant != 0 {
 		capture := int(move.To) - 8
 		if piece.Color == Black {
 			capture = int(move.To) + 8
 		}
-		p.board[capture], captured = Piece{}, Piece{Type: Pawn, Color: piece.Color.Opponent()}
+		captured = p.board[capture]
+		p.setPiece(Square(capture), Piece{})
 	}
 	if move.Promotion != NoPiece {
-		p.board[move.To].Type = move.Promotion
+		p.setPiece(move.To, Piece{Type: move.Promotion, Color: piece.Color})
 	}
 	if move.Flags&Castle != 0 {
 		if move.To%8 == 6 {
-			p.board[move.To-1], p.board[move.To+1] = p.board[move.To+1], Piece{}
+			rook := p.board[move.To+1]
+			p.setPiece(move.To+1, Piece{})
+			p.setPiece(move.To-1, rook)
 		} else {
-			p.board[move.To+1], p.board[move.To-2] = p.board[move.To-2], Piece{}
+			rook := p.board[move.To-2]
+			p.setPiece(move.To-2, Piece{})
+			p.setPiece(move.To+1, rook)
 		}
 	}
 	p.updateCastling(move, piece, captured)
@@ -365,6 +377,21 @@ func (p *Position) makeUnchecked(move Move) {
 		p.fullmoveNumber++
 	}
 	p.turn = p.turn.Opponent()
+	p.hash ^= zobrist.turn
+	p.hash ^= zobrist.castling[p.castling]
+	if p.enPassant != NoSquare {
+		p.hash ^= zobrist.enPassant[p.enPassant]
+	}
+}
+
+func (p *Position) setPiece(square Square, piece Piece) {
+	if old := p.board[square]; !old.IsEmpty() {
+		p.hash ^= zobrist.pieces[old.Color][old.Type][square]
+	}
+	p.board[square] = piece
+	if !piece.IsEmpty() {
+		p.hash ^= zobrist.pieces[piece.Color][piece.Type][square]
+	}
 }
 
 func (p *Position) updateCastling(move Move, piece, captured Piece) {

@@ -111,6 +111,42 @@ const (
 
 const InitialFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
+type zobristKeys struct {
+	pieces    [2][7][64]uint64
+	turn      uint64
+	castling  [16]uint64
+	enPassant [64]uint64
+}
+
+var zobrist = newZobristKeys()
+
+func newZobristKeys() zobristKeys {
+	var keys zobristKeys
+	seed := uint64(0x9e3779b97f4a7c15)
+	next := func() uint64 {
+		seed += 0x9e3779b97f4a7c15
+		value := seed
+		value = (value ^ value>>30) * 0xbf58476d1ce4e5b9
+		value = (value ^ value>>27) * 0x94d049bb133111eb
+		return value ^ value>>31
+	}
+	for color := range keys.pieces {
+		for piece := Pawn; piece <= King; piece++ {
+			for square := range keys.pieces[color][piece] {
+				keys.pieces[color][piece][square] = next()
+			}
+		}
+	}
+	keys.turn = next()
+	for index := range keys.castling {
+		keys.castling[index] = next()
+	}
+	for index := range keys.enPassant {
+		keys.enPassant[index] = next()
+	}
+	return keys
+}
+
 type Position struct {
 	board          [64]Piece
 	turn           Color
@@ -118,6 +154,7 @@ type Position struct {
 	enPassant      Square
 	halfmoveClock  uint16
 	fullmoveNumber uint16
+	hash           uint64
 }
 
 func NewPosition() Position {
@@ -142,21 +179,23 @@ func (p Position) HalfmoveClock() uint16    { return p.halfmoveClock }
 func (p Position) FullmoveNumber() uint16   { return p.fullmoveNumber }
 func (p Position) InCheck() bool            { return p.inCheck(p.turn) }
 
-// Hash identifies the parts of a position that affect legal play. Move clocks
-// are intentionally excluded so equivalent search positions share a key.
-func (p Position) Hash() uint64 {
-	const (
-		offset = uint64(14695981039346656037)
-		prime  = uint64(1099511628211)
-	)
-	hash := offset
-	mix := func(value byte) { hash = (hash ^ uint64(value)) * prime }
-	for _, piece := range p.board {
-		mix(byte(piece.Type) | byte(piece.Color)<<3)
+// Hash returns the incrementally maintained Zobrist key. Move clocks are
+// intentionally excluded so equivalent search positions share a key.
+func (p Position) Hash() uint64 { return p.hash }
+
+func (p Position) calculateHash() uint64 {
+	hash := zobrist.castling[p.castling]
+	if p.turn == Black {
+		hash ^= zobrist.turn
 	}
-	mix(byte(p.turn))
-	mix(byte(p.castling))
-	mix(byte(p.enPassant + 1))
+	if p.enPassant != NoSquare {
+		hash ^= zobrist.enPassant[p.enPassant]
+	}
+	for square, piece := range p.board {
+		if !piece.IsEmpty() {
+			hash ^= zobrist.pieces[piece.Color][piece.Type][square]
+		}
+	}
 	return hash
 }
 
@@ -200,6 +239,7 @@ func ParseFEN(fen string) (Position, error) {
 	if err := position.validate(); err != nil {
 		return Position{}, err
 	}
+	position.hash = position.calculateHash()
 	return position, nil
 }
 
