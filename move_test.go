@@ -362,3 +362,19 @@ func TestPGNCustomPositionAndValidation(t *testing.T) {
 		t.Fatal("move accepted after declared PGN result")
 	}
 }
+
+func TestPositionHash(t *testing.T) {
+	initial := NewPosition()
+	sameBoard, _ := ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 42 99")
+	blackTurn, _ := ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1")
+	noCastling, _ := ParseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w - - 0 1")
+	if initial.Hash() != sameBoard.Hash() {
+		t.Fatal("move clocks changed position hash")
+	}
+	if initial.Hash() == blackTurn.Hash() || initial.Hash() == noCastling.Hash() {
+		t.Fatal("side or castling rights did not change position hash")
+	}
+	if initial.Hash() != NewPosition().Hash() {
+		t.Fatal("position hash is not deterministic")
+	}
+}

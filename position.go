@@ -140,6 +140,25 @@ func (p Position) Castling() CastlingRights { return p.castling }
 func (p Position) EnPassant() Square        { return p.enPassant }
 func (p Position) HalfmoveClock() uint16    { return p.halfmoveClock }
 func (p Position) FullmoveNumber() uint16   { return p.fullmoveNumber }
+func (p Position) InCheck() bool            { return p.inCheck(p.turn) }
+
+// Hash identifies the parts of a position that affect legal play. Move clocks
+// are intentionally excluded so equivalent search positions share a key.
+func (p Position) Hash() uint64 {
+	const (
+		offset = uint64(14695981039346656037)
+		prime  = uint64(1099511628211)
+	)
+	hash := offset
+	mix := func(value byte) { hash = (hash ^ uint64(value)) * prime }
+	for _, piece := range p.board {
+		mix(byte(piece.Type) | byte(piece.Color)<<3)
+	}
+	mix(byte(p.turn))
+	mix(byte(p.castling))
+	mix(byte(p.enPassant + 1))
+	return hash
+}
 
 func ParseFEN(fen string) (Position, error) {
 	fields := strings.Fields(fen)

@@ -1,10 +1,15 @@
 package chess
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 )
+
+type Player interface {
+	ChooseMove(context.Context, Position) (Move, error)
+}
 
 type Status uint8
 
