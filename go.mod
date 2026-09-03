@@ -1,3 +1,3 @@
-module github.com/BSSE23029/chess-go
+module chess-go
 
 go 1.26
