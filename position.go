@@ -197,7 +197,87 @@ func ParseFEN(fen string) (Position, error) {
 	if err != nil {
 		return Position{}, err
 	}
+	if err := position.validate(); err != nil {
+		return Position{}, err
+	}
 	return position, nil
+}
+
+func (p Position) validate() error {
+	var counts [2][7]int
+	kings := [2]Square{NoSquare, NoSquare}
+	for square, piece := range p.board {
+		if piece.IsEmpty() {
+			continue
+		}
+		counts[piece.Color][piece.Type]++
+		if piece.Type == Pawn && (square/8 == 0 || square/8 == 7) {
+			return fmt.Errorf("pawn on invalid square %s", Square(square))
+		}
+		if piece.Type == King {
+			kings[piece.Color] = Square(square)
+		}
+	}
+	for _, color := range []Color{White, Black} {
+		if counts[color][King] != 1 {
+			return fmt.Errorf("%s must have exactly one king", colorName(color))
+		}
+		total := 0
+		for _, count := range counts[color] {
+			total += count
+		}
+		if total > 16 || counts[color][Pawn] > 8 {
+			return fmt.Errorf("%s has impossible material", colorName(color))
+		}
+		extra := max(counts[color][Queen]-1, 0) + max(counts[color][Rook]-2, 0) +
+			max(counts[color][Bishop]-2, 0) + max(counts[color][Knight]-2, 0)
+		if extra > 8-counts[color][Pawn] {
+			return fmt.Errorf("%s has pieces without enough missing pawns for promotion", colorName(color))
+		}
+	}
+	if abs(int(kings[White]%8)-int(kings[Black]%8)) <= 1 && abs(int(kings[White]/8)-int(kings[Black]/8)) <= 1 {
+		return fmt.Errorf("kings cannot be adjacent")
+	}
+	for _, right := range []struct {
+		flag       CastlingRights
+		king, rook Square
+		color      Color
+	}{{WhiteKingSide, 4, 7, White}, {WhiteQueenSide, 4, 0, White}, {BlackKingSide, 60, 63, Black}, {BlackQueenSide, 60, 56, Black}} {
+		if p.castling&right.flag != 0 && (p.board[right.king] != (Piece{Type: King, Color: right.color}) || p.board[right.rook] != (Piece{Type: Rook, Color: right.color})) {
+			return fmt.Errorf("castling right has no king and rook on their starting squares")
+		}
+	}
+	if p.enPassant != NoSquare {
+		if err := p.validateEnPassant(); err != nil {
+			return err
+		}
+	}
+	if p.inCheck(p.turn.Opponent()) {
+		return fmt.Errorf("side not to move is in check")
+	}
+	return nil
+}
+
+func (p Position) validateEnPassant() error {
+	wantRank, pawnOffset, sourceOffset := Square(5), -8, 8
+	if p.turn == Black {
+		wantRank, pawnOffset, sourceOffset = 2, 8, -8
+	}
+	pawnSquare := Square(int(p.enPassant) + pawnOffset)
+	sourceSquare := Square(int(p.enPassant) + sourceOffset)
+	if p.enPassant/8 != wantRank || !p.board[p.enPassant].IsEmpty() ||
+		p.board[pawnSquare] != (Piece{Type: Pawn, Color: p.turn.Opponent()}) ||
+		!p.board[sourceSquare].IsEmpty() || p.halfmoveClock != 0 {
+		return fmt.Errorf("en passant target is inconsistent with the previous double pawn move")
+	}
+	return nil
+}
+
+func colorName(color Color) string {
+	if color == White {
+		return "white"
+	}
+	return "black"
 }
 
 func (p *Position) parseBoard(value string) error {

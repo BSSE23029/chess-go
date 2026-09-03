@@ -51,11 +51,8 @@ func TestApplyMoveLifecycle(t *testing.T) {
 }
 
 func TestEnPassantRequiresCapturablePawn(t *testing.T) {
-	position, _ := ParseFEN("7k/8/8/4P3/8/8/8/K7 w - d6 0 1")
-	for _, move := range position.LegalMoves() {
-		if move.UCI() == "e5d6" {
-			t.Fatal("generated en passant capture without a capturable pawn")
-		}
+	if _, err := ParseFEN("7k/8/8/4P3/8/8/8/K7 w - d6 0 1"); err == nil {
+		t.Fatal("accepted en passant target without a capturable pawn")
 	}
 }
 
@@ -119,7 +116,7 @@ func TestInitialPosition(t *testing.T) {
 }
 
 func TestFENRoundTrip(t *testing.T) {
-	const fen = "r3k2r/ppp2ppp/2n1bn2/3qp3/3P4/2N1PN2/PPP2PPP/R2QKB1R b KQkq d3 7 12"
+	const fen = "r3k2r/ppp2ppp/2n1bn2/3qp3/3P4/2N1PN2/PPP2PPP/R2QKB1R b KQkq d3 0 12"
 	position, err := ParseFEN(fen)
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +124,7 @@ func TestFENRoundTrip(t *testing.T) {
 	if got := position.FEN(); got != fen {
 		t.Fatalf("FEN() = %q, want %q", got, fen)
 	}
-	if position.Turn() != Black || position.EnPassant().String() != "d3" || position.HalfmoveClock() != 7 || position.FullmoveNumber() != 12 {
+	if position.Turn() != Black || position.EnPassant().String() != "d3" || position.HalfmoveClock() != 0 || position.FullmoveNumber() != 12 {
 		t.Fatal("parsed metadata is incorrect")
 	}
 }
@@ -146,6 +143,34 @@ func TestParseFENRejectsInvalidInput(t *testing.T) {
 	for _, fen := range tests {
 		if _, err := ParseFEN(fen); err == nil {
 			t.Errorf("ParseFEN(%q) succeeded", fen)
+		}
+	}
+}
+
+func TestParseFENSemanticValidation(t *testing.T) {
+	invalid := []string{
+		"8/8/8/8/8/8/8/K7 w - - 0 1",
+		"7k/8/8/8/8/8/8/KK6 w - - 0 1",
+		"7k/8/8/8/8/8/8/6K1 w K - 0 1",
+		"7k/8/8/8/8/8/PPPPPPPP/P3K3 w - - 0 1",
+		"7k/8/8/8/8/QQ6/PPPPPPPP/4K3 w - - 0 1",
+		"4k3/8/8/8/8/8/4R3/4K3 w - - 0 1",
+		"7k/8/8/3pP3/8/8/8/K7 w - d3 0 1",
+		"7k/8/8/3pP3/8/8/8/K7 w - d6 1 1",
+	}
+	for _, fen := range invalid {
+		if _, err := ParseFEN(fen); err == nil {
+			t.Errorf("ParseFEN(%q) accepted an impossible position", fen)
+		}
+	}
+	valid := []string{
+		InitialFEN,
+		"k3r3/8/8/8/8/8/8/4K3 w - - 0 1",
+		"7k/8/8/3p4/8/8/8/K7 w - d6 0 2",
+	}
+	for _, fen := range valid {
+		if _, err := ParseFEN(fen); err != nil {
+			t.Errorf("ParseFEN(%q) rejected a valid position: %v", fen, err)
 		}
 	}
 }
