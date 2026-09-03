@@ -223,6 +223,17 @@ func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
 	}
 }
 
+func TestCapturedPieceSummary(t *testing.T) {
+	position, _ := chess.ParseFEN("7k/8/8/3pP3/8/8/8/K7 w - d6 0 2")
+	game := chess.NewGameFromPosition(position)
+	if err := game.PlayUCI("e5d6"); err != nil {
+		t.Fatal(err)
+	}
+	if got := capturedSummary(game); got != "Captured by White: p · Black: -" {
+		t.Fatalf("captured summary = %q", got)
+	}
+}
+
 func clearChessEnv(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME"} {

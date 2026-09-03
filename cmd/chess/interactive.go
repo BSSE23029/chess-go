@@ -225,7 +225,7 @@ func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped b
 	for _, file := range files {
 		fmt.Fprintf(output, "%c  ", 'a'+file)
 	}
-	fmt.Fprintf(output, "\n\n%s to move", colorName(position.Turn()))
+	fmt.Fprintf(output, "\n\n%s\n%s to move", capturedSummary(game), colorName(position.Turn()))
 	if position.InCheck() {
 		fmt.Fprint(output, " — Check")
 	}

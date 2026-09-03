@@ -251,6 +251,7 @@ func render(output io.Writer, game *chess.Game, flipped bool) {
 		fmt.Fprintf(output, "%c ", 'a'+file)
 	}
 	fmt.Fprintln(output)
+	fmt.Fprintln(output, capturedSummary(game))
 	fmt.Fprint(output, "Moves:")
 	for _, move := range game.Moves() {
 		fmt.Fprint(output, " ", move.UCI())
@@ -267,6 +268,24 @@ func pieceSymbol(piece chess.Piece) byte {
 		symbol = byte(strings.ToUpper(string(symbol))[0])
 	}
 	return symbol
+}
+
+func capturedSummary(game *chess.Game) string {
+	white, black := "", ""
+	for _, piece := range game.Captured() {
+		if piece.Color == chess.Black {
+			white += string(pieceSymbol(piece))
+		} else {
+			black += string(pieceSymbol(piece))
+		}
+	}
+	if white == "" {
+		white = "-"
+	}
+	if black == "" {
+		black = "-"
+	}
+	return fmt.Sprintf("Captured by White: %s · Black: %s", white, black)
 }
 
 func printLegalMoves(output io.Writer, position chess.Position) error {

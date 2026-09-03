@@ -243,6 +243,26 @@ func TestGamePlayUndoRedoLifecycle(t *testing.T) {
 	}
 }
 
+func TestCapturedPiecesFollowHistoryCursor(t *testing.T) {
+	position, _ := ParseFEN("7k/8/8/3pP3/8/8/8/K7 w - d6 0 2")
+	game := NewGameFromPosition(position)
+	if err := game.PlayUCI("e5d6"); err != nil {
+		t.Fatal(err)
+	}
+	captured := game.Captured()
+	if len(captured) != 1 || captured[0] != (Piece{Type: Pawn, Color: Black}) {
+		t.Fatalf("en-passant captures = %#v", captured)
+	}
+	game.Undo()
+	if len(game.Captured()) != 0 {
+		t.Fatal("undone capture remained visible")
+	}
+	game.Redo()
+	if len(game.Captured()) != 1 {
+		t.Fatal("redone capture was not restored")
+	}
+}
+
 func TestGameCheckmateAndStalemate(t *testing.T) {
 	game := NewGame()
 	for _, move := range []string{"f2f3", "e7e5", "g2g4", "d8h4"} {

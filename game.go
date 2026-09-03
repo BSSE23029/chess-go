@@ -58,6 +58,26 @@ func (g *Game) Moves() []Move {
 	return moves
 }
 
+// Captured returns captured pieces through the current navigation cursor.
+func (g *Game) Captured() []Piece {
+	var captured []Piece
+	for index, move := range g.moves[:g.cursor] {
+		if move.Flags&Capture == 0 {
+			continue
+		}
+		square := move.To
+		if move.Flags&EnPassant != 0 {
+			if g.positions[index].Turn() == White {
+				square -= 8
+			} else {
+				square += 8
+			}
+		}
+		captured = append(captured, g.positions[index].PieceAt(square))
+	}
+	return captured
+}
+
 // Play validates and appends move, discarding any redo branch.
 func (g *Game) Play(move Move) error {
 	if g.result != "" || g.Status() != Ongoing {
