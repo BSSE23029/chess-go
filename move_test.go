@@ -1,6 +1,9 @@
 package chess
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPerft(t *testing.T) {
 	tests := []struct {
@@ -245,5 +248,117 @@ func TestInsufficientMaterial(t *testing.T) {
 		if got != test.draw {
 			t.Errorf("Status(%q) insufficient = %t, want %t", test.fen, got, test.draw)
 		}
+	}
+}
+
+func TestSANLifecycle(t *testing.T) {
+	game, err := FromSAN([]string{"e4", "d5", "exd5", "Nf6"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := game.Position().FEN(); got != "rnbqkb1r/ppp1pppp/5n2/3P4/8/8/PPPP1PPP/RNBQKBNR w KQkq - 1 3" {
+		t.Fatalf("SAN sequence FEN = %q", got)
+	}
+	if err := game.PlaySAN("not-a-move"); err == nil {
+		t.Fatal("invalid SAN accepted")
+	}
+
+	position, _ := ParseFEN("4k3/8/8/8/8/5N2/8/1N2K3 w - - 0 1")
+	move, _ := ParseUCI("b1d2")
+	if got, err := position.SAN(move); err != nil || got != "Nbd2" {
+		t.Fatalf("SAN(b1d2) = %q, %v", got, err)
+	}
+	parsed, err := position.ParseSAN("Nbd2")
+	if err != nil || parsed.UCI() != "b1d2" {
+		t.Fatalf("ParseSAN(Nbd2) = %s, %v", parsed.UCI(), err)
+	}
+
+	position, _ = ParseFEN("4k3/8/8/8/8/R7/8/R3K3 w - - 0 1")
+	move, _ = ParseUCI("a1a2")
+	if got, _ := position.SAN(move); got != "R1a2" {
+		t.Fatalf("SAN(a1a2) = %q", got)
+	}
+}
+
+func TestSANSpecialMovesAndMate(t *testing.T) {
+	tests := []struct {
+		fen, uci, san string
+	}{
+		{"r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", "e1g1", "O-O"},
+		{"7k/P7/8/8/8/8/8/7K w - - 0 1", "a7a8q", "a8=Q+"},
+	}
+	for _, test := range tests {
+		position, _ := ParseFEN(test.fen)
+		move, _ := ParseUCI(test.uci)
+		if got, err := position.SAN(move); err != nil || got != test.san {
+			t.Errorf("SAN(%s) = %q, %v; want %q", test.uci, got, err, test.san)
+		}
+		if parsed, err := position.ParseSAN(test.san); err != nil || parsed.UCI() != test.uci {
+			t.Errorf("ParseSAN(%q) = %s, %v", test.san, parsed.UCI(), err)
+		}
+	}
+
+	game, _ := FromSAN([]string{"f3", "e5", "g4"})
+	move, _ := ParseUCI("d8h4")
+	if got, err := game.Position().SAN(move); err != nil || got != "Qh4#" {
+		t.Fatalf("mate SAN = %q, %v", got, err)
+	}
+}
+
+func TestPGNRoundTrip(t *testing.T) {
+	input := `[Event "Test"]
+[Result "0-1"]
+
+1. f3 {weak move} e5
+2. g4 (2. e4) Qh4# $1 0-1`
+	game, err := ParsePGN(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if game.Status() != BlackCheckmates || game.Result() != "0-1" || len(game.Moves()) != 4 {
+		t.Fatal("parsed PGN lifecycle is incorrect")
+	}
+	exported := game.PGN()
+	reparsed, err := ParsePGN(exported)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reparsed.Position().FEN() != game.Position().FEN() || reparsed.Result() != game.Result() {
+		t.Fatal("PGN round-trip changed the game")
+	}
+}
+
+func TestPGNCustomPositionAndValidation(t *testing.T) {
+	const input = `[SetUp "1"]
+[FEN "7k/7p/8/8/8/8/P7/K7 b - - 0 1"]
+[Result "*"]
+
+1... Kg8 *`
+	game, err := ParsePGN(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := game.Position().FEN(); got != "6k1/7p/8/8/8/8/P7/K7 w - - 1 2" {
+		t.Fatalf("custom PGN FEN = %q", got)
+	}
+	if output := game.PGN(); !strings.Contains(output, `[SetUp "1"]`) || !strings.Contains(output, "1... Kg8 *") {
+		t.Fatalf("custom PGN not preserved:\n%s", output)
+	}
+	for _, invalid := range []string{
+		`[SetUp "1"]` + "\n\n*",
+		`[Result "1-0"]` + "\n\n1. f3 e5 2. g4 Qh4# 0-1",
+		`[Result "bad"]` + "\n\n",
+		`1. e4 1-0 e5`,
+	} {
+		if _, err := ParsePGN(invalid); err == nil {
+			t.Errorf("ParsePGN(%q) succeeded", invalid)
+		}
+	}
+	resigned, err := ParsePGN("[Result \"1-0\"]\n\n1. e4 1-0")
+	if err != nil || resigned.Result() != "1-0" {
+		t.Fatalf("resignation result was not retained: %v", err)
+	}
+	if err := resigned.PlaySAN("e5"); err == nil {
+		t.Fatal("move accepted after declared PGN result")
 	}
 }
