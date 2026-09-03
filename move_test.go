@@ -1,4 +1,4 @@
-	package chess
+package chess
 
 import "testing"
 
@@ -49,6 +49,10 @@ func TestApplyMoveLifecycle(t *testing.T) {
 
 func TestCastlingAndPromotion(t *testing.T) {
 	position, _ := ParseFEN("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
+	game := NewGameFromPosition(position)
+	if err := game.PlayUCI("e1g1"); err != nil || game.Moves()[0].Flags&Castle == 0 {
+		t.Fatalf("game did not retain castling move: %v", err)
+	}
 	next, err := position.ApplyUCI("e1g1")
 	if err != nil {
 		t.Fatal(err)
@@ -144,6 +148,102 @@ func TestSquareRoundTrip(t *testing.T) {
 	for _, value := range []string{"", "a0", "i1", "a10"} {
 		if _, err := ParseSquare(value); err == nil {
 			t.Errorf("ParseSquare(%q) succeeded", value)
+		}
+	}
+}
+
+func TestGamePlayUndoRedoLifecycle(t *testing.T) {
+	game := NewGame()
+	for _, move := range []string{"e2e4", "e7e5", "g1f3"} {
+		if err := game.PlayUCI(move); err != nil {
+			t.Fatalf("PlayUCI(%q): %v", move, err)
+		}
+	}
+	played := game.Moves()
+	played[0] = Move{}
+	if game.Moves()[0].UCI() != "e2e4" {
+		t.Fatal("Moves exposed mutable game history")
+	}
+	after := game.Position().FEN()
+	if !game.Undo() || game.Position().Turn() != White || !game.CanRedo() {
+		t.Fatal("undo did not restore the prior turn")
+	}
+	if !game.Redo() || game.Position().FEN() != after {
+		t.Fatal("redo did not restore the position")
+	}
+	game.Undo()
+	if err := game.PlayUCI("d2d4"); err != nil {
+		t.Fatal(err)
+	}
+	if game.CanRedo() || len(game.Moves()) != 3 {
+		t.Fatal("new play did not replace the redo branch")
+	}
+	if err := game.PlayUCI("e1e8"); err == nil {
+		t.Fatal("illegal game move accepted")
+	}
+}
+
+func TestGameCheckmateAndStalemate(t *testing.T) {
+	game := NewGame()
+	for _, move := range []string{"f2f3", "e7e5", "g2g4", "d8h4"} {
+		if err := game.PlayUCI(move); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := game.Status(); got != BlackCheckmates {
+		t.Fatalf("Status() = %v, want BlackCheckmates", got)
+	}
+	if err := game.PlayUCI("a2a3"); err == nil {
+		t.Fatal("move accepted after checkmate")
+	}
+
+	position, _ := ParseFEN("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1")
+	if got := NewGameFromPosition(position).Status(); got != Stalemate {
+		t.Fatalf("Status() = %v, want Stalemate", got)
+	}
+}
+
+func TestGameDrawRules(t *testing.T) {
+	position, _ := ParseFEN("7k/8/8/8/8/8/8/R6K w - - 99 1")
+	game := NewGameFromPosition(position)
+	if err := game.PlayUCI("a1a2"); err != nil {
+		t.Fatal(err)
+	}
+	if got := game.Status(); got != DrawFiftyMove {
+		t.Fatalf("Status() = %v, want DrawFiftyMove", got)
+	}
+
+	game = NewGame()
+	for _, move := range []string{"g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1", "f6g8"} {
+		if err := game.PlayUCI(move); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := game.Status(); got != DrawThreefoldRepetition {
+		t.Fatalf("Status() = %v, want DrawThreefoldRepetition", got)
+	}
+}
+
+func TestInsufficientMaterial(t *testing.T) {
+	tests := []struct {
+		fen  string
+		draw bool
+	}{
+		{"7k/8/8/8/8/8/8/K7 w - - 0 1", true},
+		{"7k/8/8/8/8/8/6N1/K7 w - - 0 1", true},
+		{"5b1k/8/8/8/8/8/6B1/K7 w - - 0 1", false},
+		{"6bk/8/8/8/8/8/6B1/K7 w - - 0 1", true},
+		{"7k/8/8/8/8/8/6B1/KN6 w - - 0 1", false},
+		{"7k/8/8/8/8/8/6P1/K7 w - - 0 1", false},
+	}
+	for _, test := range tests {
+		position, err := ParseFEN(test.fen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := NewGameFromPosition(position).Status() == DrawInsufficientMaterial
+		if got != test.draw {
+			t.Errorf("Status(%q) insufficient = %t, want %t", test.fen, got, test.draw)
 		}
 	}
 }

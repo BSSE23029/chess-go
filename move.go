@@ -22,12 +22,19 @@ func (p Position) LegalMoves() []Move {
 }
 
 func (p Position) Apply(move Move) (Position, error) {
-	for _, legal := range p.LegalMoves() {
-		if legal.From == move.From && legal.To == move.To && legal.Promotion == move.Promotion {
-			return p.applyUnchecked(legal), nil
-		}
+	if legal, ok := p.resolveMove(move); ok {
+		return p.applyUnchecked(legal), nil
 	}
 	return p, fmt.Errorf("illegal move %s", move.UCI())
+}
+
+func (p Position) resolveMove(move Move) (Move, bool) {
+	for _, legal := range p.LegalMoves() {
+		if legal.From == move.From && legal.To == move.To && legal.Promotion == move.Promotion {
+			return legal, true
+		}
+	}
+	return Move{}, false
 }
 
 func (p Position) ApplyUCI(value string) (Position, error) {
