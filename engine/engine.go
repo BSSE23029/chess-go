@@ -1,3 +1,4 @@
+// Package engine provides computer players and position evaluation.
 package engine
 
 import (
@@ -8,21 +9,27 @@ import (
 	"chess-go"
 )
 
+// Score is an evaluation in centipawn-like units from white's perspective.
 type Score int
 
 const (
+	// MateScore is the base magnitude used for checkmate scores.
 	MateScore Score = 100_000
 	infinity  Score = 1_000_000
 )
 
+// ErrNoLegalMoves indicates that a bot was asked to move in a terminal position.
 var ErrNoLegalMoves = errors.New("position has no legal moves")
 
+// Evaluator assigns a score to a position from white's perspective.
 type Evaluator interface {
 	Evaluate(chess.Position) Score
 }
 
+// MaterialEvaluator scores conventional piece material only.
 type MaterialEvaluator struct{}
 
+// Evaluate returns the material balance from white's perspective.
 func (MaterialEvaluator) Evaluate(position chess.Position) Score {
 	values := [...]Score{0, 100, 320, 330, 500, 900, 0}
 	var score Score
@@ -38,11 +45,15 @@ func (MaterialEvaluator) Evaluate(position chess.Position) Score {
 	return score
 }
 
+// Bot chooses moves with fixed-depth alpha-beta search.
 type Bot struct {
-	Depth     int
+	// Depth is the fixed search depth in plies.
+	Depth int
+	// Evaluator scores leaf positions; nil selects MaterialEvaluator.
 	Evaluator Evaluator
 }
 
+// New returns a bot with at least depth one and material evaluation.
 func New(depth int) *Bot {
 	if depth < 1 {
 		depth = 1
@@ -50,6 +61,7 @@ func New(depth int) *Bot {
 	return &Bot{Depth: depth, Evaluator: MaterialEvaluator{}}
 }
 
+// ChooseMove searches position and returns its best legal move.
 func (b *Bot) ChooseMove(ctx context.Context, position chess.Position) (chess.Move, error) {
 	if err := ctx.Err(); err != nil {
 		return chess.Move{}, err

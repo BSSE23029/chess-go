@@ -9,6 +9,7 @@ var (
 	rookSteps   = [][2]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
 )
 
+// LegalMoves returns every legal move for the side to move.
 func (p Position) LegalMoves() []Move {
 	moves := p.pseudoMoves()
 	legal := moves[:0]
@@ -21,6 +22,7 @@ func (p Position) LegalMoves() []Move {
 	return legal
 }
 
+// Apply validates move and returns the resulting position without changing p.
 func (p Position) Apply(move Move) (Position, error) {
 	next := p
 	if _, err := next.MakeMove(move); err != nil {
@@ -120,6 +122,7 @@ func (p Position) resolveMove(move Move) (Move, bool) {
 	return Move{}, false
 }
 
+// ApplyUCI parses, validates, and applies a UCI move without changing p.
 func (p Position) ApplyUCI(value string) (Position, error) {
 	move, err := ParseUCI(value)
 	if err != nil {

@@ -9,11 +9,14 @@ import (
 	"chess-go"
 )
 
+// ErrOverflow indicates that a node total cannot fit in uint64.
 var ErrOverflow = errors.New("perft node count overflowed uint64")
 
 // Result reports the node count beneath one legal root move.
 type Result struct {
-	Move  chess.Move
+	// Move is the legal root move.
+	Move chess.Move
+	// Nodes is the number of leaves beneath Move.
 	Nodes uint64
 }
 

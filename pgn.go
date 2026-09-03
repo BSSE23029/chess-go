@@ -7,7 +7,9 @@ import (
 
 // PGNTag is one metadata tag pair from a PGN game.
 type PGNTag struct {
-	Name  string
+	// Name is the case-sensitive PGN tag name.
+	Name string
+	// Value is the decoded tag value.
 	Value string
 }
 

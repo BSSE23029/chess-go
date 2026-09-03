@@ -1,3 +1,5 @@
+// Package chess provides legal move generation, position and game state,
+// FEN, SAN, PGN, draw detection, and reversible moves for chess applications.
 package chess
 
 import (
@@ -6,43 +8,66 @@ import (
 	"strings"
 )
 
+// Color identifies one side in a chess position.
 type Color uint8
 
 const (
+	// White is the side that moves first.
 	White Color = iota
+	// Black is the opposing side.
 	Black
 )
 
+// Opponent returns the other color.
 func (c Color) Opponent() Color { return c ^ 1 }
 
+// PieceType identifies a kind of chess piece.
 type PieceType uint8
 
 const (
+	// NoPiece represents an empty square.
 	NoPiece PieceType = iota
+	// Pawn is a pawn.
 	Pawn
+	// Knight is a knight.
 	Knight
+	// Bishop is a bishop.
 	Bishop
+	// Rook is a rook.
 	Rook
+	// Queen is a queen.
 	Queen
+	// King is a king.
 	King
 )
 
+// MoveFlags describe special properties of a legal move.
 type MoveFlags uint8
 
 const (
+	// Capture marks a move that captures a piece.
 	Capture MoveFlags = 1 << iota
+	// EnPassant marks an en-passant capture.
 	EnPassant
+	// Castle marks a castling move.
 	Castle
+	// PawnDouble marks a pawn's initial two-square move.
 	PawnDouble
 )
 
+// Move describes a move using source, destination, promotion, and flags.
 type Move struct {
-	From      Square
-	To        Square
+	// From is the source square.
+	From Square
+	// To is the destination square.
+	To Square
+	// Promotion is the requested promotion piece, or NoPiece.
 	Promotion PieceType
-	Flags     MoveFlags
+	// Flags describe capture, castling, en-passant, and pawn-double moves.
+	Flags MoveFlags
 }
 
+// ParseUCI parses long algebraic UCI notation such as "e2e4" or "a7a8q".
 func ParseUCI(value string) (Move, error) {
 	if len(value) != 4 && len(value) != 5 {
 		return Move{}, fmt.Errorf("invalid UCI move %q", value)
@@ -67,6 +92,7 @@ func ParseUCI(value string) (Move, error) {
 	return move, nil
 }
 
+// UCI returns long algebraic UCI notation for m.
 func (m Move) UCI() string {
 	value := m.From.String() + m.To.String()
 	if m.Promotion != NoPiece {
@@ -75,17 +101,24 @@ func (m Move) UCI() string {
 	return value
 }
 
+// Piece combines a piece type and color. Its zero value is an empty square.
 type Piece struct {
-	Type  PieceType
+	// Type identifies the piece or NoPiece.
+	Type PieceType
+	// Color identifies the owning side when Type is not NoPiece.
 	Color Color
 }
 
+// IsEmpty reports whether p represents an empty square.
 func (p Piece) IsEmpty() bool { return p.Type == NoPiece }
 
+// Square identifies a board square from a1 (0) through h8 (63).
 type Square uint8
 
+// NoSquare represents the absence of a board square.
 const NoSquare Square = 64
 
+// ParseSquare parses algebraic coordinates such as "e4".
 func ParseSquare(value string) (Square, error) {
 	if len(value) != 2 || value[0] < 'a' || value[0] > 'h' || value[1] < '1' || value[1] > '8' {
 		return NoSquare, fmt.Errorf("invalid square %q", value)
@@ -93,6 +126,7 @@ func ParseSquare(value string) (Square, error) {
 	return Square((value[1]-'1')*8 + value[0] - 'a'), nil
 }
 
+// String returns algebraic coordinates, or "-" for an invalid square.
 func (s Square) String() string {
 	if s > 63 {
 		return "-"
@@ -100,15 +134,21 @@ func (s Square) String() string {
 	return string([]byte{'a' + byte(s%8), '1' + byte(s/8)})
 }
 
+// CastlingRights is a bit set of currently available castling rights.
 type CastlingRights uint8
 
 const (
+	// WhiteKingSide permits white to castle king-side.
 	WhiteKingSide CastlingRights = 1 << iota
+	// WhiteQueenSide permits white to castle queen-side.
 	WhiteQueenSide
+	// BlackKingSide permits black to castle king-side.
 	BlackKingSide
+	// BlackQueenSide permits black to castle queen-side.
 	BlackQueenSide
 )
 
+// InitialFEN is the standard chess starting position.
 const InitialFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 type zobristKeys struct {
@@ -147,6 +187,7 @@ func newZobristKeys() zobristKeys {
 	return keys
 }
 
+// Position is an immutable-by-value chess position with cached Zobrist hash.
 type Position struct {
 	board          [64]Piece
 	turn           Color
@@ -157,6 +198,7 @@ type Position struct {
 	hash           uint64
 }
 
+// NewPosition returns the standard chess starting position.
 func NewPosition() Position {
 	position, err := ParseFEN(InitialFEN)
 	if err != nil {
@@ -165,6 +207,7 @@ func NewPosition() Position {
 	return position
 }
 
+// PieceAt returns the piece on square, or an empty piece for an invalid square.
 func (p Position) PieceAt(square Square) Piece {
 	if square > 63 {
 		return Piece{}
@@ -172,12 +215,23 @@ func (p Position) PieceAt(square Square) Piece {
 	return p.board[square]
 }
 
-func (p Position) Turn() Color              { return p.turn }
+// Turn returns the side to move.
+func (p Position) Turn() Color { return p.turn }
+
+// Castling returns the position's available castling rights.
 func (p Position) Castling() CastlingRights { return p.castling }
-func (p Position) EnPassant() Square        { return p.enPassant }
-func (p Position) HalfmoveClock() uint16    { return p.halfmoveClock }
-func (p Position) FullmoveNumber() uint16   { return p.fullmoveNumber }
-func (p Position) InCheck() bool            { return p.inCheck(p.turn) }
+
+// EnPassant returns the en-passant target, or NoSquare.
+func (p Position) EnPassant() Square { return p.enPassant }
+
+// HalfmoveClock returns halfmoves since the last pawn move or capture.
+func (p Position) HalfmoveClock() uint16 { return p.halfmoveClock }
+
+// FullmoveNumber returns the FEN fullmove number.
+func (p Position) FullmoveNumber() uint16 { return p.fullmoveNumber }
+
+// InCheck reports whether the side to move is in check.
+func (p Position) InCheck() bool { return p.inCheck(p.turn) }
 
 // Hash returns the incrementally maintained Zobrist key. Move clocks are
 // intentionally excluded so equivalent search positions share a key.
@@ -199,6 +253,7 @@ func (p Position) calculateHash() uint64 {
 	return hash
 }
 
+// ParseFEN parses and semantically validates a complete six-field FEN.
 func ParseFEN(fen string) (Position, error) {
 	fields := strings.Fields(fen)
 	if len(fields) != 6 {
@@ -390,6 +445,7 @@ func pieceFromFEN(symbol rune) (Piece, bool) {
 	return Piece{Type: pieceType, Color: color}, ok
 }
 
+// FEN returns the complete six-field FEN representation of p.
 func (p Position) FEN() string {
 	var board strings.Builder
 	for rank := 7; rank >= 0; rank-- {

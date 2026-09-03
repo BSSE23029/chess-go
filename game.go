@@ -6,22 +6,32 @@ import (
 	"strings"
 )
 
+// Player chooses a move for a supplied position and supports cancellation.
 type Player interface {
 	ChooseMove(context.Context, Position) (Move, error)
 }
 
+// Status describes an automatically detected game state.
 type Status uint8
 
 const (
+	// Ongoing means play may continue.
 	Ongoing Status = iota
+	// WhiteCheckmates means white won by checkmate.
 	WhiteCheckmates
+	// BlackCheckmates means black won by checkmate.
 	BlackCheckmates
+	// Stalemate is a draw because the side to move has no legal move.
 	Stalemate
+	// DrawFiftyMove is a draw under the automatic 50-move rule.
 	DrawFiftyMove
+	// DrawThreefoldRepetition is a draw by repeated position.
 	DrawThreefoldRepetition
+	// DrawInsufficientMaterial is a draw because mate is impossible.
 	DrawInsufficientMaterial
 )
 
+// Game tracks a main line, navigation cursor, result, and PGN metadata.
 type Game struct {
 	positions []Position
 	moves     []Move
@@ -30,20 +40,25 @@ type Game struct {
 	tags      []PGNTag
 }
 
+// NewGame returns a game in the standard starting position.
 func NewGame() *Game { return NewGameFromPosition(NewPosition()) }
 
+// NewGameFromPosition returns a game starting from position.
 func NewGameFromPosition(position Position) *Game {
 	return &Game{positions: []Position{position}}
 }
 
+// Position returns the position at the current navigation cursor.
 func (g *Game) Position() Position { return g.positions[g.cursor] }
 
+// Moves returns a copy of moves through the current navigation cursor.
 func (g *Game) Moves() []Move {
 	moves := make([]Move, g.cursor)
 	copy(moves, g.moves[:g.cursor])
 	return moves
 }
 
+// Play validates and appends move, discarding any redo branch.
 func (g *Game) Play(move Move) error {
 	if g.result != "" || g.Status() != Ongoing {
 		return fmt.Errorf("game is over")
@@ -60,6 +75,7 @@ func (g *Game) Play(move Move) error {
 	return nil
 }
 
+// PlayUCI parses and plays a move in UCI notation.
 func (g *Game) PlayUCI(value string) error {
 	move, err := ParseUCI(value)
 	if err != nil {
@@ -68,9 +84,13 @@ func (g *Game) PlayUCI(value string) error {
 	return g.Play(move)
 }
 
+// CanUndo reports whether Undo can move backward.
 func (g *Game) CanUndo() bool { return g.cursor > 0 }
+
+// CanRedo reports whether Redo can move forward.
 func (g *Game) CanRedo() bool { return g.cursor < len(g.moves) }
 
+// Undo moves the cursor backward one ply without deleting history.
 func (g *Game) Undo() bool {
 	if !g.CanUndo() {
 		return false
@@ -80,6 +100,7 @@ func (g *Game) Undo() bool {
 	return true
 }
 
+// Redo moves the cursor forward one ply when retained history exists.
 func (g *Game) Redo() bool {
 	if !g.CanRedo() {
 		return false
@@ -88,6 +109,7 @@ func (g *Game) Redo() bool {
 	return true
 }
 
+// Status returns the current automatic game status.
 func (g *Game) Status() Status {
 	position := g.Position()
 	if len(position.LegalMoves()) == 0 {
@@ -164,6 +186,7 @@ func (p Position) insufficientMaterial() bool {
 	return minors <= 1 || (knights == 0 && bishopColor >= 0)
 }
 
+// SAN returns Standard Algebraic Notation for a legal move in p.
 func (p Position) SAN(move Move) (string, error) {
 	legalMoves := p.LegalMoves()
 	for _, legal := range legalMoves {
@@ -174,6 +197,7 @@ func (p Position) SAN(move Move) (string, error) {
 	return "", fmt.Errorf("illegal move %s", move.UCI())
 }
 
+// ParseSAN resolves Standard Algebraic Notation to a legal move in p.
 func (p Position) ParseSAN(value string) (Move, error) {
 	want := normalizeSAN(value)
 	legalMoves := p.LegalMoves()
@@ -249,6 +273,7 @@ func normalizeSAN(value string) string {
 	return strings.TrimRight(value, "!?")
 }
 
+// PlaySAN parses and plays a move in Standard Algebraic Notation.
 func (g *Game) PlaySAN(value string) error {
 	move, err := g.Position().ParseSAN(value)
 	if err != nil {
@@ -257,6 +282,7 @@ func (g *Game) PlaySAN(value string) error {
 	return g.Play(move)
 }
 
+// FromSAN creates a standard game by playing each SAN move in order.
 func FromSAN(values []string) (*Game, error) {
 	game := NewGame()
 	for _, value := range values {
@@ -267,6 +293,7 @@ func FromSAN(values []string) (*Game, error) {
 	return game, nil
 }
 
+// Result returns the PGN result marker for the current game state.
 func (g *Game) Result() string {
 	if g.result != "" {
 		return g.result
