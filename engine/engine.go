@@ -54,7 +54,7 @@ func (b *Bot) ChooseMove(ctx context.Context, position chess.Position) (chess.Mo
 	if err := ctx.Err(); err != nil {
 		return chess.Move{}, err
 	}
-	moves := orderedMoves(position)
+	moves := orderedMoves(&position)
 	if len(moves) == 0 {
 		return chess.Move{}, ErrNoLegalMoves
 	}
@@ -68,8 +68,9 @@ func (b *Bot) ChooseMove(ctx context.Context, position chess.Position) (chess.Mo
 	}
 	best, bestScore := moves[0], -infinity
 	for _, move := range moves {
-		next, _ := position.Apply(move)
-		score, err := b.search(ctx, evaluator, next, depth-1, 1, -infinity, infinity)
+		undo := position.MakeLegalMove(move)
+		score, err := b.search(ctx, evaluator, &position, depth-1, 1, -infinity, infinity)
+		position.UnmakeMove(undo)
 		if err != nil {
 			return chess.Move{}, err
 		}
@@ -81,7 +82,7 @@ func (b *Bot) ChooseMove(ctx context.Context, position chess.Position) (chess.Mo
 	return best, nil
 }
 
-func (b *Bot) search(ctx context.Context, evaluator Evaluator, position chess.Position, depth, ply int, alpha, beta Score) (Score, error) {
+func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.Position, depth, ply int, alpha, beta Score) (Score, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
@@ -93,7 +94,7 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position chess.Po
 		return 0, nil
 	}
 	if depth == 0 {
-		score := evaluator.Evaluate(position)
+		score := evaluator.Evaluate(*position)
 		if position.Turn() == chess.Black {
 			score = -score
 		}
@@ -101,8 +102,9 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position chess.Po
 	}
 	best := -infinity
 	for _, move := range moves {
-		next, _ := position.Apply(move)
-		score, err := b.search(ctx, evaluator, next, depth-1, ply+1, -beta, -alpha)
+		undo := position.MakeLegalMove(move)
+		score, err := b.search(ctx, evaluator, position, depth-1, ply+1, -beta, -alpha)
+		position.UnmakeMove(undo)
 		if err != nil {
 			return 0, err
 		}
@@ -120,7 +122,7 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position chess.Po
 	return best, nil
 }
 
-func orderedMoves(position chess.Position) []chess.Move {
+func orderedMoves(position *chess.Position) []chess.Move {
 	moves := position.LegalMoves()
 	slices.SortStableFunc(moves, func(a, b chess.Move) int {
 		return movePriority(position, b) - movePriority(position, a)
@@ -128,7 +130,7 @@ func orderedMoves(position chess.Position) []chess.Move {
 	return moves
 }
 
-func movePriority(position chess.Position, move chess.Move) int {
+func movePriority(position *chess.Position, move chess.Move) int {
 	priority := int(move.Promotion) * 10
 	if move.Flags&chess.Capture != 0 {
 		priority += int(position.PieceAt(move.To).Type)*10 - int(position.PieceAt(move.From).Type)

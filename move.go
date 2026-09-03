@@ -22,10 +22,90 @@ func (p Position) LegalMoves() []Move {
 }
 
 func (p Position) Apply(move Move) (Position, error) {
-	if legal, ok := p.resolveMove(move); ok {
-		return p.applyUnchecked(legal), nil
+	next := p
+	if _, err := next.MakeMove(move); err != nil {
+		return p, err
 	}
-	return p, fmt.Errorf("illegal move %s", move.UCI())
+	return next, nil
+}
+
+type squareState struct {
+	square Square
+	piece  Piece
+}
+
+// Undo is the opaque state needed to reverse one move.
+type Undo struct {
+	squares        [4]squareState
+	count          uint8
+	turn           Color
+	castling       CastlingRights
+	enPassant      Square
+	halfmoveClock  uint16
+	fullmoveNumber uint16
+	valid          bool
+}
+
+// MakeMove validates and applies move to p.
+func (p *Position) MakeMove(move Move) (Undo, error) {
+	legal, ok := p.resolveMove(move)
+	if !ok {
+		return Undo{}, fmt.Errorf("illegal move %s", move.UCI())
+	}
+	return p.MakeLegalMove(legal), nil
+}
+
+// MakeLegalMove applies a move returned by LegalMoves without validating it again.
+func (p *Position) MakeLegalMove(move Move) Undo {
+	undo := Undo{
+		turn:           p.turn,
+		castling:       p.castling,
+		enPassant:      p.enPassant,
+		halfmoveClock:  p.halfmoveClock,
+		fullmoveNumber: p.fullmoveNumber,
+		valid:          true,
+	}
+	undo.remember(p, move.From)
+	undo.remember(p, move.To)
+	if move.Flags&EnPassant != 0 {
+		capture := int(move.To) - 8
+		if p.turn == Black {
+			capture = int(move.To) + 8
+		}
+		undo.remember(p, Square(capture))
+	}
+	if move.Flags&Castle != 0 {
+		if move.To%8 == 6 {
+			undo.remember(p, move.To+1)
+			undo.remember(p, move.To-1)
+		} else {
+			undo.remember(p, move.To-2)
+			undo.remember(p, move.To+1)
+		}
+	}
+	p.makeUnchecked(move)
+	return undo
+}
+
+// UnmakeMove restores the position captured by undo.
+func (p *Position) UnmakeMove(undo Undo) {
+	if !undo.valid {
+		return
+	}
+	p.turn = undo.turn
+	p.castling = undo.castling
+	p.enPassant = undo.enPassant
+	p.halfmoveClock = undo.halfmoveClock
+	p.fullmoveNumber = undo.fullmoveNumber
+	for index := uint8(0); index < undo.count; index++ {
+		state := undo.squares[index]
+		p.board[state.square] = state.piece
+	}
+}
+
+func (u *Undo) remember(position *Position, square Square) {
+	u.squares[u.count] = squareState{square: square, piece: position.board[square]}
+	u.count++
 }
 
 func (p Position) resolveMove(move Move) (Move, bool) {
@@ -247,40 +327,44 @@ func (p Position) clearLine(from, to int) bool {
 }
 
 func (p Position) applyUnchecked(move Move) Position {
-	next, piece, captured := p, p.board[move.From], p.board[move.To]
-	next.board[move.From] = Piece{}
-	next.board[move.To] = piece
+	p.makeUnchecked(move)
+	return p
+}
+
+func (p *Position) makeUnchecked(move Move) {
+	piece, captured := p.board[move.From], p.board[move.To]
+	p.board[move.From] = Piece{}
+	p.board[move.To] = piece
 	if move.Flags&EnPassant != 0 {
 		capture := int(move.To) - 8
 		if piece.Color == Black {
 			capture = int(move.To) + 8
 		}
-		next.board[capture], captured = Piece{}, Piece{Type: Pawn, Color: piece.Color.Opponent()}
+		p.board[capture], captured = Piece{}, Piece{Type: Pawn, Color: piece.Color.Opponent()}
 	}
 	if move.Promotion != NoPiece {
-		next.board[move.To].Type = move.Promotion
+		p.board[move.To].Type = move.Promotion
 	}
 	if move.Flags&Castle != 0 {
 		if move.To%8 == 6 {
-			next.board[move.To-1], next.board[move.To+1] = next.board[move.To+1], Piece{}
+			p.board[move.To-1], p.board[move.To+1] = p.board[move.To+1], Piece{}
 		} else {
-			next.board[move.To+1], next.board[move.To-2] = next.board[move.To-2], Piece{}
+			p.board[move.To+1], p.board[move.To-2] = p.board[move.To-2], Piece{}
 		}
 	}
-	next.updateCastling(move, piece, captured)
-	next.enPassant = NoSquare
+	p.updateCastling(move, piece, captured)
+	p.enPassant = NoSquare
 	if move.Flags&PawnDouble != 0 {
-		next.enPassant = Square((int(move.From) + int(move.To)) / 2)
+		p.enPassant = Square((int(move.From) + int(move.To)) / 2)
 	}
-	next.halfmoveClock++
+	p.halfmoveClock++
 	if piece.Type == Pawn || !captured.IsEmpty() {
-		next.halfmoveClock = 0
+		p.halfmoveClock = 0
 	}
 	if piece.Color == Black {
-		next.fullmoveNumber++
+		p.fullmoveNumber++
 	}
-	next.turn = p.turn.Opponent()
-	return next
+	p.turn = p.turn.Opponent()
 }
 
 func (p *Position) updateCastling(move Move, piece, captured Piece) {

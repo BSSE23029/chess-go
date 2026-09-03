@@ -90,6 +90,65 @@ func TestApplyDoesNotMutatePosition(t *testing.T) {
 	}
 }
 
+func TestMakeUnmakeMoveLifecycle(t *testing.T) {
+	tests := []struct {
+		name, fen, move string
+	}{
+		{"pawn double", InitialFEN, "e2e4"},
+		{"capture", "4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1", "d2d4"},
+		{"en passant", "7k/8/8/3pP3/8/8/8/K7 w - d6 0 2", "e5d6"},
+		{"castling", "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1", "e1g1"},
+		{"promotion", "7k/P7/8/8/8/8/8/7K w - - 0 1", "a7a8q"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			position, err := ParseFEN(test.fen)
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, hash := position.FEN(), position.Hash()
+			move, _ := ParseUCI(test.move)
+			undo, err := position.MakeMove(move)
+			if err != nil || position.FEN() == before {
+				t.Fatalf("MakeMove(%s) failed: %v", test.move, err)
+			}
+			position.UnmakeMove(undo)
+			if position.FEN() != before || position.Hash() != hash {
+				t.Fatalf("UnmakeMove(%s) restored %q, want %q", test.move, position.FEN(), before)
+			}
+		})
+	}
+
+	position := NewPosition()
+	before := position.FEN()
+	move, _ := ParseUCI("e2e5")
+	if _, err := position.MakeMove(move); err == nil || position.FEN() != before {
+		t.Fatal("invalid MakeMove changed the position")
+	}
+	position.UnmakeMove(Undo{})
+	if position.FEN() != before {
+		t.Fatal("zero Undo changed the position")
+	}
+}
+
+func TestNestedMakeUnmake(t *testing.T) {
+	position := NewPosition()
+	initial := position.FEN()
+	e4, _ := ParseUCI("e2e4")
+	first, _ := position.MakeMove(e4)
+	afterE4 := position.FEN()
+	e5, _ := ParseUCI("e7e5")
+	second, _ := position.MakeMove(e5)
+	position.UnmakeMove(second)
+	if position.FEN() != afterE4 {
+		t.Fatal("inner unmake did not restore parent position")
+	}
+	position.UnmakeMove(first)
+	if position.FEN() != initial {
+		t.Fatal("outer unmake did not restore initial position")
+	}
+}
+
 func perft(position Position, depth int) uint64 {
 	if depth == 0 {
 		return 1
