@@ -364,6 +364,8 @@ func TestSANSpecialMovesAndMate(t *testing.T) {
 
 func TestPGNRoundTrip(t *testing.T) {
 	input := `[Event "Test"]
+[Annotator "Raza \\ Team \"A\""]
+[X-Custom "retained"]
 [Result "0-1"]
 
 1. f3 {weak move} e5
@@ -375,7 +377,18 @@ func TestPGNRoundTrip(t *testing.T) {
 	if game.Status() != BlackCheckmates || game.Result() != "0-1" || len(game.Moves()) != 4 {
 		t.Fatal("parsed PGN lifecycle is incorrect")
 	}
+	tags := game.Tags()
+	if len(tags) != 4 || tags[1].Name != "Annotator" || tags[1].Value != `Raza \ Team "A"` || tags[2].Value != "retained" {
+		t.Fatalf("PGN tags not retained: %#v", tags)
+	}
+	tags[1].Value = "changed"
+	if game.Tags()[1].Value == "changed" {
+		t.Fatal("Tags exposed mutable game metadata")
+	}
 	exported := game.PGN()
+	if !strings.Contains(exported, `[Annotator "Raza \\ Team \"A\""]`) || !strings.Contains(exported, `[X-Custom "retained"]`) {
+		t.Fatalf("escaped or custom tags not exported:\n%s", exported)
+	}
 	reparsed, err := ParsePGN(exported)
 	if err != nil {
 		t.Fatal(err)
@@ -406,6 +419,14 @@ func TestPGNCustomPositionAndValidation(t *testing.T) {
 		`[Result "1-0"]` + "\n\n1. f3 e5 2. g4 Qh4# 0-1",
 		`[Result "bad"]` + "\n\n",
 		`1. e4 1-0 e5`,
+		`1. e4 {unfinished *`,
+		`1. e4 {outer {nested} comment} *`,
+		`1. e4 (1... e5 *`,
+		`1. e4 } *`,
+		`1. e4 ) *`,
+		"[Event \"bad\\nvalue\"]\n\n*",
+		"[Event \"one\"]\n[Event \"two\"]\n\n*",
+		"1. e4\n[Event \"late\"]\n*",
 	} {
 		if _, err := ParsePGN(invalid); err == nil {
 			t.Errorf("ParsePGN(%q) succeeded", invalid)

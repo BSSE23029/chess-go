@@ -3,7 +3,6 @@ package chess
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -28,6 +27,7 @@ type Game struct {
 	moves     []Move
 	cursor    int
 	result    string
+	tags      []PGNTag
 }
 
 func NewGame() *Game { return NewGameFromPosition(NewPosition()) }
@@ -281,155 +281,4 @@ func (g *Game) Result() string {
 	default:
 		return "*"
 	}
-}
-
-func (g *Game) PGN() string {
-	result := g.Result()
-	tags := []string{
-		`[Event "?"]`, `[Site "?"]`, `[Date "????.??.??"]`, `[Round "?"]`,
-		`[White "?"]`, `[Black "?"]`, `[Result "` + result + `"]`,
-	}
-	if g.positions[0].FEN() != InitialFEN {
-		tags = append(tags, `[SetUp "1"]`, `[FEN "`+g.positions[0].FEN()+`"]`)
-	}
-	var moves strings.Builder
-	for i := 0; i < g.cursor; i++ {
-		position := g.positions[i]
-		if moves.Len() > 0 {
-			moves.WriteByte(' ')
-		}
-		if position.turn == White {
-			fmt.Fprintf(&moves, "%d. ", position.fullmoveNumber)
-		} else if i == 0 {
-			fmt.Fprintf(&moves, "%d... ", position.fullmoveNumber)
-		}
-		san, _ := position.SAN(g.moves[i])
-		moves.WriteString(san)
-	}
-	if moves.Len() > 0 {
-		moves.WriteByte(' ')
-	}
-	moves.WriteString(result)
-	return strings.Join(tags, "\n") + "\n\n" + moves.String()
-}
-
-func ParsePGN(value string) (*Game, error) {
-	tags, movetext, err := splitPGN(value)
-	if err != nil {
-		return nil, err
-	}
-	game := NewGame()
-	if fen := tags["FEN"]; fen != "" {
-		position, err := ParseFEN(fen)
-		if err != nil {
-			return nil, fmt.Errorf("invalid PGN FEN: %w", err)
-		}
-		game = NewGameFromPosition(position)
-	} else if tags["SetUp"] == "1" {
-		return nil, fmt.Errorf("PGN SetUp requires a FEN tag")
-	}
-	result := ""
-	tokens := pgnTokens(movetext)
-	for index, token := range tokens {
-		if isResult(token) {
-			if index != len(tokens)-1 {
-				return nil, fmt.Errorf("PGN result must end movetext")
-			}
-			result = token
-			break
-		}
-		if err := game.PlaySAN(token); err != nil {
-			return nil, fmt.Errorf("PGN move %q: %w", token, err)
-		}
-	}
-	if tagged := tags["Result"]; tagged != "" && result != "" && tagged != result {
-		return nil, fmt.Errorf("PGN result tag %q disagrees with movetext %q", tagged, result)
-	}
-	if result == "" {
-		result = tags["Result"]
-	}
-	if result != "" && !isResult(result) {
-		return nil, fmt.Errorf("invalid PGN result %q", result)
-	}
-	if result != "" {
-		actual := game.Result()
-		if actual != "*" && actual != result {
-			return nil, fmt.Errorf("PGN result %q disagrees with position result %q", result, actual)
-		}
-		if result != "*" {
-			game.result = result
-		}
-	}
-	return game, nil
-}
-
-func splitPGN(value string) (map[string]string, string, error) {
-	tags := make(map[string]string)
-	var movetext strings.Builder
-	for _, line := range strings.Split(value, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "[") {
-			space := strings.IndexByte(line, ' ')
-			if space < 2 || !strings.HasSuffix(line, "]") {
-				return nil, "", fmt.Errorf("invalid PGN tag %q", line)
-			}
-			quoted := strings.TrimSpace(line[space+1 : len(line)-1])
-			decoded, err := strconv.Unquote(quoted)
-			if err != nil {
-				return nil, "", fmt.Errorf("invalid PGN tag %q", line)
-			}
-			tags[line[1:space]] = decoded
-		} else {
-			movetext.WriteString(line)
-			movetext.WriteByte('\n')
-		}
-	}
-	return tags, movetext.String(), nil
-}
-
-func pgnTokens(value string) []string {
-	var clean strings.Builder
-	braceDepth, variationDepth, lineComment := 0, 0, false
-	for _, char := range value {
-		switch {
-		case lineComment && char != '\n':
-			continue
-		case char == '\n':
-			lineComment = false
-			if braceDepth == 0 && variationDepth == 0 {
-				clean.WriteByte(' ')
-			}
-		case char == ';' && braceDepth == 0 && variationDepth == 0:
-			lineComment = true
-		case char == '{':
-			braceDepth++
-		case char == '}' && braceDepth > 0:
-			braceDepth--
-		case braceDepth > 0:
-			continue
-		case char == '(':
-			variationDepth++
-		case char == ')' && variationDepth > 0:
-			variationDepth--
-		case variationDepth == 0:
-			clean.WriteRune(char)
-		}
-	}
-	var tokens []string
-	for _, token := range strings.Fields(clean.String()) {
-		if dollar := strings.IndexByte(token, '$'); dollar >= 0 {
-			token = token[:dollar]
-		}
-		if dot := strings.LastIndexByte(token, '.'); dot >= 0 {
-			token = token[dot+1:]
-		}
-		if token != "" && token != "e.p." && !strings.HasPrefix(token, "$") {
-			tokens = append(tokens, token)
-		}
-	}
-	return tokens
-}
-
-func isResult(value string) bool {
-	return value == "1-0" || value == "0-1" || value == "1/2-1/2" || value == "*"
 }
