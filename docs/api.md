@@ -131,6 +131,10 @@ retry with a full window when the score falls outside it.
 At depth three and deeper, late quiet moves use a reduced null-window search
 and are re-searched at full depth only when they raise alpha.
 
+`OpeningBook` can provide deterministic hash-keyed moves before search. Named
+profiles use `BuiltinOpeningBook`; an absent or illegal entry automatically
+falls back to iterative search.
+
 For callers that own time controls, `Bot.Search` performs iterative deepening
 with explicit node and wall-clock limits and returns statistics for the deepest
 completed iteration:

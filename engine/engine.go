@@ -54,6 +54,8 @@ type Bot struct {
 	Strength StrengthProfile
 	// MaxLoss is the candidate-move tolerance in evaluation units.
 	MaxLoss Score
+	// Book supplies an optional deterministic opening move before search.
+	Book OpeningBook
 }
 
 // New returns a bot with at least depth one and material evaluation.

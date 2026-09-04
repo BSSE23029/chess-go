@@ -89,6 +89,9 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 	if len(moves) == 0 {
 		return chess.Move{}, SearchStats{}, ErrNoLegalMoves
 	}
+	if move, ok := b.bookMove(position, moves); ok {
+		return move, SearchStats{}, nil
+	}
 	maxDepth := limits.MaxDepth
 	if maxDepth < 1 {
 		maxDepth = b.Depth
@@ -137,6 +140,22 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		}
 	}
 	return best, stats, nil
+}
+
+func (b *Bot) bookMove(position chess.Position, legal []chess.Move) (chess.Move, bool) {
+	if b.Book == nil {
+		return chess.Move{}, false
+	}
+	move, ok := b.Book.Lookup(position)
+	if !ok {
+		return chess.Move{}, false
+	}
+	for _, candidate := range legal {
+		if candidate.From == move.From && candidate.To == move.To && candidate.Promotion == move.Promotion {
+			return candidate, true
+		}
+	}
+	return chess.Move{}, false
 }
 
 func (b *Bot) iteration(ctx context.Context, evaluator Evaluator, position *chess.Position, moves []chess.Move, depth int, alpha, beta Score, control *searchControl) (chess.Move, Score, bool, bool, error) {

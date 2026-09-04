@@ -155,3 +155,22 @@ func TestStrengthProfiles(t *testing.T) {
 		t.Fatalf("profiles = %#v", got)
 	}
 }
+
+func TestOpeningBookUsesLegalEntriesAndFallsBack(t *testing.T) {
+	position := chess.NewPosition()
+	profile := NewProfile(Learner)
+	move, err := profile.ChooseMove(context.Background(), position)
+	if err != nil || move.UCI() != "e2e4" {
+		t.Fatalf("built-in opening move = %s, %v", move.UCI(), err)
+	}
+	invalid := HashBook{position.Hash(): chess.Move{From: chess.Square(0), To: chess.Square(0)}}
+	bot := New(1)
+	bot.Book = invalid
+	move, err = bot.ChooseMove(context.Background(), position)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := position.Apply(move); err != nil {
+		t.Fatalf("book fallback move = %s: %v", move.UCI(), err)
+	}
+}

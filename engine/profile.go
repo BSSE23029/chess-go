@@ -3,7 +3,41 @@ package engine
 import (
 	"fmt"
 	"strings"
+
+	"chess-go"
 )
+
+// OpeningBook supplies a deterministic move for a position when one is known.
+type OpeningBook interface {
+	Lookup(chess.Position) (chess.Move, bool)
+}
+
+// HashBook maps incremental Zobrist keys to book moves.
+type HashBook map[uint64]chess.Move
+
+// Lookup returns the move stored for position's hash.
+func (b HashBook) Lookup(position chess.Position) (chess.Move, bool) {
+	move, ok := b[position.Hash()]
+	return move, ok
+}
+
+// BuiltinOpeningBook returns a small deterministic classical opening line.
+func BuiltinOpeningBook() HashBook {
+	book := make(HashBook)
+	position := chess.NewPosition()
+	for _, value := range []string{"e2e4", "e7e5", "g1f3", "b8c6", "f1b5"} {
+		move, err := chess.ParseUCI(value)
+		if err != nil {
+			continue
+		}
+		book[position.Hash()] = move
+		position, err = position.Apply(move)
+		if err != nil {
+			break
+		}
+	}
+	return book
+}
 
 // StrengthProfile names a deterministic bot strength preset.
 type StrengthProfile uint8
@@ -76,5 +110,5 @@ func Profiles() []StrengthProfile {
 // NewProfile returns a deterministic bot configured with p.
 func NewProfile(p StrengthProfile) *Bot {
 	config := p.Config()
-	return &Bot{Depth: config.Depth, Evaluator: PositionalEvaluator{}, Strength: p, MaxLoss: config.MaxLoss}
+	return &Bot{Depth: config.Depth, Evaluator: PositionalEvaluator{}, Strength: p, MaxLoss: config.MaxLoss, Book: BuiltinOpeningBook()}
 }
