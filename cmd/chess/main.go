@@ -26,6 +26,7 @@ type session struct {
 	botStyle  string
 	clock     *gameClock
 	timeout   string
+	theme     theme
 }
 
 func main() {
@@ -45,6 +46,11 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 		humanName: firstSet(os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER"), "Player"),
 		botName:   firstSet(os.Getenv("CHESS_BOT_NAME"), "Bot"),
 	}
+	configuredTheme, err := parseTheme(os.Getenv("CHESS_THEME"))
+	if err != nil {
+		return err
+	}
+	s.theme = configuredTheme
 	switch args[0] {
 	case "play":
 		if len(args) < 2 {
@@ -55,6 +61,7 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			options := flag.NewFlagSet("play local", flag.ContinueOnError)
 			options.SetOutput(io.Discard)
 			limit, increment := clockFlags(options)
+			themeName := options.String("theme", s.theme.label(), "board theme: ascii or unicode")
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 {
 				return errors.New("usage: chess play local [--clock DURATION] [--increment DURATION]")
 			}
@@ -63,6 +70,10 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 				return err
 			}
 			s.clock = clock
+			s.theme, err = parseTheme(*themeName)
+			if err != nil {
+				return err
+			}
 		case "bot":
 			defaultDepth, err := envInt("CHESS_BOT_DEPTH", 3)
 			if err != nil {
@@ -76,6 +87,7 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			seed := options.String("seed", os.Getenv("CHESS_BOT_SEED"), "deterministic personality seed")
 			color := options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "human color")
 			limit, increment := clockFlags(options)
+			themeName := options.String("theme", s.theme.label(), "board theme: ascii or unicode")
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 || *depth < 1 {
 				return errors.New("usage: chess play bot [--level NAME | --depth N] [--color white|black]")
 			}
@@ -120,6 +132,10 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			if err != nil {
 				return err
 			}
+			s.theme, err = parseTheme(*themeName)
+			if err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unknown play mode %q", args[1])
 		}
@@ -153,7 +169,7 @@ func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) e
 	}()
 	fmt.Fprintln(output, "Commands: SAN or UCI move, moves, undo, redo, fen FEN, load FILE, save FILE, help, quit")
 	for {
-		render(output, s.game, s.human == chess.Black, s.clockSummary())
+		render(output, s.game, s.human == chess.Black, s.clockSummary(), s.theme)
 		if s.timeout != "" {
 			fmt.Fprintln(output, "Game over:", s.timeout)
 			return nil
@@ -354,7 +370,7 @@ func loadPGN(path string) (*chess.Game, error) {
 	return chess.ParsePGN(string(data))
 }
 
-func render(output io.Writer, game *chess.Game, flipped bool, clocks string) {
+func render(output io.Writer, game *chess.Game, flipped bool, clocks string, boardTheme theme) {
 	position := game.Position()
 	files := []int{0, 1, 2, 3, 4, 5, 6, 7}
 	ranks := []int{7, 6, 5, 4, 3, 2, 1, 0}
@@ -365,7 +381,7 @@ func render(output io.Writer, game *chess.Game, flipped bool, clocks string) {
 	for _, rank := range ranks {
 		fmt.Fprintf(output, "%d ", rank+1)
 		for _, file := range files {
-			fmt.Fprintf(output, "%c ", pieceSymbol(position.PieceAt(chess.Square(rank*8+file))))
+			fmt.Fprintf(output, "%c ", boardTheme.glyph(position.PieceAt(chess.Square(rank*8+file))))
 		}
 		fmt.Fprintln(output)
 	}
@@ -377,7 +393,7 @@ func render(output io.Writer, game *chess.Game, flipped bool, clocks string) {
 	if clocks != "" {
 		fmt.Fprintln(output, clocks)
 	}
-	fmt.Fprintln(output, capturedSummary(game))
+	fmt.Fprintln(output, capturedSummaryWithTheme(game, boardTheme))
 	fmt.Fprint(output, "Moves:")
 	for _, move := range game.Moves() {
 		fmt.Fprint(output, " ", move.UCI())
@@ -397,12 +413,16 @@ func pieceSymbol(piece chess.Piece) byte {
 }
 
 func capturedSummary(game *chess.Game) string {
+	return capturedSummaryWithTheme(game, asciiTheme)
+}
+
+func capturedSummaryWithTheme(game *chess.Game, boardTheme theme) string {
 	white, black := "", ""
 	for _, piece := range game.Captured() {
 		if piece.Color == chess.Black {
-			white += string(pieceSymbol(piece))
+			white += string(boardTheme.glyph(piece))
 		} else {
-			black += string(pieceSymbol(piece))
+			black += string(boardTheme.glyph(piece))
 		}
 	}
 	if white == "" {

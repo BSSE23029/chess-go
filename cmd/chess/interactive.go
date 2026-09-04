@@ -65,7 +65,7 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 			}
 			ui.message = fmt.Sprintf("%s played %s (%s)", s.botLabel(), san, move.UCI())
 		}
-		renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary())
+		renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary(), s.theme)
 		if s.timeout != "" {
 			return nil
 		}
@@ -229,7 +229,7 @@ func (s *session) selectSquare(ui *boardUI) {
 	ui.message = "That is not a legal destination"
 }
 
-func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped bool, clocks string) {
+func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped bool, clocks string, boardTheme theme) {
 	position := game.Position()
 	files, ranks := []int{0, 1, 2, 3, 4, 5, 6, 7}, []int{7, 6, 5, 4, 3, 2, 1, 0}
 	if flipped {
@@ -275,7 +275,7 @@ func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped b
 			case last[square]:
 				style = "\x1b[43m"
 			}
-			fmt.Fprintf(output, "%s%c \x1b[0m", style, pieceSymbol(position.PieceAt(square)))
+			fmt.Fprintf(output, "%s%c \x1b[0m", style, boardTheme.glyph(position.PieceAt(square)))
 		}
 		fmt.Fprintln(output)
 	}
@@ -287,7 +287,7 @@ func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped b
 	if clocks != "" {
 		fmt.Fprintln(output, clocks)
 	}
-	fmt.Fprintf(output, "%s\n%s to move", capturedSummary(game), colorName(position.Turn()))
+	fmt.Fprintf(output, "%s\n%s to move", capturedSummaryWithTheme(game, boardTheme), colorName(position.Turn()))
 	if position.InCheck() {
 		fmt.Fprint(output, " — Check")
 	}

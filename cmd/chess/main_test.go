@@ -244,12 +244,35 @@ func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
 	e6, _ := chess.ParseSquare("e6")
 	ui := boardUI{cursor: e6, selected: e7}
 	var output bytes.Buffer
-	renderInteractive(&output, game, ui, false, "White 05:00 · Black 05:00 · +00:03")
+	renderInteractive(&output, game, ui, false, "White 05:00 · Black 05:00 · +00:03", unicodeTheme)
 	text := output.String()
 	for _, want := range []string{"\x1b[H\x1b[2J", "\x1b[7m", "\x1b[46m", "\x1b[42m", "\x1b[43m", "8 ", "  a  b  c  d  e  f  g  h", "White 05:00", "Black to move"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("interactive rendering lacks %q:\n%s", want, text)
 		}
+	}
+	if !strings.Contains(text, "♜") || !strings.Contains(text, "♙") {
+		t.Fatal("unicode theme did not render chess symbols")
+	}
+}
+
+func TestThemeConfiguration(t *testing.T) {
+	for _, value := range []string{"ascii", "letters", "unicode", "symbols", ""} {
+		if _, err := parseTheme(value); err != nil {
+			t.Errorf("parseTheme(%q): %v", value, err)
+		}
+	}
+	if _, err := parseTheme("neon"); err == nil {
+		t.Fatal("unknown theme accepted")
+	}
+	clearChessEnv(t)
+	t.Setenv("CHESS_THEME", "unicode")
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"play", "local"}, strings.NewReader("quit\n"), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "♜") {
+		t.Fatal("environment theme did not affect scripted rendering")
 	}
 }
 
@@ -316,7 +339,7 @@ func TestClockConfigurationFromFlagsAndEnvironment(t *testing.T) {
 
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME"} {
 		t.Setenv(name, "")
 	}
 }

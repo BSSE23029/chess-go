@@ -201,3 +201,7 @@ go run ./examples/basic
 ```
 
 The normal `go test ./...` gate compiles this example with the public API.
+
+The terminal renderer supports ASCII letters and Unicode chess glyphs. Select
+one with `--theme ascii|unicode` or the `CHESS_THEME` environment variable; an
+invalid value fails before the game starts.
