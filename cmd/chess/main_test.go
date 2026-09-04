@@ -239,10 +239,58 @@ func TestInteractiveNavigationAndKeyDecoding(t *testing.T) {
 			t.Fatalf("key %d = %v, %v; want %v", index, got, err, expected)
 		}
 	}
+	escape, err := readKey(bufio.NewReader(strings.NewReader("\x1b")))
+	if err != nil || escape != keyEscape {
+		t.Fatalf("standalone escape = %v, %v", escape, err)
+	}
+	escapeReader := bufio.NewReader(strings.NewReader("\x1bq"))
+	if escape, err = readKey(escapeReader); err != nil || escape != keyEscape {
+		t.Fatalf("escape prefix = %v, %v", escape, err)
+	}
+	if next, err := readKey(escapeReader); err != nil || next != keyQuit {
+		t.Fatalf("key after escape = %v, %v", next, err)
+	}
 	var output bytes.Buffer
 	line, err := readRawLine(bufio.NewReader(strings.NewReader("savx\x7fe game.pgn\r")), &output)
 	if err != nil || line != "save game.pgn" || output.String() != "savx\b \be game.pgn\n" {
 		t.Fatalf("raw command = %q, %v; output %q", line, err, output.String())
+	}
+}
+
+func TestInteractiveRendererShowsDashboard(t *testing.T) {
+	game := chess.NewGame()
+	if err := game.PlayUCI("e2e4"); err != nil {
+		t.Fatal(err)
+	}
+	ui := boardUI{cursor: chess.NoSquare, whiteName: "Ada", blackName: "HAL", message: "Played e4", showHelp: true}
+	var output bytes.Buffer
+	renderInteractive(&output, game, ui, false, "White 05:00 · Black 04:58 · +00:03", asciiTheme)
+	text := output.String()
+	for _, want := range []string{"CHESS-GO", "MATCH", "Ada", "HAL", "STATUS", "Black to move", "RECENT MOVES", "1. e2e4", "KEYBOARD", "LEGEND"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("dashboard rendering lacks %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestInteractiveEscapeClearsSelection(t *testing.T) {
+	e2, _ := chess.ParseSquare("e2")
+	ui := boardUI{cursor: e2, selected: e2, showHelp: true}
+	s := session{game: chess.NewGame(), human: chess.White}
+	if s.handleKey(&ui, keyEscape) {
+		t.Fatal("escape unexpectedly quit")
+	}
+	if ui.selected != chess.NoSquare || ui.showHelp || ui.message != "Selection cleared" {
+		t.Fatalf("escape state = %#v", ui)
+	}
+}
+
+func TestTUITextKeepsTheRailBounded(t *testing.T) {
+	if got := tuiText("  Ada\x1b[31m", 20); got != "Ada[31m" {
+		t.Fatalf("sanitized label = %q", got)
+	}
+	if got := tuiText("abcdefgh", 5); got != "abcd…" {
+		t.Fatalf("truncated label = %q", got)
 	}
 }
 

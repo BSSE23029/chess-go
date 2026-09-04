@@ -15,9 +15,13 @@ import (
 )
 
 type boardUI struct {
-	cursor   chess.Square
-	selected chess.Square
-	message  string
+	cursor    chess.Square
+	selected  chess.Square
+	message   string
+	whiteName string
+	blackName string
+	showHelp  bool
+	thinking  bool
 }
 
 func isInteractiveTerminal(input io.Reader, output io.Writer) bool {
@@ -36,7 +40,19 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 	fmt.Fprint(output, "\x1b[?1049h\x1b[?25l")
 	defer fmt.Fprint(output, "\x1b[?25h\x1b[?1049l")
 
-	ui := boardUI{cursor: initialCursor(s.human), selected: chess.NoSquare}
+	ui := boardUI{
+		cursor:    initialCursor(s.human),
+		selected:  chess.NoSquare,
+		whiteName: "White",
+		blackName: "Black",
+	}
+	if s.bot != nil {
+		if s.human == chess.White {
+			ui.whiteName, ui.blackName = s.humanName, s.botLabel()
+		} else {
+			ui.whiteName, ui.blackName = s.botLabel(), s.humanName
+		}
+	}
 	reader := bufio.NewReader(input)
 	for {
 		if s.timeout != "" {
@@ -45,9 +61,12 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 			ui.message = "Game over: " + result + " — n: new game, q: quit"
 		} else if s.bot != nil && s.game.Position().Turn() != s.human {
 			mover := s.game.Position().Turn()
+			ui.thinking = true
+			renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary(), s.theme)
 			moveCtx, cancel := s.clock.context(ctx, mover)
 			move, err := s.bot.ChooseMove(moveCtx, s.game.Position())
 			cancel()
+			ui.thinking = false
 			if err != nil {
 				if s.clock != nil && s.clock.values()[mover] <= 0 {
 					s.flag(mover)
@@ -89,16 +108,24 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 				keys <- value
 			}()
 			timer := time.NewTimer(s.clock.untilFlag(mover))
+			ticker := time.NewTicker(250 * time.Millisecond)
 			select {
 			case pressed = <-keys:
 				timer.Stop()
+				ticker.Stop()
 			case err = <-keyErrors:
 				timer.Stop()
+				ticker.Stop()
 			case <-timer.C:
+				ticker.Stop()
 				s.flag(mover)
+				continue
+			case <-ticker.C:
+				renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary(), s.theme)
 				continue
 			case <-ctx.Done():
 				timer.Stop()
+				ticker.Stop()
 				return ctx.Err()
 			}
 		}
@@ -148,9 +175,20 @@ func (s *session) handleKey(ui *boardUI, pressed key) bool {
 	switch pressed {
 	case keyQuit:
 		return true
+	case keyUnknown:
+		ui.message = "Unknown key — press ? for the keyboard guide"
 	case keyUp, keyDown, keyLeft, keyRight:
 		ui.cursor = moveCursor(ui.cursor, pressed, flipped)
 		ui.message = ""
+	case keyEscape:
+		wasSelected := ui.selected != chess.NoSquare
+		ui.selected = chess.NoSquare
+		ui.showHelp = false
+		if wasSelected {
+			ui.message = "Selection cleared"
+		} else {
+			ui.message = "Keyboard guide closed"
+		}
 	case keySelect:
 		s.selectSquare(ui)
 	case keyUndo:
@@ -174,7 +212,12 @@ func (s *session) handleKey(ui *boardUI, pressed key) bool {
 		ui.cursor, ui.selected = initialCursor(s.human), chess.NoSquare
 		ui.message = "New game"
 	case keyHelp:
-		ui.message = "Arrows/hjkl: move  Enter: select  u/r: undo/redo  n: new  : command  q: quit"
+		ui.showHelp = !ui.showHelp
+		if ui.showHelp {
+			ui.message = "Keyboard guide opened — press ? or Esc to close"
+		} else {
+			ui.message = "Keyboard guide closed"
+		}
 	}
 	return false
 }
@@ -227,73 +270,4 @@ func (s *session) selectSquare(ui *boardUI) {
 		return
 	}
 	ui.message = "That is not a legal destination"
-}
-
-func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped bool, clocks string, boardTheme theme) {
-	position := game.Position()
-	files, ranks := []int{0, 1, 2, 3, 4, 5, 6, 7}, []int{7, 6, 5, 4, 3, 2, 1, 0}
-	if flipped {
-		files, ranks = []int{7, 6, 5, 4, 3, 2, 1, 0}, []int{0, 1, 2, 3, 4, 5, 6, 7}
-	}
-	legal := make(map[chess.Square]bool)
-	if ui.selected != chess.NoSquare {
-		for _, move := range position.LegalMoves() {
-			if move.From == ui.selected {
-				legal[move.To] = true
-			}
-		}
-	}
-	last := map[chess.Square]bool{}
-	moves := game.Moves()
-	if len(moves) > 0 {
-		last[moves[len(moves)-1].From], last[moves[len(moves)-1].To] = true, true
-	}
-	checkSquare := chess.NoSquare
-	if position.InCheck() {
-		for square := chess.Square(0); square < 64; square++ {
-			piece := position.PieceAt(square)
-			if piece.Type == chess.King && piece.Color == position.Turn() {
-				checkSquare = square
-			}
-		}
-	}
-	fmt.Fprint(output, "\x1b[H\x1b[2JChess\n\n")
-	for _, rank := range ranks {
-		fmt.Fprintf(output, "%d ", rank+1)
-		for _, file := range files {
-			square := chess.Square(rank*8 + file)
-			style := ""
-			switch {
-			case square == ui.cursor:
-				style = "\x1b[7m"
-			case square == checkSquare:
-				style = "\x1b[41m"
-			case square == ui.selected:
-				style = "\x1b[46m"
-			case legal[square]:
-				style = "\x1b[42m"
-			case last[square]:
-				style = "\x1b[43m"
-			}
-			fmt.Fprintf(output, "%s%c \x1b[0m", style, boardTheme.glyph(position.PieceAt(square)))
-		}
-		fmt.Fprintln(output)
-	}
-	fmt.Fprint(output, "  ")
-	for _, file := range files {
-		fmt.Fprintf(output, "%c  ", 'a'+file)
-	}
-	fmt.Fprint(output, "\n")
-	if clocks != "" {
-		fmt.Fprintln(output, clocks)
-	}
-	fmt.Fprintf(output, "%s\n%s to move", capturedSummaryWithTheme(game, boardTheme), colorName(position.Turn()))
-	if position.InCheck() {
-		fmt.Fprint(output, " — Check")
-	}
-	fmt.Fprintln(output)
-	if ui.message != "" {
-		fmt.Fprintln(output, ui.message)
-	}
-	fmt.Fprintln(output, "Arrows/hjkl move · Enter selects · u undo · r redo · n new · : command · ? help · q quit")
 }

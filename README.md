@@ -22,11 +22,14 @@ Install the command into the Go toolchain's configured bin directory:
 go install ./cmd/chess
 ```
 
-The terminal UI uses arrows or `h j k l` to move, Enter to select, `u`/`r`
-for undo/redo, `n` for a new game, `:` for commands, and `q` to quit. A bot
-game with `--color white` waits for White's first input by design. When output
-is captured as scrollback, the full-screen ANSI redraw can appear as many blank
-lines; a real terminal replaces the alternate screen in place.
+The terminal UI uses arrows or `h j k l` to move, Enter to select, `Esc` to
+clear a selection, `u`/`r` for undo/redo, `n` for a new game, `:` for commands,
+and `q` to quit. Press `?` for the in-app keyboard guide. The full-screen view
+keeps the board central and adds player cards, live clocks, captures, recent
+moves, and a visible state legend. A bot game with `--color white` waits for
+White's first input by design. When output is captured as scrollback, the
+full-screen ANSI redraw can appear as many blank lines; a real terminal
+replaces the alternate screen in place.
 
 Useful runtime settings are environment-backed, including `CHESS_THEME`,
 `CHESS_BOT_LEVEL`, `CHESS_BOT_PERSONALITY`, `CHESS_BOT_SEED`, `CHESS_CLOCK`,

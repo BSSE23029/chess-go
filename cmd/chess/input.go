@@ -24,6 +24,7 @@ const (
 	keyNew
 	keyHelp
 	keyCommand
+	keyEscape
 )
 
 func moveCursor(square chess.Square, pressed key, flipped bool) chess.Square {
@@ -76,8 +77,17 @@ func readKey(reader *bufio.Reader) (key, error) {
 		return keyRight, nil
 	case 27:
 		first, err := reader.ReadByte()
-		if err != nil || first != '[' {
+		if err != nil {
+			if err == io.EOF {
+				return keyEscape, nil
+			}
 			return keyUnknown, err
+		}
+		if first != '[' {
+			if unreadErr := reader.UnreadByte(); unreadErr != nil {
+				return keyUnknown, unreadErr
+			}
+			return keyEscape, nil
 		}
 		second, err := reader.ReadByte()
 		if err != nil {
