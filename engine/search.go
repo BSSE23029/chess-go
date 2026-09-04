@@ -34,16 +34,19 @@ type SearchStats struct {
 	Score Score
 	// ReducedNodes is the number of late-move reduced searches attempted.
 	ReducedNodes uint64
+	// NullCutoffs is the number of branches cut by null-move pruning.
+	NullCutoffs uint64
 }
 
 type searchControl struct {
-	nodes      uint64
-	limit      uint64
-	table      map[uint64]ttEntry
-	killers    [64][2]chess.Move
-	history    map[chess.Move]int
-	reductions uint64
-	random     uint64
+	nodes       uint64
+	limit       uint64
+	table       map[uint64]ttEntry
+	killers     [64][2]chess.Move
+	history     map[chess.Move]int
+	reductions  uint64
+	nullCutoffs uint64
+	random      uint64
 }
 
 type ttBound uint8
@@ -123,7 +126,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		for {
 			candidate, score, failLow, failHigh, err := b.iteration(searchCtx, evaluator, &position, moves, depth, alpha, beta, control)
 			if err != nil {
-				stats.Nodes, stats.ReducedNodes = control.nodes, control.reductions
+				stats.Nodes, stats.ReducedNodes, stats.NullCutoffs = control.nodes, control.reductions, control.nullCutoffs
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					return best, stats, err
 				}
@@ -137,7 +140,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 				continue
 			}
 			best, stats.Depth, stats.Score = candidate, depth, score
-			stats.Nodes, stats.ReducedNodes = control.nodes, control.reductions
+			stats.Nodes, stats.ReducedNodes, stats.NullCutoffs = control.nodes, control.reductions, control.nullCutoffs
 			break
 		}
 	}
@@ -255,6 +258,22 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 			}
 		}
 	}
+	inCheck := position.InCheck()
+	if depth >= 3 && !inCheck && canNullMove(position) {
+		nullPosition, err := position.NullMove()
+		if err != nil {
+			return 0, err
+		}
+		nullDepth := depth - 3
+		score, err := b.search(ctx, evaluator, &nullPosition, nullDepth, ply+1, -beta, -beta+1, control)
+		if err != nil {
+			return 0, err
+		}
+		if -score >= beta {
+			control.nullCutoffs++
+			return -score, nil
+		}
+	}
 	moves := orderedSearchMoves(position, ply, control)
 	if len(moves) == 0 {
 		if position.InCheck() {
@@ -270,7 +289,6 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 	}
 	best := -infinity
 	bestMove := moves[0]
-	inCheck := position.InCheck()
 	for index, move := range moves {
 		undo := position.MakeLegalMove(move)
 		reduced := depth >= 3 && index >= 3 && !inCheck && move.Flags&chess.Capture == 0 && move.Promotion == chess.NoPiece
@@ -319,6 +337,16 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 		bound = ttLower
 	}
 	return b.store(position, depth, best, bestMove, bound, control), nil
+}
+
+func canNullMove(position *chess.Position) bool {
+	for square := chess.Square(0); square < 64; square++ {
+		piece := position.PieceAt(square)
+		if piece.Color == position.Turn() && piece.Type != chess.Pawn && piece.Type != chess.King && !piece.IsEmpty() {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Bot) store(position *chess.Position, depth int, score Score, move chess.Move, bound ttBound, control *searchControl) Score {

@@ -509,3 +509,18 @@ func TestPositionHash(t *testing.T) {
 		}
 	}
 }
+
+func TestNullMoveIsSearchOnlyAndRehashes(t *testing.T) {
+	initial := NewPosition()
+	passed, err := initial.NullMove()
+	if err != nil || passed.Turn() != Black || passed.EnPassant() != NoSquare || passed.HalfmoveClock() != 1 || passed.FullmoveNumber() != 1 {
+		t.Fatalf("null move = %#v, %v", passed, err)
+	}
+	if passed.Hash() != passed.calculateHash() || initial.Turn() != White {
+		t.Fatal("null move did not preserve hash/input invariants")
+	}
+	inCheck, _ := ParseFEN("4k3/8/8/8/8/8/4r3/4K3 w - - 0 1")
+	if _, err := inCheck.NullMove(); err == nil {
+		t.Fatal("null move allowed while in check")
+	}
+}

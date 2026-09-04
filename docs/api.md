@@ -133,6 +133,9 @@ completed iterative scores seed a narrow aspiration window and automatically
 retry with a full window when the score falls outside it.
 At depth three and deeper, late quiet moves use a reduced null-window search
 and are re-searched at full depth only when they raise alpha.
+Non-check positions with non-pawn material also use a validated null move
+search at depth three and deeper; zugzwang-prone pawn-only positions are
+excluded. `SearchStats.NullCutoffs` reports how often this pruning fired.
 
 `OpeningBook` can provide deterministic hash-keyed moves before search. Named
 profiles use `BuiltinOpeningBook`; an absent or illegal entry automatically
