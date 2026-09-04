@@ -211,6 +211,17 @@ invalid value fails before the game starts.
 `chess-go/protocol` defines version-one JSON envelopes and an authoritative
 in-memory `Match`. Every move request includes the match ID, expected sequence,
 and expected Zobrist hash; the match validates the player seat and legal chess
-move before incrementing its sequence. The wire envelope is documented in
-[`protocol.schema.json`](protocol.schema.json) and is transport-independent, so
-HTTP and WebSocket adapters can share the same messages.
+move before incrementing its sequence. Snapshots include the current turn,
+result (`*`, `1-0`, `0-1`, or `1/2-1/2`), draw offer, and spectator count.
+
+`protocol.Server` adds session-aware match creation, joining, reconnecting,
+spectating, resignation, draw offers, deterministic match listing, and strict
+envelope dispatch. A disconnected player's seat remains reserved and is
+restored by `Connect` with the same player ID. Domain failures are returned as
+`error` envelopes with stable codes such as `sequence_conflict`,
+`position_mismatch`, `seat_taken`, and `match_over`; malformed JSON or payloads
+remain ordinary decoding errors.
+
+The wire envelope is documented in [`protocol.schema.json`](protocol.schema.json)
+and is transport-independent, so HTTP and WebSocket adapters can share the same
+messages.

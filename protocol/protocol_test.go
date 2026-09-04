@@ -52,6 +52,12 @@ func TestAuthoritativeMatchSynchronizationAndValidation(t *testing.T) {
 	if err := match.Join("bad", chess.Color(2)); !errors.Is(err, ErrUnauthorized) {
 		t.Fatalf("invalid color error = %v", err)
 	}
+	if err := match.Join("alice", chess.Black); !errors.Is(err, ErrSeatTaken) {
+		t.Fatalf("duplicate player seat error = %v", err)
+	}
+	if err := match.JoinSpectator("alice"); !errors.Is(err, ErrSeatTaken) {
+		t.Fatalf("player spectator error = %v", err)
+	}
 	initial := match.Snapshot()
 	accepted, err := match.ApplyMove(MoveRequest{MatchID: "m1", PlayerID: "alice", Sequence: initial.Sequence, PositionHash: initial.PositionHash, UCI: "e2e4"})
 	if err != nil || accepted.Sequence != 1 || accepted.PositionHash == initial.PositionHash {

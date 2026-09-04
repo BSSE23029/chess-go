@@ -106,6 +106,8 @@ func knownMessageType(messageType MessageType) bool {
 type CreateMatchRequest struct {
 	MatchID    string `json:"match_id"`
 	InitialFEN string `json:"initial_fen,omitempty"`
+	PlayerID   string `json:"player_id,omitempty"`
+	Color      string `json:"color,omitempty"`
 }
 
 // JoinMatchRequest claims a color seat in a match.
@@ -131,15 +133,37 @@ type MoveAccepted struct {
 	PositionHash uint64 `json:"position_hash"`
 	FEN          string `json:"fen"`
 	UCI          string `json:"uci"`
+	Result       string `json:"result"`
+}
+
+// SnapshotRequest requests the latest authoritative state for a match.
+type SnapshotRequest struct {
+	MatchID  string `json:"match_id"`
+	PlayerID string `json:"player_id,omitempty"`
+}
+
+// ResignRequest resigns the requesting player's seat.
+type ResignRequest struct {
+	MatchID  string `json:"match_id"`
+	PlayerID string `json:"player_id"`
+}
+
+// DrawOfferRequest offers a draw or accepts an offer from the opposing player.
+type DrawOfferRequest struct {
+	MatchID  string `json:"match_id"`
+	PlayerID string `json:"player_id"`
 }
 
 // MatchSnapshot is a synchronizable authoritative position snapshot.
 type MatchSnapshot struct {
-	MatchID      string `json:"match_id"`
-	Sequence     uint64 `json:"sequence"`
-	PositionHash uint64 `json:"position_hash"`
-	FEN          string `json:"fen"`
-	Turn         string `json:"turn"`
+	MatchID       string `json:"match_id"`
+	Sequence      uint64 `json:"sequence"`
+	PositionHash  uint64 `json:"position_hash"`
+	FEN           string `json:"fen"`
+	Turn          string `json:"turn"`
+	Result        string `json:"result"`
+	DrawOfferedBy string `json:"draw_offered_by,omitempty"`
+	Spectators    int    `json:"spectators"`
 }
 
 // ProtocolErrorBody describes a stable machine-readable protocol failure.
@@ -157,20 +181,25 @@ var (
 	ErrUnauthorized = errors.New("player is not authorized for this move")
 	// ErrSeatTaken indicates that a requested color is already assigned.
 	ErrSeatTaken = errors.New("match seat is already taken")
+	// ErrMatchOver indicates that a match already has a terminal outcome.
+	ErrMatchOver = errors.New("match is already over")
 )
 
 // Match is an authoritative in-memory chess match.
 type Match struct {
-	mu       sync.RWMutex
-	id       string
-	position chess.Position
-	sequence uint64
-	players  [2]string
+	mu            sync.RWMutex
+	id            string
+	position      chess.Position
+	sequence      uint64
+	players       [2]string
+	spectators    map[string]struct{}
+	result        string
+	drawOfferedBy string
 }
 
 // NewMatch creates a match from position with sequence zero.
 func NewMatch(id string, position chess.Position) *Match {
-	return &Match{id: id, position: position}
+	return &Match{id: id, position: position, spectators: make(map[string]struct{}), result: positionResult(position)}
 }
 
 // Join assigns playerID to color.
@@ -183,7 +212,76 @@ func (m *Match) Join(playerID string, color chess.Color) error {
 	if m.players[color] != "" && m.players[color] != playerID {
 		return ErrSeatTaken
 	}
+	for other, player := range m.players {
+		if player == playerID && chess.Color(other) != color {
+			return ErrSeatTaken
+		}
+	}
 	m.players[color] = playerID
+	delete(m.spectators, playerID)
+	return nil
+}
+
+// JoinSpectator attaches playerID without claiming a playing seat.
+func (m *Match) JoinSpectator(playerID string) error {
+	if playerID == "" {
+		return ErrUnauthorized
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.playerColor(playerID); ok {
+		return ErrSeatTaken
+	}
+	if m.spectators == nil {
+		m.spectators = make(map[string]struct{})
+	}
+	m.spectators[playerID] = struct{}{}
+	return nil
+}
+
+func (m *Match) playerColor(playerID string) (chess.Color, bool) {
+	for color, player := range m.players {
+		if player == playerID {
+			return chess.Color(color), true
+		}
+	}
+	return chess.White, false
+}
+
+// Resign ends the match in favor of the opposing player.
+func (m *Match) Resign(playerID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.result != "" {
+		return ErrMatchOver
+	}
+	color, ok := m.playerColor(playerID)
+	if !ok {
+		return ErrUnauthorized
+	}
+	if color == chess.White {
+		m.result = "0-1"
+	} else {
+		m.result = "1-0"
+	}
+	return nil
+}
+
+// OfferDraw records a draw offer or accepts the existing offer.
+func (m *Match) OfferDraw(playerID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.result != "" {
+		return ErrMatchOver
+	}
+	if _, ok := m.playerColor(playerID); !ok {
+		return ErrUnauthorized
+	}
+	if m.drawOfferedBy != "" && m.drawOfferedBy != playerID {
+		m.result = "1/2-1/2"
+		return nil
+	}
+	m.drawOfferedBy = playerID
 	return nil
 }
 
@@ -195,7 +293,20 @@ func (m *Match) Snapshot() MatchSnapshot {
 	if m.position.Turn() == chess.Black {
 		turn = "black"
 	}
-	return MatchSnapshot{MatchID: m.id, Sequence: m.sequence, PositionHash: m.position.Hash(), FEN: m.position.FEN(), Turn: turn}
+	result := m.result
+	if result == "" {
+		result = "*"
+	}
+	return MatchSnapshot{
+		MatchID:       m.id,
+		Sequence:      m.sequence,
+		PositionHash:  m.position.Hash(),
+		FEN:           m.position.FEN(),
+		Turn:          turn,
+		Result:        result,
+		DrawOfferedBy: m.drawOfferedBy,
+		Spectators:    len(m.spectators),
+	}
 }
 
 // ApplyMove validates synchronization, authorization, and chess legality before committing.
@@ -217,6 +328,9 @@ func (m *Match) ApplyMove(request MoveRequest) (MoveAccepted, error) {
 	if m.players[m.position.Turn()] != "" && m.players[m.position.Turn()] != request.PlayerID {
 		return MoveAccepted{}, ErrUnauthorized
 	}
+	if m.result != "" {
+		return MoveAccepted{}, ErrMatchOver
+	}
 	move, err := chess.ParseUCI(request.UCI)
 	if err != nil {
 		return MoveAccepted{}, err
@@ -226,5 +340,26 @@ func (m *Match) ApplyMove(request MoveRequest) (MoveAccepted, error) {
 		return MoveAccepted{}, err
 	}
 	m.position, m.sequence = next, m.sequence+1
-	return MoveAccepted{MatchID: m.id, Sequence: m.sequence, PositionHash: next.Hash(), FEN: next.FEN(), UCI: move.UCI()}, nil
+	m.drawOfferedBy = ""
+	if actual := positionResult(next); actual != "" {
+		m.result = actual
+	}
+	result := m.result
+	if result == "" {
+		result = "*"
+	}
+	return MoveAccepted{MatchID: m.id, Sequence: m.sequence, PositionHash: next.Hash(), FEN: next.FEN(), UCI: move.UCI(), Result: result}, nil
+}
+
+func positionResult(position chess.Position) string {
+	if len(position.LegalMoves()) != 0 {
+		return ""
+	}
+	if position.InCheck() {
+		if position.Turn() == chess.White {
+			return "0-1"
+		}
+		return "1-0"
+	}
+	return "1/2-1/2"
 }

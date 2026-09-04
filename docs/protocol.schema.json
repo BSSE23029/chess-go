@@ -15,5 +15,58 @@
     },
     "request_id": {"type": "string"},
     "payload": {"type": "object"}
+  },
+  "$defs": {
+    "create_match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_id"],
+      "properties": {
+        "match_id": {"type": "string", "minLength": 1},
+        "initial_fen": {"type": "string"},
+        "player_id": {"type": "string"},
+        "color": {"enum": ["white", "black", "spectator"]}
+      }
+    },
+    "join_match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_id", "player_id", "color"],
+      "properties": {
+        "match_id": {"type": "string", "minLength": 1},
+        "player_id": {"type": "string", "minLength": 1},
+        "color": {"enum": ["white", "black", "spectator"]}
+      }
+    },
+    "move": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_id", "player_id", "sequence", "position_hash", "uci"],
+      "properties": {
+        "match_id": {"type": "string", "minLength": 1},
+        "player_id": {"type": "string", "minLength": 1},
+        "sequence": {"type": "integer", "minimum": 0},
+        "position_hash": {"type": "integer", "minimum": 0},
+        "uci": {"type": "string", "minLength": 4}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_id"],
+      "properties": {
+        "match_id": {"type": "string", "minLength": 1},
+        "player_id": {"type": "string"}
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_id", "player_id"],
+      "properties": {
+        "match_id": {"type": "string", "minLength": 1},
+        "player_id": {"type": "string", "minLength": 1}
+      }
+    }
   }
 }
