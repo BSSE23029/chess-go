@@ -35,6 +35,22 @@ type SearchStats struct {
 type searchControl struct {
 	nodes uint64
 	limit uint64
+	table map[uint64]ttEntry
+}
+
+type ttBound uint8
+
+const (
+	ttExact ttBound = iota
+	ttLower
+	ttUpper
+)
+
+type ttEntry struct {
+	depth int
+	score Score
+	move  chess.Move
+	bound ttBound
 }
 
 func (c *searchControl) visit(ctx context.Context) error {
@@ -80,7 +96,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		searchCtx, cancel = context.WithTimeout(ctx, limits.Time)
 		defer cancel()
 	}
-	control := &searchControl{limit: limits.MaxNodes}
+	control := &searchControl{limit: limits.MaxNodes, table: make(map[uint64]ttEntry)}
 	evaluator := b.Evaluator
 	if evaluator == nil {
 		evaluator = MaterialEvaluator{}
@@ -138,6 +154,23 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 	if err := control.visit(ctx); err != nil {
 		return 0, err
 	}
+	originalAlpha := alpha
+	var cached ttEntry
+	if depth > 0 && control.table != nil {
+		if entry, ok := control.table[position.Hash()]; ok {
+			cached = entry
+			if entry.depth >= depth {
+				switch {
+				case entry.bound == ttExact:
+					return entry.score, nil
+				case entry.bound == ttLower && entry.score >= beta:
+					return entry.score, nil
+				case entry.bound == ttUpper && entry.score <= alpha:
+					return entry.score, nil
+				}
+			}
+		}
+	}
 	moves := orderedMoves(position)
 	if len(moves) == 0 {
 		if position.InCheck() {
@@ -148,7 +181,11 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 	if depth == 0 {
 		return b.quiescence(ctx, evaluator, position, ply, alpha, beta, control)
 	}
+	if cached.move != (chess.Move{}) {
+		moves = prioritizeMove(moves, cached.move)
+	}
 	best := -infinity
+	bestMove := moves[0]
 	for _, move := range moves {
 		undo := position.MakeLegalMove(move)
 		score, err := b.search(ctx, evaluator, position, depth-1, ply+1, -beta, -alpha, control)
@@ -159,6 +196,7 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 		score = -score
 		if score > best {
 			best = score
+			bestMove = move
 		}
 		if score > alpha {
 			alpha = score
@@ -167,7 +205,30 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 			break
 		}
 	}
-	return best, nil
+	bound := ttExact
+	if best <= originalAlpha {
+		bound = ttUpper
+	} else if best >= beta {
+		bound = ttLower
+	}
+	return b.store(position, depth, best, bestMove, bound, control), nil
+}
+
+func (b *Bot) store(position *chess.Position, depth int, score Score, move chess.Move, bound ttBound, control *searchControl) Score {
+	if control.table != nil {
+		control.table[position.Hash()] = ttEntry{depth: depth, score: score, move: move, bound: bound}
+	}
+	return score
+}
+
+func prioritizeMove(moves []chess.Move, preferred chess.Move) []chess.Move {
+	for index, move := range moves {
+		if move == preferred {
+			moves[0], moves[index] = moves[index], moves[0]
+			break
+		}
+	}
+	return moves
 }
 
 func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *chess.Position, ply int, alpha, beta Score, control *searchControl) (Score, error) {

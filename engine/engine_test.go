@@ -108,6 +108,25 @@ func TestSearchTimeAndContextLimits(t *testing.T) {
 	}
 }
 
+func TestTranspositionTableCachesCompletedSearch(t *testing.T) {
+	position := chess.NewPosition()
+	bot := New(3)
+	control := &searchControl{table: make(map[uint64]ttEntry)}
+	score, err := bot.search(context.Background(), MaterialEvaluator{}, &position, 3, 1, -infinity, infinity, control)
+	if err != nil || len(control.table) == 0 {
+		t.Fatalf("search table = %d entries, score %d, error %v", len(control.table), score, err)
+	}
+	firstNodes := control.nodes
+	control.nodes = 0
+	cached, err := bot.search(context.Background(), MaterialEvaluator{}, &position, 2, 1, -infinity, infinity, control)
+	if err != nil || cached != score || control.nodes != 1 || firstNodes <= control.nodes {
+		t.Fatalf("cached search = score %d nodes %d, first score %d nodes %d, error %v", cached, control.nodes, score, firstNodes, err)
+	}
+	if position.Hash() != chess.NewPosition().Hash() {
+		t.Fatal("transposition search mutated its input")
+	}
+}
+
 func TestStrengthProfiles(t *testing.T) {
 	want := []struct {
 		name  string
