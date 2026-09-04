@@ -205,3 +205,12 @@ The normal `go test ./...` gate compiles this example with the public API.
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Select
 one with `--theme ascii|unicode` or the `CHESS_THEME` environment variable; an
 invalid value fails before the game starts.
+
+## Network protocol foundation
+
+`chess-go/protocol` defines version-one JSON envelopes and an authoritative
+in-memory `Match`. Every move request includes the match ID, expected sequence,
+and expected Zobrist hash; the match validates the player seat and legal chess
+move before incrementing its sequence. The wire envelope is documented in
+[`protocol.schema.json`](protocol.schema.json) and is transport-independent, so
+HTTP and WebSocket adapters can share the same messages.

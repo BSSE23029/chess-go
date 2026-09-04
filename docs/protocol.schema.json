@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chess-go.example/schema/protocol-v1.json",
+  "title": "chess-go protocol v1 envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "type", "payload"],
+  "properties": {
+    "version": {"const": 1},
+    "type": {
+      "enum": [
+        "match.create", "match.join", "match.snapshot", "match.move",
+        "match.move.accepted", "match.resign", "match.draw.offer", "error"
+      ]
+    },
+    "request_id": {"type": "string"},
+    "payload": {"type": "object"}
+  }
+}
