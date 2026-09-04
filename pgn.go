@@ -18,6 +18,39 @@ func (g *Game) Tags() []PGNTag {
 	return append([]PGNTag(nil), g.tags...)
 }
 
+// SetTag adds or updates a PGN metadata tag while preserving source order.
+func (g *Game) SetTag(name, value string) error {
+	if name == "" {
+		return fmt.Errorf("PGN tag name is required")
+	}
+	for _, char := range name {
+		if !isPGNSymbolChar(char) {
+			return fmt.Errorf("invalid PGN tag %q", name)
+		}
+	}
+	for index := range g.tags {
+		if g.tags[index].Name == name {
+			g.tags[index].Value = value
+			return nil
+		}
+	}
+	g.tags = append(g.tags, PGNTag{Name: name, Value: value})
+	return nil
+}
+
+// SetResult declares a PGN result for an unfinished game.
+func (g *Game) SetResult(result string) error {
+	if !isResult(result) {
+		return fmt.Errorf("invalid PGN result %q", result)
+	}
+	if result == "*" {
+		g.result = ""
+		return nil
+	}
+	g.result = result
+	return nil
+}
+
 // PGN serializes the played main line and retained metadata.
 func (g *Game) PGN() string {
 	result := g.Result()

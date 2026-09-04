@@ -248,3 +248,19 @@ line-mode client; use `refresh` to pull an opponent's latest authoritative
 snapshot. `CHESS_NETWORK_URL`, `CHESS_NETWORK_ADDR`, `CHESS_NETWORK_TOKEN`,
 `CHESS_TLS_CERT`, `CHESS_TLS_KEY`, `CHESS_MATCH_STORE`, `CHESS_MATCH_ID`, and
 `CHESS_PLAYER_ID` provide the corresponding defaults.
+
+## Calibration tournaments
+
+`chess-go/tournament` runs deterministic round-robin games between named
+profiles, alternates colors, exports each game as portable PGN, and reports
+Elo-style estimates with approximate 95% confidence intervals. The command
+records engine version, node-budget metadata, time-control metadata, hardware
+class, seed, and game count:
+
+```console
+go run ./cmd/tournament --profiles Learner,Club,Expert --games 20 \
+  --plies 300 --seed 42 --pgn games.pgn --json report.json
+```
+
+Node budgets are applied to the underlying iterative search when provided;
+otherwise each profile uses its configured deterministic depth.

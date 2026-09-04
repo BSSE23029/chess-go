@@ -418,6 +418,25 @@ func TestPGNRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPGNTagAndResultMutation(t *testing.T) {
+	game := NewGame()
+	if err := game.SetTag("Engine", "profile-a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := game.SetTag("Engine", "profile-b"); err != nil || len(game.Tags()) != 1 || game.Tags()[0].Value != "profile-b" {
+		t.Fatalf("updated tag = %#v, %v", game.Tags(), err)
+	}
+	if err := game.SetTag("bad tag", "value"); err == nil {
+		t.Fatal("invalid tag accepted")
+	}
+	if err := game.SetResult("1/2-1/2"); err != nil || game.Result() != "1/2-1/2" {
+		t.Fatalf("declared result = %q, %v", game.Result(), err)
+	}
+	if err := game.SetResult("*"); err != nil || game.Result() != "*" {
+		t.Fatalf("cleared result = %q, %v", game.Result(), err)
+	}
+}
+
 func TestPGNCustomPositionAndValidation(t *testing.T) {
 	const input = `[SetUp "1"]
 [FEN "7k/7p/8/8/8/8/P7/K7 b - - 0 1"]
