@@ -40,9 +40,18 @@ func main() {
 	}
 }
 
+var version = "dev"
+
 func run(ctx context.Context, args []string, input io.Reader, output io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: chess play local|bot|remote [options] | chess host|join|connect|spectate|list|discover ... | chess load FILE")
+		return errors.New("usage: chess version | chess play local|bot|remote [options] | chess host|join|connect|spectate|list|discover ... | chess load FILE")
+	}
+	if args[0] == "version" {
+		if len(args) != 1 {
+			return errors.New("usage: chess version")
+		}
+		fmt.Fprintln(output, "chess-go", version)
+		return nil
 	}
 	s := session{
 		game:      chess.NewGame(),

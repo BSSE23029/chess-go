@@ -343,6 +343,16 @@ func TestHostTLSFlagsRequireCertificatePair(t *testing.T) {
 	}
 }
 
+func TestVersionCommand(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"version"}, strings.NewReader(""), &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(output.String()) != "chess-go dev" {
+		t.Fatalf("version output = %q", output.String())
+	}
+}
+
 func clearChessEnv(t *testing.T) {
 	t.Helper()
 	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
