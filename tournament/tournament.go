@@ -48,9 +48,38 @@ type Report struct {
 	Confidence95  map[string][2]float64 `json:"confidence95"`
 }
 
+// PlayerSpec names a tournament participant and constructs a fresh player for
+// each game. It can represent a built-in profile or an external UCI engine.
+type PlayerSpec struct {
+	Name string
+	New  func() chess.Player
+}
+
 // Run executes every profile pair with colors alternated between games.
 func Run(ctx context.Context, config Config) (Report, error) {
+	if ctx == nil {
+		return Report{}, errors.New("nil tournament context")
+	}
 	if err := validateConfig(config); err != nil {
+		return Report{}, err
+	}
+	players := make([]PlayerSpec, 0, len(config.Profiles))
+	for _, profile := range config.Profiles {
+		profile := profile
+		players = append(players, PlayerSpec{Name: profile.String(), New: func() chess.Player {
+			return engine.NewProfile(profile)
+		}})
+	}
+	return RunPlayers(ctx, config, players)
+}
+
+// RunPlayers executes a deterministic round-robin tournament for arbitrary
+// chess.Player implementations, including UCI engines.
+func RunPlayers(ctx context.Context, config Config, players []PlayerSpec) (Report, error) {
+	if ctx == nil {
+		return Report{}, errors.New("nil tournament context")
+	}
+	if err := validatePlayers(config, players); err != nil {
 		return Report{}, err
 	}
 	report := Report{
@@ -58,24 +87,24 @@ func Run(ctx context.Context, config Config) (Report, error) {
 		TimeControl:   config.TimeControl,
 		NodeBudget:    config.NodeBudget,
 		HardwareClass: config.HardwareClass,
-		Ratings:       make(map[string]float64, len(config.Profiles)),
-		Confidence95:  make(map[string][2]float64, len(config.Profiles)),
+		Ratings:       make(map[string]float64, len(players)),
+		Confidence95:  make(map[string][2]float64, len(players)),
 	}
-	for _, profile := range config.Profiles {
-		report.Ratings[profile.String()] = 1500
+	for _, player := range players {
+		report.Ratings[player.Name] = 1500
 	}
 	gameNumber := 0
-	for first := 0; first < len(config.Profiles); first++ {
-		for second := first + 1; second < len(config.Profiles); second++ {
+	for first := 0; first < len(players); first++ {
+		for second := first + 1; second < len(players); second++ {
 			for gameIndex := 0; gameIndex < config.GamesPerPair; gameIndex++ {
 				if err := ctx.Err(); err != nil {
 					return Report{}, err
 				}
-				whiteProfile, blackProfile := config.Profiles[first], config.Profiles[second]
+				whitePlayer, blackPlayer := players[first], players[second]
 				if gameIndex%2 == 1 {
-					whiteProfile, blackProfile = blackProfile, whiteProfile
+					whitePlayer, blackPlayer = blackPlayer, whitePlayer
 				}
-				record, err := playGame(ctx, gameNumber+1, whiteProfile, blackProfile, config)
+				record, err := playGame(ctx, gameNumber+1, whitePlayer, blackPlayer, config)
 				if err != nil {
 					return Report{}, err
 				}
@@ -86,8 +115,8 @@ func Run(ctx context.Context, config Config) (Report, error) {
 		}
 	}
 	report.Games = len(report.Records)
-	for _, profile := range config.Profiles {
-		name := profile.String()
+	for _, player := range players {
+		name := player.Name
 		games := 0
 		for _, record := range report.Records {
 			if record.White == name || record.Black == name {
@@ -118,8 +147,8 @@ func (r Report) JSON() ([]byte, error) {
 }
 
 func validateConfig(config Config) error {
-	if len(config.Profiles) < 2 {
-		return errors.New("tournament requires at least two profiles")
+	if err := validateCommon(config); err != nil {
+		return err
 	}
 	if config.GamesPerPair < 1 || config.MaxPlies < 1 {
 		return errors.New("tournament games and max plies must be positive")
@@ -134,12 +163,46 @@ func validateConfig(config Config) error {
 	return nil
 }
 
-func playGame(ctx context.Context, number int, whiteProfile, blackProfile engine.StrengthProfile, config Config) (GameRecord, error) {
+func validateCommon(config Config) error {
+	if len(config.Profiles) < 2 {
+		return errors.New("tournament requires at least two profiles")
+	}
+	return nil
+}
+
+func validatePlayers(config Config, players []PlayerSpec) error {
+	if len(players) < 2 {
+		return errors.New("tournament requires at least two players")
+	}
+	if config.GamesPerPair < 1 || config.MaxPlies < 1 {
+		return errors.New("tournament games and max plies must be positive")
+	}
+	seen := make(map[string]struct{}, len(players))
+	for _, player := range players {
+		if strings.TrimSpace(player.Name) == "" || player.New == nil {
+			return errors.New("tournament players require names and constructors")
+		}
+		if _, exists := seen[player.Name]; exists {
+			return fmt.Errorf("duplicate tournament player %s", player.Name)
+		}
+		seen[player.Name] = struct{}{}
+	}
+	return nil
+}
+
+func playGame(ctx context.Context, number int, whitePlayer, blackPlayer PlayerSpec, config Config) (GameRecord, error) {
 	game := chess.NewGame()
-	white := engine.NewProfile(whiteProfile)
-	black := engine.NewProfile(blackProfile)
-	white.Seed = config.Seed + uint64(number)*0x9e3779b97f4a7c15
-	black.Seed = config.Seed + uint64(number)*0x243f6a8885a308d3
+	white := whitePlayer.New()
+	black := blackPlayer.New()
+	if white == nil || black == nil {
+		return GameRecord{}, errors.New("tournament player constructor returned nil")
+	}
+	if bot, ok := white.(*engine.Bot); ok {
+		bot.Seed = config.Seed + uint64(number)*0x9e3779b97f4a7c15
+	}
+	if bot, ok := black.(*engine.Bot); ok {
+		bot.Seed = config.Seed + uint64(number)*0x243f6a8885a308d3
+	}
 	for ply := 0; ply < config.MaxPlies && game.Status() == chess.Ongoing; ply++ {
 		player := white
 		if game.Position().Turn() == chess.Black {
@@ -158,7 +221,7 @@ func playGame(ctx context.Context, number int, whiteProfile, blackProfile engine
 			return GameRecord{}, err
 		}
 	}
-	whiteName, blackName := whiteProfile.String(), blackProfile.String()
+	whiteName, blackName := whitePlayer.Name, blackPlayer.Name
 	for _, tag := range []chess.PGNTag{
 		{Name: "Event", Value: "chess-go tournament"},
 		{Name: "Round", Value: fmt.Sprint(number)},
@@ -177,12 +240,12 @@ func playGame(ctx context.Context, number int, whiteProfile, blackProfile engine
 	return GameRecord{Number: number, White: whiteName, Black: blackName, Result: game.Result(), Plies: len(game.Moves()), PGN: game.PGN()}, nil
 }
 
-func chooseMove(ctx context.Context, player *engine.Bot, position chess.Position, nodeBudget uint64) (chess.Move, error) {
-	if nodeBudget == 0 {
-		return player.ChooseMove(ctx, position)
+func chooseMove(ctx context.Context, player chess.Player, position chess.Position, nodeBudget uint64) (chess.Move, error) {
+	if bot, ok := player.(*engine.Bot); ok && nodeBudget != 0 {
+		move, _, err := bot.Search(ctx, position, engine.SearchLimits{MaxDepth: bot.Depth, MaxNodes: nodeBudget})
+		return move, err
 	}
-	move, _, err := player.Search(ctx, position, engine.SearchLimits{MaxDepth: player.Depth, MaxNodes: nodeBudget})
-	return move, err
+	return player.ChooseMove(ctx, position)
 }
 
 func updateRatings(ratings map[string]float64, record GameRecord) {

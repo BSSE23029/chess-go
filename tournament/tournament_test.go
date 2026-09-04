@@ -50,3 +50,27 @@ func TestTournamentRejectsInvalidConfigAndCancellation(t *testing.T) {
 		t.Fatal("cancelled tournament completed")
 	}
 }
+
+type firstMovePlayer struct{}
+
+func (firstMovePlayer) ChooseMove(_ context.Context, position chess.Position) (chess.Move, error) {
+	moves := position.LegalMoves()
+	if len(moves) == 0 {
+		return chess.Move{}, engine.ErrNoLegalMoves
+	}
+	return moves[0], nil
+}
+
+func TestRunPlayersAcceptsExternalPlayer(t *testing.T) {
+	players := []PlayerSpec{
+		{Name: "local", New: func() chess.Player { return firstMovePlayer{} }},
+		{Name: "external", New: func() chess.Player { return firstMovePlayer{} }},
+	}
+	report, err := RunPlayers(context.Background(), Config{GamesPerPair: 1, MaxPlies: 2}, players)
+	if err != nil || report.Games != 1 || len(report.Records) != 1 {
+		t.Fatalf("external-player tournament = %#v, %v", report, err)
+	}
+	if report.Records[0].White != "local" || report.Records[0].Black != "external" {
+		t.Fatalf("external-player names = %#v", report.Records[0])
+	}
+}

@@ -141,6 +141,24 @@ excluded. `SearchStats.NullCutoffs` reports how often this pruning fired.
 profiles use `BuiltinOpeningBook`; an absent or illegal entry automatically
 falls back to iterative search.
 
+For comparison engines, `engine.UCIEngine` implements the same `chess.Player`
+interface and validates every external `bestmove` locally:
+
+```go
+command := os.Getenv("CHESS_UCI_ENGINE") // e.g. a locally installed Stockfish
+comparison, err := engine.NewUCIEngine(command)
+if err != nil {
+    log.Fatal(err)
+}
+comparison.Depth = 12
+move, err := comparison.ChooseMove(context.Background(), chess.NewPosition())
+```
+
+The adapter speaks the standard `uci`, `isready`, `position fen`, and `go depth`
+commands, then exits the process after receiving `bestmove`. The executable is
+never bundled or selected by this module; configure its path in the environment
+or deployment that performs a comparison.
+
 For callers that own time controls, `Bot.Search` performs iterative deepening
 with explicit node and wall-clock limits and returns statistics for the deepest
 completed iteration:
@@ -277,6 +295,11 @@ class, seed, and game count:
 ```console
 go run ./cmd/tournament --profiles Learner,Club,Expert --games 20 \
   --plies 300 --seed 42 --pgn games.pgn --json report.json
+
+# Add a locally installed UCI engine (for example Stockfish) to the same
+# round-robin without embedding its path in the project:
+CHESS_UCI_ENGINE=/usr/local/bin/stockfish go run ./cmd/tournament \
+  --profiles Club,Expert --uci-name Stockfish --uci-depth 12 --games 10
 ```
 
 Node budgets are applied to the underlying iterative search when provided;
