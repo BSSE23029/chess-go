@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"chess-go"
+	"golang.org/x/term"
 )
 
 const (
@@ -20,252 +23,231 @@ const (
 	tuiBlackPiece  = "\x1b[38;5;16m"
 )
 
-func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped bool, clocks string, boardTheme theme) {
-	position := game.Position()
-	files, ranks := boardOrientation(flipped)
-	legal := legalDestinations(position, ui.selected)
-	last := lastMoveSquares(game)
-	checkSquare := checkedKing(position)
-
-	// Full-screen redraw keeps the board stable and prevents scrollback from becoming a second UI.
-	fmt.Fprint(output, "\x1b[H\x1b[2J")
-	fmt.Fprintf(output, "%s%s  CHESS-GO%s  %s%s\n", tuiTitle, tuiBold, tuiReset, tuiDim, tuiReset)
-	fmt.Fprintf(output, "%s  LOCAL MATCH  ·  %s theme  ·  %d move%s%s\n\n", tuiDim, strings.ToUpper(boardTheme.label()), len(game.Moves()), plural(len(game.Moves())), tuiReset)
-
-	board := boardLines(position, files, ranks, ui, legal, last, checkSquare, boardTheme)
-	rail := sidebarLines(game, position, ui, clocks, boardTheme)
-	for index, line := range board {
-		fmt.Fprintf(output, "  %-38s  %s\n", line, rail[index])
-	}
-	fmt.Fprintf(output, "    %s%s\n", coordinateLine(files), tuiReset)
-	fmt.Fprintf(output, "    %s%sLEGEND%s  reverse cursor · cyan selected · green legal · yellow last move · red check\n", tuiAccent, tuiBold, tuiReset)
-
-	fmt.Fprintf(output, "\n%s%s  RECENT MOVES%s\n", tuiAccent, tuiBold, tuiReset)
-	for _, line := range recentMoveLines(game) {
-		fmt.Fprintf(output, "  %s\n", line)
-	}
-	if ui.showHelp {
-		fmt.Fprintf(output, "\n%s%s  KEYBOARD GUIDE%s\n", tuiAccent, tuiBold, tuiReset)
-		fmt.Fprintln(output, "  arrows / h j k l  move cursor     enter / space  select or play")
-		fmt.Fprintln(output, "  esc  clear selection               u / r  undo or redo")
-		fmt.Fprintln(output, "  n  new game    :  command line     q / ctrl-c  quit")
-	} else {
-		fmt.Fprintf(output, "\n%s  arrows/hjkl move · Enter select · u/r undo/redo · n new · : command · ? guide · q quit%s\n", tuiDim, tuiReset)
-	}
-	if ui.message != "" {
-		fmt.Fprintf(output, "%s%s  %s%s\n", tuiBold, tuiAccent, ui.message, tuiReset)
-	}
+type tuiCache struct {
+	valid        bool
+	game         *chess.Game
+	positionHash uint64
+	theme        string
+	moveCount    int
+	moves        []chess.Move
+	legalMoves   []chess.Move
+	san          []string
+	result       string
+	inCheck      bool
+	checkSquare  chess.Square
+	captured     string
 }
 
-func boardOrientation(flipped bool) ([]int, []int) {
-	files := []int{0, 1, 2, 3, 4, 5, 6, 7}
-	ranks := []int{7, 6, 5, 4, 3, 2, 1, 0}
-	if flipped {
-		files = []int{7, 6, 5, 4, 3, 2, 1, 0}
-		ranks = []int{0, 1, 2, 3, 4, 5, 6, 7}
-	}
-	return files, ranks
+type tuiRenderState struct {
+	valid        bool
+	game         *chess.Game
+	positionHash uint64
+	moveCount    int
+	cursor       chess.Square
+	selected     chess.Square
+	flipped      bool
+	message      string
+	whiteName    string
+	blackName    string
+	mode         string
+	showHelp     bool
+	thinking     bool
+	botDetail    string
+	promotion    chess.PieceType
+	theme        string
+	clocks       string
+	width        int
+	compact      bool
 }
 
-func legalDestinations(position chess.Position, selected chess.Square) map[chess.Square]bool {
-	legal := make(map[chess.Square]bool)
-	if selected == chess.NoSquare {
-		return legal
-	}
-	for _, move := range position.LegalMoves() {
-		if move.From == selected {
-			legal[move.To] = true
-		}
-	}
-	return legal
+func (ui *boardUI) invalidate() {
+	ui.cache.valid = false
 }
 
-func lastMoveSquares(game *chess.Game) map[chess.Square]bool {
-	last := make(map[chess.Square]bool)
+func (ui *boardUI) model(game *chess.Game, position chess.Position, boardTheme theme) *tuiCache {
+	hash := position.Hash()
+	moveCount := game.MoveCount()
+	if ui.cache.valid && ui.cache.game == game && ui.cache.positionHash == hash && ui.cache.moveCount == moveCount && ui.cache.theme == boardTheme.label() {
+		return &ui.cache
+	}
 	moves := game.Moves()
-	if len(moves) > 0 {
-		last[moves[len(moves)-1].From], last[moves[len(moves)-1].To] = true, true
+	inCheck := position.InCheck()
+	checkSquare := chess.NoSquare
+	if inCheck {
+		checkSquare = checkedKingSquare(position)
 	}
-	return last
+	ui.cache = tuiCache{
+		valid:        true,
+		game:         game,
+		positionHash: hash,
+		theme:        boardTheme.label(),
+		moveCount:    moveCount,
+		moves:        moves,
+		legalMoves:   position.LegalMoves(),
+		san:          sanMoveList(moves),
+		result:       game.Result(),
+		inCheck:      inCheck,
+		checkSquare:  checkSquare,
+		captured:     capturedSummaryWithTheme(game, boardTheme),
+	}
+	return &ui.cache
 }
 
-func checkedKing(position chess.Position) chess.Square {
-	if !position.InCheck() {
-		return chess.NoSquare
+func renderInteractive(output io.Writer, game *chess.Game, ui *boardUI, flipped bool, clocks string, boardTheme theme) {
+	if ui == nil {
+		return
 	}
-	for square := chess.Square(0); square < 64; square++ {
-		piece := position.PieceAt(square)
-		if piece.Type == chess.King && piece.Color == position.Turn() {
-			return square
+	position := game.Position()
+	model := ui.model(game, position, boardTheme)
+	width, _ := terminalSize(output)
+	compact := width < 78
+	state := tuiRenderState{
+		valid:        true,
+		game:         game,
+		positionHash: model.positionHash,
+		moveCount:    model.moveCount,
+		cursor:       ui.cursor,
+		selected:     ui.selected,
+		flipped:      flipped,
+		message:      ui.message,
+		whiteName:    ui.whiteName,
+		blackName:    ui.blackName,
+		mode:         ui.mode,
+		showHelp:     ui.showHelp,
+		thinking:     ui.thinking,
+		botDetail:    ui.botDetail,
+		promotion:    promotionType(ui),
+		theme:        boardTheme.label(),
+		clocks:       clocks,
+		width:        width,
+		compact:      compact,
+	}
+	if ui.rendered.valid && state.sameStatic(ui.rendered) {
+		if state.clocks != ui.rendered.clocks && !state.compact {
+			renderClockOnly(output, clocks)
+			ui.rendered = state
+		}
+		return
+	}
+	renderFullInteractive(output, game, ui, model, flipped, clocks, boardTheme, compact)
+	ui.rendered = state
+}
+
+func (s tuiRenderState) sameStatic(other tuiRenderState) bool {
+	return s.game == other.game && s.positionHash == other.positionHash && s.moveCount == other.moveCount && s.cursor == other.cursor && s.selected == other.selected && s.flipped == other.flipped && s.message == other.message && s.whiteName == other.whiteName && s.blackName == other.blackName && s.mode == other.mode && s.showHelp == other.showHelp && s.thinking == other.thinking && s.botDetail == other.botDetail && s.promotion == other.promotion && s.theme == other.theme && s.width == other.width && s.compact == other.compact
+}
+
+func renderClockOnly(output io.Writer, clocks string) {
+	var frame strings.Builder
+	// The clock rail is line 10, column 50 in the fixed board layout.
+	fmt.Fprintf(&frame, "\x1b[s\x1b[10;50H\x1b[K  %s\x1b[u", clocks)
+	writeFrame(output, frame.String())
+}
+
+func writeFrame(output io.Writer, frame string) {
+	if _, terminal := output.(*os.File); terminal {
+		if _, noColor := os.LookupEnv("NO_COLOR"); noColor {
+			frame = stripSGR(frame)
 		}
 	}
-	return chess.NoSquare
+	writer := bufio.NewWriter(output)
+	_, _ = writer.WriteString(frame)
+	_ = writer.Flush()
 }
 
-func boardLines(position chess.Position, files, ranks []int, ui boardUI, legal, last map[chess.Square]bool, checkSquare chess.Square, boardTheme theme) []string {
-	lines := []string{"    ┌" + strings.Repeat("────┬", 7) + "────┐"}
-	for _, rank := range ranks {
-		var row strings.Builder
-		fmt.Fprintf(&row, "%d │", rank+1)
-		for index, file := range files {
-			square := chess.Square(rank*8 + file)
-			row.WriteString(boardCell(position.PieceAt(square), square, file+rank, ui, legal, last, checkSquare, boardTheme))
-			if index < 7 {
-				row.WriteRune('│')
+func stripSGR(value string) string {
+	var clean strings.Builder
+	for index := 0; index < len(value); {
+		if value[index] == 0x1b && index+1 < len(value) && value[index+1] == '[' {
+			end := strings.IndexByte(value[index+2:], 'm')
+			if end >= 0 {
+				index += end + 3
+				continue
 			}
 		}
-		row.WriteString("│")
-		lines = append(lines, row.String())
+		clean.WriteByte(value[index])
+		index++
 	}
-	lines = append(lines, "    └"+strings.Repeat("────┴", 7)+"────┘")
-	return lines
+	return clean.String()
 }
 
-func boardCell(piece chess.Piece, square chess.Square, index int, ui boardUI, legal, last map[chess.Square]bool, checkSquare chess.Square, boardTheme theme) string {
-	background := tuiDarkSquare
-	if index%2 == 0 {
-		background = tuiLightSquare
-	}
-	state := ""
-	switch {
-	case square == ui.cursor:
-		state = "\x1b[7m"
-	case square == checkSquare:
-		state = "\x1b[41m"
-	case square == ui.selected:
-		state = "\x1b[46m"
-	case legal[square]:
-		state = "\x1b[42m"
-	case last[square]:
-		state = "\x1b[43m"
-	}
-	foreground := tuiBlackPiece
-	if !piece.IsEmpty() && piece.Color == chess.White {
-		foreground = tuiWhitePiece
-	}
-	return fmt.Sprintf("%s%s%s %c  %s", background, state, foreground, boardTheme.glyph(piece), tuiReset)
-}
-
-func coordinateLine(files []int) string {
-	var line strings.Builder
-	line.WriteString("  ")
-	for _, file := range files {
-		fmt.Fprintf(&line, "%c  ", 'a'+file)
-	}
-	return line.String()
-}
-
-func sidebarLines(game *chess.Game, position chess.Position, ui boardUI, clocks string, boardTheme theme) []string {
-	white, black := ui.whiteName, ui.blackName
-	if white == "" {
-		white = "White"
-	}
-	if black == "" {
-		black = "Black"
-	}
-	white = tuiText(white, 20)
-	black = tuiText(black, 20)
-	turn := colorName(position.Turn()) + " to move"
-	status := "Ready"
-	if ui.thinking {
-		status = "Bot is thinking…"
-	} else if position.InCheck() {
-		status = "Check — respond now"
-	} else if game.Result() != "*" {
-		status = "Game over: " + game.Result()
-	} else if ui.message != "" {
-		status = ui.message
-	}
-	status = tuiText(status, 34)
-	captured := capturedSummaryWithTheme(game, boardTheme)
-	return []string{
-		fmt.Sprintf("%s%sMATCH%s", tuiAccent, tuiBold, tuiReset),
-		fmt.Sprintf("  %s %s", playerMarker(position.Turn() == chess.White), white),
-		fmt.Sprintf("  %s %s", playerMarker(position.Turn() == chess.Black), black),
-		fmt.Sprintf("%s%sSTATUS%s", tuiAccent, tuiBold, tuiReset),
-		"  " + status,
-		"  " + turn,
-		"  " + firstSet(clocks, "Clock off"),
-		fmt.Sprintf("%s%sCAPTURED%s", tuiAccent, tuiBold, tuiReset),
-		"  " + captured,
-		"",
-	}
-}
-
-func playerMarker(active bool) string {
-	if active {
-		return tuiAccent + "●" + tuiReset
-	}
-	return tuiDim + "○" + tuiReset
-}
-
-func recentMoveLines(game *chess.Game) []string {
-	moves := game.Moves()
-	if len(moves) == 0 {
-		return []string{tuiDim + "  — no moves yet —" + tuiReset}
-	}
-	notation := sanMoveList(moves)
-	start := len(moves) - 8
-	if start < 0 {
-		start = 0
-	}
-	if start%2 != 0 {
-		start--
-	}
-	lines := make([]string, 0, 5)
-	if start > 0 {
-		lines = append(lines, tuiDim+"  … older moves hidden …"+tuiReset)
-	}
-	for index := start; index < len(moves); index += 2 {
-		white := moveLabel(moves[index], notation, index)
-		black := ""
-		if index+1 < len(moves) {
-			black = moveLabel(moves[index+1], notation, index+1)
-		}
-		lines = append(lines, fmt.Sprintf("  %2d. %-7s %s", index/2+1, white, black))
-	}
-	return lines
-}
-
-func sanMoveList(moves []chess.Move) []string {
-	replay := chess.NewGame()
-	notation := make([]string, len(moves))
-	for index, move := range moves {
-		san, err := replay.Position().SAN(move)
-		if err != nil || replay.Play(move) != nil {
-			return nil
-		}
-		notation[index] = san
-	}
-	return notation
-}
-
-func moveLabel(move chess.Move, notation []string, index int) string {
-	uci := move.UCI()
-	if index >= len(notation) || notation[index] == "" || notation[index] == uci {
-		return uci
-	}
-	return notation[index] + " " + tuiDim + "(" + uci + ")" + tuiReset
-}
-
-func plural(value int) string {
-	if value == 1 {
+func boardPadding(line string) string {
+	if strings.HasPrefix(line, "    ") {
 		return ""
 	}
-	return "s"
+	return "  "
 }
 
-func tuiText(value string, limit int) string {
-	var clean strings.Builder
-	for _, character := range strings.TrimSpace(value) {
-		if character < 32 || character == 127 {
-			continue
+func terminalSize(output io.Writer) (int, int) {
+	file, ok := output.(*os.File)
+	if !ok {
+		return 100, 40
+	}
+	width, height, err := term.GetSize(int(file.Fd()))
+	if err != nil || width < 1 || height < 1 {
+		return 100, 40
+	}
+	return width, height
+}
+
+func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, model *tuiCache, flipped bool, clocks string, boardTheme theme, compact bool) {
+	position := game.Position()
+	files, ranks := boardOrientation(flipped)
+	legal := legalDestinations(model.legalMoves, ui.selected)
+	last := lastMoveSquares(model.moves)
+	separator := " · "
+	if boardTheme.label() == "ascii" {
+		separator = " | "
+	}
+
+	// Full-screen redraw keeps the board stable and prevents scrollback from becoming a second UI.
+	var frame strings.Builder
+	fmt.Fprint(&frame, "\x1b[H\x1b[2J")
+	fmt.Fprintf(&frame, "%s%s  CHESS-GO%s  %s%s\n", tuiTitle, tuiBold, tuiReset, tuiDim, tuiReset)
+	mode := tuiText(ui.mode, 24)
+	if mode == "" {
+		mode = "LOCAL MATCH"
+	}
+	fmt.Fprintf(&frame, "%s  %s%s%s theme%s %d move%s%s\n\n", tuiDim, mode, separator, strings.ToUpper(boardTheme.label()), separator, model.moveCount, plural(model.moveCount), tuiReset)
+
+	board := boardLines(position, files, ranks, ui, legal, last, model.checkSquare, boardTheme)
+	rail := sidebarLines(position, ui, clocks, model, boardTheme)
+	if compact {
+		for _, line := range board {
+			fmt.Fprintf(&frame, "  %s\n", line)
 		}
-		clean.WriteRune(character)
+	} else {
+		for index, line := range board {
+			fmt.Fprintf(&frame, "  %s%s  %s\n", line, boardPadding(line), rail[index])
+		}
 	}
-	runes := []rune(clean.String())
-	if limit <= 0 || len(runes) <= limit {
-		return string(runes)
+	fmt.Fprintf(&frame, "    %s%s\n", coordinateLine(files), tuiReset)
+	legend := "reverse cursor · cyan selected · green legal · yellow last move · red check"
+	if boardTheme.label() == "ascii" {
+		legend = "reverse cursor | cyan selected | green legal | yellow last move | red check"
 	}
-	return string(runes[:limit-1]) + "…"
+	fmt.Fprintf(&frame, "    %s%sLEGEND%s  %s\n", tuiAccent, tuiBold, tuiReset, legend)
+	if compact {
+		fmt.Fprintln(&frame)
+		for _, line := range rail {
+			fmt.Fprintf(&frame, "  %s\n", line)
+		}
+	}
+
+	fmt.Fprintf(&frame, "\n%s%s  RECENT MOVES%s\n", tuiAccent, tuiBold, tuiReset)
+	for _, line := range recentMoveLines(model.moves, model.san, boardTheme) {
+		fmt.Fprintf(&frame, "  %s\n", line)
+	}
+	if ui.showHelp {
+		fmt.Fprintf(&frame, "\n%s%s  KEYBOARD GUIDE%s\n", tuiAccent, tuiBold, tuiReset)
+		fmt.Fprintln(&frame, "  arrows / h j k l  move cursor     enter / space  select or play")
+		fmt.Fprintln(&frame, "  esc  clear selection               u / r  undo or redo")
+		fmt.Fprintln(&frame, "  n  new game    :  command line     q / ctrl-c  quit")
+	} else {
+		fmt.Fprintf(&frame, "\n%s  arrows/hjkl move%sEnter select%s u/r undo/redo%s n new%s : command%s ? guide%s q quit%s\n", tuiDim, separator, separator, separator, separator, separator, separator, tuiReset)
+	}
+	if ui.message != "" {
+		fmt.Fprintf(&frame, "%s%s  %s%s\n", tuiBold, tuiAccent, tuiDisplayText(ui.message, boardTheme), tuiReset)
+	}
+	writeFrame(output, frame.String())
 }

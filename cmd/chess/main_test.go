@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"chess-go"
 	"chess-go/engine"
+	"chess-go/protocol"
 )
 
 func TestLocalGameLifecycleAndSave(t *testing.T) {
@@ -212,6 +214,7 @@ func TestInteractiveSelectionPlaysLegalMove(t *testing.T) {
 		t.Fatal("interactive redo did not restore the move")
 	}
 	s.handleKey(&ui, keyNew)
+	s.handleKey(&ui, keyNew)
 	if s.game.Position().FEN() != chess.InitialFEN || len(s.game.Moves()) != 0 {
 		t.Fatal("interactive new game did not reset the session")
 	}
@@ -264,12 +267,77 @@ func TestInteractiveRendererShowsDashboard(t *testing.T) {
 	}
 	ui := boardUI{cursor: chess.NoSquare, whiteName: "Ada", blackName: "HAL", message: "Played e4", showHelp: true}
 	var output bytes.Buffer
-	renderInteractive(&output, game, ui, false, "White 05:00 · Black 04:58 · +00:03", asciiTheme)
+	renderInteractive(&output, game, &ui, false, "White 05:00 · Black 04:58 · +00:03", asciiTheme)
 	text := output.String()
 	for _, want := range []string{"CHESS-GO", "MATCH", "Ada", "HAL", "STATUS", "Black to move", "RECENT MOVES", "1. e4", "e2e4", "KEYBOARD", "LEGEND"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("dashboard rendering lacks %q:\n%s", want, text)
 		}
+	}
+}
+
+func TestInteractiveRendererUpdatesOnlyClockWhenPositionIsUnchanged(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare}
+	var output bytes.Buffer
+	renderInteractive(&output, game, &ui, false, "White 00:10 · Black 00:10 · +00:00", asciiTheme)
+	output.Reset()
+	renderInteractive(&output, game, &ui, false, "White 00:09 · Black 00:10 · +00:00", asciiTheme)
+	text := output.String()
+	if !strings.Contains(text, "\x1b[10;50H") || !strings.Contains(text, "White 00:09") {
+		t.Fatalf("clock-only update missing: %q", text)
+	}
+	if strings.Contains(text, "\x1b[2J") || strings.Contains(text, "CHESS-GO") {
+		t.Fatalf("clock-only update redrew the full frame: %q", text)
+	}
+}
+
+func TestInteractiveRendererUsesASCIIChrome(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare}
+	var output bytes.Buffer
+	renderInteractive(&output, game, &ui, false, "", asciiTheme)
+	text := output.String()
+	if !strings.Contains(text, "+----+") || strings.Contains(text, "┌") || strings.Contains(text, "·") || strings.Contains(text, "●") {
+		t.Fatalf("ASCII theme emitted Unicode chrome:\n%s", text)
+	}
+}
+
+func TestInteractiveRendererStacksTheRailWhenNarrow(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare}
+	model := ui.model(game, game.Position(), asciiTheme)
+	var output bytes.Buffer
+	renderFullInteractive(&output, game, &ui, model, false, "", asciiTheme, true)
+	for _, line := range strings.Split(output.String(), "\n") {
+		if strings.Contains(line, "8 |") && strings.Contains(line, "MATCH") {
+			t.Fatalf("narrow board still placed the rail beside a rank: %q", line)
+		}
+	}
+}
+
+func TestStripSGRPreservesTerminalControls(t *testing.T) {
+	got := stripSGR("\x1b[31mred\x1b[0m\x1b[2J")
+	if got != "red\x1b[2J" {
+		t.Fatalf("stripSGR() = %q", got)
+	}
+}
+
+func TestWriteFrameHonorsNoColorForTerminalWriters(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NO_COLOR", "1")
+	writeFrame(writer, "\x1b[31mred\x1b[0m")
+	_ = writer.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = reader.Close()
+	if string(data) != "red" {
+		t.Fatalf("NO_COLOR frame = %q", data)
 	}
 }
 
@@ -282,6 +350,93 @@ func TestInteractiveEscapeClearsSelection(t *testing.T) {
 	}
 	if ui.selected != chess.NoSquare || ui.showHelp || ui.message != "Selection cleared" {
 		t.Fatalf("escape state = %#v", ui)
+	}
+}
+
+func TestInteractivePromotionRequiresAnExplicitChoice(t *testing.T) {
+	position, err := chess.ParseFEN("7k/P7/8/8/8/8/8/7K w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a7, _ := chess.ParseSquare("a7")
+	a8, _ := chess.ParseSquare("a8")
+	s := session{game: chess.NewGameFromPosition(position), human: chess.White}
+	ui := boardUI{cursor: a7, selected: chess.NoSquare}
+	s.handleKey(&ui, keySelect)
+	ui.cursor = a8
+	s.handleKey(&ui, keySelect)
+	if len(ui.promotion) != 4 || s.game.MoveCount() != 0 {
+		t.Fatalf("promotion prompt state = %#v, moves = %d", ui, s.game.MoveCount())
+	}
+	s.handleKey(&ui, keyRight)
+	s.handleKey(&ui, keySelect)
+	if len(ui.promotion) != 0 || s.game.MoveCount() != 1 || s.game.Moves()[0].Promotion != chess.Rook {
+		t.Fatalf("promotion choice = %#v, moves = %#v", ui, s.game.Moves())
+	}
+}
+
+func TestCommandPaletteControlsPresentationAndGameEnd(t *testing.T) {
+	s := session{game: chess.NewGame(), theme: asciiTheme}
+	var output bytes.Buffer
+	if err := s.command("theme unicode", &output); err != nil || s.theme.label() != "unicode" {
+		t.Fatalf("theme command = %v, %q", err, s.theme.label())
+	}
+	if err := s.command("flip", &output); err != nil || !s.flip {
+		t.Fatalf("flip command = %v, %v", err, s.flip)
+	}
+	if err := s.command("draw", &output); err != nil || s.timeout != "Draw by agreement" {
+		t.Fatalf("draw command = %v, %q", err, s.timeout)
+	}
+	if err := s.command("resign", &output); err == nil {
+		t.Fatal("resign command accepted an already finished game")
+	}
+}
+
+func TestRemoteDashboardUsesTheInteractiveLayout(t *testing.T) {
+	position := chess.NewPosition()
+	snapshot := protocol.MatchSnapshot{MatchID: "demo", FEN: position.FEN(), PositionHash: position.Hash(), Turn: "white", Result: "*"}
+	game, err := gameFromSnapshot(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ui := boardUI{cursor: chess.NoSquare, mode: "REMOTE MATCH"}
+	var output bytes.Buffer
+	if err := renderRemote(&output, game, snapshot, chess.White, asciiTheme, true, &ui); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "REMOTE MATCH") || !strings.Contains(output.String(), "MATCH") {
+		t.Fatalf("remote dashboard was not rendered:\n%s", output.String())
+	}
+}
+
+func TestGameFromSnapshotRestoresMoveHistory(t *testing.T) {
+	game := chess.NewGame()
+	for _, move := range []string{"e2e4", "e7e5"} {
+		if err := game.PlayUCI(move); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := protocol.MatchSnapshot{FEN: game.Position().FEN(), PositionHash: game.Position().Hash(), Moves: []string{"e2e4", "e7e5"}}
+	restored, err := gameFromSnapshot(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.MoveCount() != 2 || restored.Position().Hash() != snapshot.PositionHash {
+		t.Fatalf("restored snapshot = %d moves, hash %x", restored.MoveCount(), restored.Position().Hash())
+	}
+}
+
+func TestGameFromSnapshotRestoresCustomFENWithoutHistory(t *testing.T) {
+	position, err := chess.ParseFEN("7k/P7/8/8/8/8/8/7K w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := gameFromSnapshot(protocol.MatchSnapshot{FEN: position.FEN()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.Position().Hash() != position.Hash() || restored.MoveCount() != 0 {
+		t.Fatalf("restored custom FEN = %s with %d moves", restored.Position().FEN(), restored.MoveCount())
 	}
 }
 
@@ -303,7 +458,7 @@ func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
 	e6, _ := chess.ParseSquare("e6")
 	ui := boardUI{cursor: e6, selected: e7}
 	var output bytes.Buffer
-	renderInteractive(&output, game, ui, false, "White 05:00 · Black 05:00 · +00:03", unicodeTheme)
+	renderInteractive(&output, game, &ui, false, "White 05:00 · Black 05:00 · +00:03", unicodeTheme)
 	text := output.String()
 	for _, want := range []string{"\x1b[H\x1b[2J", "\x1b[7m", "\x1b[46m", "\x1b[42m", "\x1b[43m", "8 ", "  a  b  c  d  e  f  g  h", "White 05:00", "Black to move"} {
 		if !strings.Contains(text, want) {

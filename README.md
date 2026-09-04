@@ -31,6 +31,9 @@ White's first input by design. When output is captured as scrollback, the
 full-screen ANSI redraw can appear as many blank lines; a real terminal
 replaces the alternate screen in place.
 
+The `:` command palette also supports `theme ascii|unicode`, `flip`, `draw`,
+and `resign`; `n` asks for confirmation before resetting an active game.
+
 Useful runtime settings are environment-backed, including `CHESS_THEME`,
 `CHESS_BOT_LEVEL`, `CHESS_BOT_PERSONALITY`, `CHESS_BOT_SEED`, `CHESS_CLOCK`,
 `CHESS_NETWORK_URL`, `CHESS_NETWORK_TOKEN`, `CHESS_MATCH_STORE`, and
@@ -42,6 +45,8 @@ protocol, LAN, UCI, and tournament examples.
 ```console
 make verify       # tests, race detector, vet, formatting, perft, file sizes
 make build        # deterministic, CGO-free dist/chess binary
+make bench        # engine and TUI benchmarks with allocation counts
+make profile      # CPU/allocation profiles under dist/profiles/
 go run ./cmd/perft --depth 4
 ```
 

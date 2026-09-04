@@ -11,17 +11,25 @@ import (
 	"time"
 
 	"chess-go"
+	"chess-go/engine"
 	"golang.org/x/term"
 )
 
 type boardUI struct {
-	cursor    chess.Square
-	selected  chess.Square
-	message   string
-	whiteName string
-	blackName string
-	showHelp  bool
-	thinking  bool
+	cursor         chess.Square
+	selected       chess.Square
+	message        string
+	whiteName      string
+	blackName      string
+	mode           string
+	showHelp       bool
+	thinking       bool
+	botDetail      string
+	promotion      []chess.Move
+	promotionIndex int
+	confirmNew     bool
+	cache          tuiCache
+	rendered       tuiRenderState
 }
 
 func isInteractiveTerminal(input io.Reader, output io.Writer) bool {
@@ -45,6 +53,7 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 		selected:  chess.NoSquare,
 		whiteName: "White",
 		blackName: "Black",
+		mode:      "LOCAL MATCH",
 	}
 	if s.bot != nil {
 		if s.human == chess.White {
@@ -62,9 +71,9 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 		} else if s.bot != nil && s.game.Position().Turn() != s.human {
 			mover := s.game.Position().Turn()
 			ui.thinking = true
-			renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary(), s.theme)
+			renderInteractive(output, s.game, &ui, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
 			moveCtx, cancel := s.clock.context(ctx, mover)
-			move, err := s.bot.ChooseMove(moveCtx, s.game.Position())
+			move, stats, err := s.chooseInteractiveMove(moveCtx, s.game.Position())
 			cancel()
 			ui.thinking = false
 			if err != nil {
@@ -78,23 +87,28 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 			if err := s.game.Play(move); err != nil {
 				return fmt.Errorf("bot returned invalid move: %w", err)
 			}
+			ui.invalidate()
 			if !s.clock.completeMove(mover) {
 				s.flag(mover)
 				continue
 			}
 			ui.message = fmt.Sprintf("%s played %s (%s)", s.botLabel(), san, move.UCI())
+			if stats.Depth > 0 {
+				ui.botDetail = fmt.Sprintf("Depth %d | %d nodes | %+d cp", stats.Depth, stats.Nodes, stats.Score)
+			}
 		}
-		renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary(), s.theme)
+		renderInteractive(output, s.game, &ui, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
 		if s.timeout != "" {
 			return nil
 		}
 		mover := s.game.Position().Turn()
-		if s.timeout == "" && s.game.Result() == "*" {
+		gameActive := s.timeout == "" && s.game.Result() == "*"
+		if gameActive {
 			s.clock.start(mover)
 		}
 		var pressed key
 		var err error
-		if s.clock == nil || s.timeout != "" || s.game.Result() != "*" {
+		if s.clock == nil || !gameActive {
 			pressed, err = readKey(reader)
 		} else {
 			keys := make(chan key, 1)
@@ -108,25 +122,29 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 				keys <- value
 			}()
 			timer := time.NewTimer(s.clock.untilFlag(mover))
-			ticker := time.NewTicker(250 * time.Millisecond)
-			select {
-			case pressed = <-keys:
-				timer.Stop()
-				ticker.Stop()
-			case err = <-keyErrors:
-				timer.Stop()
-				ticker.Stop()
-			case <-timer.C:
-				ticker.Stop()
-				s.flag(mover)
+			ticker := time.NewTicker(500 * time.Millisecond)
+			timedOut, inputReceived := false, false
+			for !inputReceived && !timedOut {
+				select {
+				case pressed = <-keys:
+					inputReceived = true
+				case err = <-keyErrors:
+					inputReceived = true
+				case <-timer.C:
+					s.flag(mover)
+					timedOut = true
+				case <-ticker.C:
+					renderInteractive(output, s.game, &ui, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
+				case <-ctx.Done():
+					timer.Stop()
+					ticker.Stop()
+					return ctx.Err()
+				}
+			}
+			timer.Stop()
+			ticker.Stop()
+			if timedOut {
 				continue
-			case <-ticker.C:
-				renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary(), s.theme)
-				continue
-			case <-ctx.Done():
-				timer.Stop()
-				ticker.Stop()
-				return ctx.Err()
 			}
 		}
 		if err != nil {
@@ -150,7 +168,10 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 				if len(s.game.Moves()) > before && !s.clock.completeMove(mover) {
 					s.flag(mover)
 				}
+				ui.invalidate()
 				ui.selected = chess.NoSquare
+				ui.promotion, ui.promotionIndex = nil, 0
+				ui.confirmNew = false
 				ui.message = "Command completed"
 			}
 			continue
@@ -171,7 +192,25 @@ func initialCursor(human chess.Color) chess.Square {
 }
 
 func (s *session) handleKey(ui *boardUI, pressed key) bool {
-	flipped := s.human == chess.Black
+	if len(ui.promotion) > 0 {
+		return s.handlePromotionKey(ui, pressed)
+	}
+	if ui.confirmNew {
+		switch pressed {
+		case keyQuit:
+			return true
+		case keyNew:
+			s.resetInteractiveGame(ui)
+			ui.message = "New game"
+		case keyEscape:
+			ui.confirmNew = false
+			ui.message = "New game cancelled"
+		default:
+			ui.message = "Press n again to start a new game, or Esc to cancel"
+		}
+		return false
+	}
+	flipped := (s.human == chess.Black) != s.flip
 	switch pressed {
 	case keyQuit:
 		return true
@@ -195,6 +234,7 @@ func (s *session) handleKey(ui *boardUI, pressed key) bool {
 		if err := s.travel(false); err != nil {
 			ui.message = err.Error()
 		} else {
+			ui.invalidate()
 			ui.selected = chess.NoSquare
 			ui.message = "Move undone"
 		}
@@ -202,15 +242,18 @@ func (s *session) handleKey(ui *boardUI, pressed key) bool {
 		if err := s.travel(true); err != nil {
 			ui.message = err.Error()
 		} else {
+			ui.invalidate()
 			ui.selected = chess.NoSquare
 			ui.message = "Move restored"
 		}
 	case keyNew:
-		s.game = chess.NewGame()
-		s.timeout = ""
-		s.clock.reset()
-		ui.cursor, ui.selected = initialCursor(s.human), chess.NoSquare
-		ui.message = "New game"
+		if s.game.MoveCount() > 0 && s.timeout == "" && s.game.Result() == "*" {
+			ui.confirmNew = true
+			ui.message = "Start a new game? Press n again to confirm, or Esc to cancel"
+		} else {
+			s.resetInteractiveGame(ui)
+			ui.message = "New game"
+		}
 	case keyHelp:
 		ui.showHelp = !ui.showHelp
 		if ui.showHelp {
@@ -222,9 +265,52 @@ func (s *session) handleKey(ui *boardUI, pressed key) bool {
 	return false
 }
 
+func (s *session) resetInteractiveGame(ui *boardUI) {
+	s.game = chess.NewGame()
+	ui.invalidate()
+	s.timeout = ""
+	s.clock.reset()
+	ui.cursor, ui.selected = initialCursor(s.human), chess.NoSquare
+	ui.promotion, ui.promotionIndex = nil, 0
+	ui.confirmNew = false
+	ui.botDetail = ""
+}
+
+func (s *session) chooseInteractiveMove(ctx context.Context, position chess.Position) (chess.Move, engine.SearchStats, error) {
+	if bot, ok := s.bot.(*engine.Bot); ok {
+		return bot.Search(ctx, position, engine.SearchLimits{})
+	}
+	move, err := s.bot.ChooseMove(ctx, position)
+	return move, engine.SearchStats{}, err
+}
+
+func (s *session) handlePromotionKey(ui *boardUI, pressed key) bool {
+	switch pressed {
+	case keyQuit:
+		return true
+	case keyEscape:
+		ui.promotion, ui.promotionIndex = nil, 0
+		ui.selected = chess.NoSquare
+		ui.message = "Promotion cancelled"
+	case keyLeft:
+		ui.promotionIndex = (ui.promotionIndex + len(ui.promotion) - 1) % len(ui.promotion)
+		ui.message = "Promote to " + pieceTypeName(ui.promotion[ui.promotionIndex].Promotion) + " — Enter confirms"
+	case keyRight:
+		ui.promotionIndex = (ui.promotionIndex + 1) % len(ui.promotion)
+		ui.message = "Promote to " + pieceTypeName(ui.promotion[ui.promotionIndex].Promotion) + " — Enter confirms"
+	case keySelect:
+		move := ui.promotion[ui.promotionIndex]
+		s.playInteractiveMove(ui, move)
+	default:
+		ui.message = "Choose promotion with ←/→, then press Enter"
+	}
+	return false
+}
+
 func (s *session) selectSquare(ui *boardUI) {
 	position := s.game.Position()
-	if s.game.Result() != "*" {
+	model := ui.model(s.game, position, s.theme)
+	if model.result != "*" {
 		ui.message = "Game is over; press n for a new game"
 		return
 	}
@@ -243,24 +329,19 @@ func (s *session) selectSquare(ui *boardUI) {
 		ui.message = "Selection cleared"
 		return
 	}
-	var chosen chess.Move
-	found := false
-	for _, move := range position.LegalMoves() {
-		if move.From == ui.selected && move.To == ui.cursor && (!found || move.Promotion == chess.Queen) {
-			chosen, found = move, true
+	choices := make([]chess.Move, 0, 4)
+	for _, move := range model.legalMoves {
+		if move.From == ui.selected && move.To == ui.cursor {
+			choices = append(choices, move)
 		}
 	}
-	if found {
-		san, _ := position.SAN(chosen)
-		if err := s.game.Play(chosen); err != nil {
-			ui.message = err.Error()
-			return
-		}
-		if !s.clock.completeMove(position.Turn()) {
-			s.flag(position.Turn())
-		}
-		ui.selected = chess.NoSquare
-		ui.message = "Played " + san
+	if len(choices) > 1 {
+		ui.promotion, ui.promotionIndex = choices, 0
+		ui.message = "Promote to Queen — ←/→ choose, Enter confirms"
+		return
+	}
+	if len(choices) == 1 {
+		s.playInteractiveMove(ui, choices[0])
 		return
 	}
 	piece := position.PieceAt(ui.cursor)
@@ -270,4 +351,20 @@ func (s *session) selectSquare(ui *boardUI) {
 		return
 	}
 	ui.message = "That is not a legal destination"
+}
+
+func (s *session) playInteractiveMove(ui *boardUI, move chess.Move) {
+	position := s.game.Position()
+	san, _ := position.SAN(move)
+	if err := s.game.Play(move); err != nil {
+		ui.message = err.Error()
+		return
+	}
+	ui.invalidate()
+	if !s.clock.completeMove(position.Turn()) {
+		s.flag(position.Turn())
+	}
+	ui.promotion, ui.promotionIndex = nil, 0
+	ui.selected = chess.NoSquare
+	ui.message = "Played " + san
 }

@@ -29,6 +29,7 @@ type session struct {
 	clock     *gameClock
 	timeout   string
 	theme     theme
+	flip      bool
 }
 
 func main() {
@@ -192,7 +193,7 @@ func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) e
 	}()
 	fmt.Fprintln(output, "Commands: SAN or UCI move, moves, undo, redo, fen FEN, load FILE, save FILE, help, quit")
 	for {
-		render(output, s.game, s.human == chess.Black, s.clockSummary(), s.theme)
+		render(output, s.game, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
 		if s.timeout != "" {
 			fmt.Fprintln(output, "Game over:", s.timeout)
 			return nil
@@ -267,58 +268,6 @@ func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) e
 			s.flag(mover)
 		}
 	}
-}
-
-func (s *session) command(line string, output io.Writer) error {
-	if line == "" {
-		return nil
-	}
-	command, argument, _ := strings.Cut(line, " ")
-	argument = strings.TrimSpace(argument)
-	switch strings.ToLower(command) {
-	case "quit", "exit", "q":
-		return io.EOF
-	case "help":
-		fmt.Fprintln(output, "Enter moves as SAN (Nf3, O-O) or UCI (g1f3). File commands accept local paths.")
-		return nil
-	case "moves":
-		return printLegalMoves(output, s.game.Position())
-	case "undo":
-		return s.travel(false)
-	case "redo":
-		return s.travel(true)
-	case "fen":
-		position, err := chess.ParseFEN(argument)
-		if err != nil {
-			return err
-		}
-		s.game = chess.NewGameFromPosition(position)
-		s.timeout = ""
-		s.clock.reset()
-		return nil
-	case "load":
-		game, err := loadPGN(argument)
-		if err != nil {
-			return err
-		}
-		s.game = game
-		s.timeout = ""
-		s.clock.reset()
-		return nil
-	case "save":
-		if argument == "" {
-			return errors.New("save requires a file path")
-		}
-		if err := os.WriteFile(argument, []byte(s.game.PGN()+"\n"), 0o644); err != nil {
-			return err
-		}
-		fmt.Fprintln(output, "Saved", argument)
-		return nil
-	}
-	if err := s.game.PlaySAN(line); err == nil {
-		return nil
-	}
-	return s.game.PlayUCI(line)
 }
 
 func (s *session) travel(redo bool) error {

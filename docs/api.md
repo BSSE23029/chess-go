@@ -225,7 +225,10 @@ The normal `go test ./...` gate compiles this example with the public API.
 
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Select
 one with `--theme ascii|unicode` or the `CHESS_THEME` environment variable; an
-invalid value fails before the game starts.
+invalid value fails before the game starts. In an interactive terminal, the
+dashboard adapts to narrow windows, honors `NO_COLOR`, and refreshes only the
+clock rail when the position is unchanged. The `:` palette supports `theme`,
+`flip`, `draw`, and `resign`; promotion choices use Left/Right and Enter.
 
 ## Network protocol foundation
 
@@ -265,8 +268,9 @@ chess play remote http://127.0.0.1:8080 --match game --player alice
 ```
 
 `host` serves HTTP under `/v1/` and WebSocket clients under `/ws`; supplying
-both `CHESS_TLS_CERT` and `CHESS_TLS_KEY` enables TLS. `play remote` is a
-line-mode client; use `refresh` to pull an opponent's latest authoritative
+both `CHESS_TLS_CERT` and `CHESS_TLS_KEY` enables TLS. `play remote` uses the
+same dashboard when attached to a terminal and falls back to line mode when
+output is redirected; use `refresh` to pull an opponent's latest authoritative
 snapshot. `CHESS_NETWORK_URL`, `CHESS_NETWORK_ADDR`, `CHESS_NETWORK_TOKEN`,
 `CHESS_TLS_CERT`, `CHESS_TLS_KEY`, `CHESS_MATCH_STORE`, `CHESS_MATCH_ID`, and
 `CHESS_PLAYER_ID` provide the corresponding defaults.

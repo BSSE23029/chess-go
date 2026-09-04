@@ -254,15 +254,16 @@ func runRemote(ctx context.Context, args []string, input io.Reader, output io.Wr
 	if err != nil {
 		return err
 	}
-	position, err := chess.ParseFEN(snapshot.FEN)
+	game, err := gameFromSnapshot(snapshot)
 	if err != nil {
 		return err
 	}
-	game := chess.NewGameFromPosition(position)
+	dashboard := isInteractiveTerminal(input, output)
+	remoteUI := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Black", mode: "REMOTE MATCH"}
 	scanner := bufio.NewScanner(input)
 	fmt.Fprintln(output, "Remote commands: UCI move, refresh, draw, resign, quit")
 	for {
-		if err := renderRemote(output, game, snapshot, remoteColor, boardTheme); err != nil {
+		if err := renderRemote(output, game, snapshot, remoteColor, boardTheme, dashboard, &remoteUI); err != nil {
 			return err
 		}
 		if snapshot.Result != "*" {
@@ -282,10 +283,7 @@ func runRemote(ctx context.Context, args []string, input io.Reader, output io.Wr
 		case "refresh", "sync":
 			snapshot, err = client.Snapshot(ctx, protocol.SnapshotRequest{MatchID: *matchID, PlayerID: *playerID})
 			if err == nil {
-				position, err = chess.ParseFEN(snapshot.FEN)
-				if err == nil {
-					game = chess.NewGameFromPosition(position)
-				}
+				game, err = gameFromSnapshot(snapshot)
 			}
 			if err != nil {
 				fmt.Fprintln(output, "Error:", err)
@@ -320,21 +318,52 @@ func runRemote(ctx context.Context, args []string, input io.Reader, output io.Wr
 			fmt.Fprintln(output, "Error:", err)
 			continue
 		}
-		position, err = chess.ParseFEN(snapshot.FEN)
+		game, err = gameFromSnapshot(snapshot)
 		if err != nil {
 			return err
 		}
-		game = chess.NewGameFromPosition(position)
 	}
 }
 
-func renderRemote(output io.Writer, game *chess.Game, snapshot protocol.MatchSnapshot, color chess.Color, boardTheme theme) error {
+func renderRemote(output io.Writer, game *chess.Game, snapshot protocol.MatchSnapshot, color chess.Color, boardTheme theme, dashboard bool, ui *boardUI) error {
 	clock := ""
 	if snapshot.IncrementMillis != 0 || snapshot.WhiteTimeMillis != 0 || snapshot.BlackTimeMillis != 0 {
 		clock = fmt.Sprintf("White %s · Black %s · +%s", formatClock(time.Duration(snapshot.WhiteTimeMillis)*time.Millisecond), formatClock(time.Duration(snapshot.BlackTimeMillis)*time.Millisecond), formatClock(time.Duration(snapshot.IncrementMillis)*time.Millisecond))
 	}
-	render(output, game, color == chess.Black, clock, boardTheme)
+	if dashboard {
+		renderInteractive(output, game, ui, color == chess.Black, clock, boardTheme)
+	} else {
+		render(output, game, color == chess.Black, clock, boardTheme)
+	}
 	return nil
+}
+
+func gameFromSnapshot(snapshot protocol.MatchSnapshot) (*chess.Game, error) {
+	if len(snapshot.Moves) == 0 && snapshot.FEN != "" {
+		position, err := chess.ParseFEN(snapshot.FEN)
+		if err != nil {
+			return nil, err
+		}
+		return chess.NewGameFromPosition(position), nil
+	}
+	game := chess.NewGame()
+	for _, value := range snapshot.Moves {
+		if err := game.PlayUCI(value); err != nil {
+			position, parseErr := chess.ParseFEN(snapshot.FEN)
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			return chess.NewGameFromPosition(position), nil
+		}
+	}
+	if snapshot.PositionHash != 0 && game.Position().Hash() != snapshot.PositionHash {
+		position, err := chess.ParseFEN(snapshot.FEN)
+		if err != nil {
+			return nil, err
+		}
+		return chess.NewGameFromPosition(position), nil
+	}
+	return game, nil
 }
 
 func printNetworkSnapshot(output io.Writer, snapshot protocol.MatchSnapshot) {

@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size verify build release
+.PHONY: test race vet fmt perft file-size bench profile verify build release
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -25,6 +25,14 @@ perft:
 
 file-size:
 	@sh scripts/check-file-size.sh
+
+bench:
+	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench . -benchmem ./engine ./cmd/chess
+
+profile:
+	@mkdir -p "$(DIST)/profiles"
+	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench '^BenchmarkSearchDepth3$$' -benchtime=5s -cpuprofile "$(DIST)/profiles/engine.cpu.pprof" -memprofile "$(DIST)/profiles/engine.mem.pprof" ./engine
+	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench '^BenchmarkInteractiveRender$$' -benchtime=5s -cpuprofile "$(DIST)/profiles/tui.cpu.pprof" -memprofile "$(DIST)/profiles/tui.mem.pprof" ./cmd/chess
 
 verify:
 	@sh scripts/verify.sh

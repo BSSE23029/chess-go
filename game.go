@@ -58,6 +58,9 @@ func (g *Game) Moves() []Move {
 	return moves
 }
 
+// MoveCount returns the number of moves through the current navigation cursor.
+func (g *Game) MoveCount() int { return g.cursor }
+
 // Captured returns captured pieces through the current navigation cursor.
 func (g *Game) Captured() []Piece {
 	var captured []Piece
