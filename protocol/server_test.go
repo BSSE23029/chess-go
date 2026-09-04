@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
+
+	"chess-go"
 )
 
 func TestServerSessionAndMatchLifecycle(t *testing.T) {
@@ -51,7 +54,7 @@ func TestServerSessionAndMatchLifecycle(t *testing.T) {
 
 func TestServerHandleDispatchAndErrors(t *testing.T) {
 	server := NewServer()
-	create, err := Encode(CreateMatch, "create-1", CreateMatchRequest{MatchID: "wire", PlayerID: "alice", Color: "white"})
+	create, err := Encode(CreateMatch, "create-1", CreateMatchRequest{MatchID: "wire", PlayerID: "alice", Color: "white", ClockMillis: 5000, IncrementMillis: 1000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +67,7 @@ func TestServerHandleDispatchAndErrors(t *testing.T) {
 		t.Fatalf("create response = %#v, %v", envelope, err)
 	}
 	var snapshot MatchSnapshot
-	if err := envelope.UnmarshalPayload(&snapshot); err != nil || snapshot.MatchID != "wire" {
+	if err := envelope.UnmarshalPayload(&snapshot); err != nil || snapshot.MatchID != "wire" || snapshot.WhiteTimeMillis != 5000 || snapshot.IncrementMillis != 1000 {
 		t.Fatalf("snapshot = %#v, %v", snapshot, err)
 	}
 
@@ -156,5 +159,46 @@ func TestServerDrawAndResignLifecycle(t *testing.T) {
 	}
 	if data, err := json.Marshal(snapshot); err != nil || len(data) == 0 {
 		t.Fatalf("snapshot json = %s, %v", data, err)
+	}
+}
+
+func TestAuthoritativeClockLifecycle(t *testing.T) {
+	position := chess.NewPosition()
+	match, err := NewMatchWithClock("clock", position, ClockConfig{Initial: 5 * time.Second, Increment: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewMatchWithClock("bad", position, ClockConfig{Initial: -time.Second}); !errors.Is(err, ErrInvalidClockConfig) {
+		t.Fatalf("invalid clock error = %v", err)
+	}
+	now := time.Unix(100, 0)
+	match.clock.now = func() time.Time { return now }
+	if err := match.Join("alice", chess.White); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot := match.Snapshot(); snapshot.ClockRunning || snapshot.WhiteTimeMillis != 5000 {
+		t.Fatalf("clock started before both players: %#v", snapshot)
+	}
+	if err := match.Join("bob", chess.Black); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot := match.Snapshot(); !snapshot.ClockRunning || snapshot.WhiteTimeMillis != 5000 || snapshot.BlackTimeMillis != 5000 {
+		t.Fatalf("clock start: %#v", snapshot)
+	}
+	now = now.Add(2 * time.Second)
+	if snapshot := match.Snapshot(); snapshot.WhiteTimeMillis != 3000 || snapshot.BlackTimeMillis != 5000 {
+		t.Fatalf("clock elapsed: %#v", snapshot)
+	}
+	current := match.Snapshot()
+	accepted, err := match.ApplyMove(MoveRequest{MatchID: "clock", PlayerID: "alice", Sequence: current.Sequence, PositionHash: current.PositionHash, UCI: "e2e4"})
+	if err != nil || accepted.WhiteTimeMillis != 4000 || accepted.BlackTimeMillis != 5000 || !accepted.ClockRunning {
+		t.Fatalf("clock increment: %#v, %v", accepted, err)
+	}
+	now = now.Add(5*time.Second + time.Nanosecond)
+	if snapshot := match.Snapshot(); snapshot.Result != "1-0" || snapshot.BlackTimeMillis != 0 || snapshot.ClockRunning {
+		t.Fatalf("clock timeout: %#v", snapshot)
+	}
+	if _, err := match.ApplyMove(MoveRequest{MatchID: "clock", PlayerID: "bob", Sequence: 1, PositionHash: accepted.PositionHash, UCI: "e7e5"}); !errors.Is(err, ErrTimeExpired) {
+		t.Fatalf("timeout move error = %v", err)
 	}
 }

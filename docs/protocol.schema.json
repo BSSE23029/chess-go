@@ -25,7 +25,9 @@
         "match_id": {"type": "string", "minLength": 1},
         "initial_fen": {"type": "string"},
         "player_id": {"type": "string"},
-        "color": {"enum": ["white", "black", "spectator"]}
+        "color": {"enum": ["white", "black", "spectator"]},
+        "clock_millis": {"type": "integer", "minimum": 0},
+        "increment_millis": {"type": "integer", "minimum": 0}
       }
     },
     "join_match": {
@@ -57,6 +59,42 @@
       "properties": {
         "match_id": {"type": "string", "minLength": 1},
         "player_id": {"type": "string"}
+      }
+    },
+    "match_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_id", "sequence", "position_hash", "fen", "turn", "result", "spectators"],
+      "properties": {
+        "match_id": {"type": "string", "minLength": 1},
+        "sequence": {"type": "integer", "minimum": 0},
+        "position_hash": {"type": "integer", "minimum": 0},
+        "fen": {"type": "string"},
+        "turn": {"enum": ["white", "black"]},
+        "result": {"enum": ["*", "1-0", "0-1", "1/2-1/2"]},
+        "draw_offered_by": {"type": "string"},
+        "spectators": {"type": "integer", "minimum": 0},
+        "white_time_millis": {"type": "integer", "minimum": 0},
+        "black_time_millis": {"type": "integer", "minimum": 0},
+        "increment_millis": {"type": "integer", "minimum": 0},
+        "clock_running": {"type": "boolean"}
+      }
+    },
+    "move_accepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["match_id", "sequence", "position_hash", "fen", "uci", "result"],
+      "properties": {
+        "match_id": {"type": "string", "minLength": 1},
+        "sequence": {"type": "integer", "minimum": 0},
+        "position_hash": {"type": "integer", "minimum": 0},
+        "fen": {"type": "string"},
+        "uci": {"type": "string", "minLength": 4},
+        "result": {"enum": ["*", "1-0", "0-1", "1/2-1/2"]},
+        "white_time_millis": {"type": "integer", "minimum": 0},
+        "black_time_millis": {"type": "integer", "minimum": 0},
+        "increment_millis": {"type": "integer", "minimum": 0},
+        "clock_running": {"type": "boolean"}
       }
     },
     "action": {

@@ -104,10 +104,12 @@ func knownMessageType(messageType MessageType) bool {
 
 // CreateMatchRequest asks the server to create a match from an optional FEN.
 type CreateMatchRequest struct {
-	MatchID    string `json:"match_id"`
-	InitialFEN string `json:"initial_fen,omitempty"`
-	PlayerID   string `json:"player_id,omitempty"`
-	Color      string `json:"color,omitempty"`
+	MatchID         string `json:"match_id"`
+	InitialFEN      string `json:"initial_fen,omitempty"`
+	PlayerID        string `json:"player_id,omitempty"`
+	Color           string `json:"color,omitempty"`
+	ClockMillis     int64  `json:"clock_millis,omitempty"`
+	IncrementMillis int64  `json:"increment_millis,omitempty"`
 }
 
 // JoinMatchRequest claims a color seat in a match.
@@ -128,12 +130,16 @@ type MoveRequest struct {
 
 // MoveAccepted is the authoritative state after a committed move.
 type MoveAccepted struct {
-	MatchID      string `json:"match_id"`
-	Sequence     uint64 `json:"sequence"`
-	PositionHash uint64 `json:"position_hash"`
-	FEN          string `json:"fen"`
-	UCI          string `json:"uci"`
-	Result       string `json:"result"`
+	MatchID         string `json:"match_id"`
+	Sequence        uint64 `json:"sequence"`
+	PositionHash    uint64 `json:"position_hash"`
+	FEN             string `json:"fen"`
+	UCI             string `json:"uci"`
+	Result          string `json:"result"`
+	WhiteTimeMillis int64  `json:"white_time_millis,omitempty"`
+	BlackTimeMillis int64  `json:"black_time_millis,omitempty"`
+	IncrementMillis int64  `json:"increment_millis,omitempty"`
+	ClockRunning    bool   `json:"clock_running,omitempty"`
 }
 
 // SnapshotRequest requests the latest authoritative state for a match.
@@ -156,14 +162,18 @@ type DrawOfferRequest struct {
 
 // MatchSnapshot is a synchronizable authoritative position snapshot.
 type MatchSnapshot struct {
-	MatchID       string `json:"match_id"`
-	Sequence      uint64 `json:"sequence"`
-	PositionHash  uint64 `json:"position_hash"`
-	FEN           string `json:"fen"`
-	Turn          string `json:"turn"`
-	Result        string `json:"result"`
-	DrawOfferedBy string `json:"draw_offered_by,omitempty"`
-	Spectators    int    `json:"spectators"`
+	MatchID         string `json:"match_id"`
+	Sequence        uint64 `json:"sequence"`
+	PositionHash    uint64 `json:"position_hash"`
+	FEN             string `json:"fen"`
+	Turn            string `json:"turn"`
+	Result          string `json:"result"`
+	DrawOfferedBy   string `json:"draw_offered_by,omitempty"`
+	Spectators      int    `json:"spectators"`
+	WhiteTimeMillis int64  `json:"white_time_millis,omitempty"`
+	BlackTimeMillis int64  `json:"black_time_millis,omitempty"`
+	IncrementMillis int64  `json:"increment_millis,omitempty"`
+	ClockRunning    bool   `json:"clock_running,omitempty"`
 }
 
 // ProtocolErrorBody describes a stable machine-readable protocol failure.
@@ -195,11 +205,12 @@ type Match struct {
 	spectators    map[string]struct{}
 	result        string
 	drawOfferedBy string
+	clock         *matchClock
 }
 
 // NewMatch creates a match from position with sequence zero.
 func NewMatch(id string, position chess.Position) *Match {
-	return &Match{id: id, position: position, spectators: make(map[string]struct{}), result: positionResult(position)}
+	return newMatch(id, position, ClockConfig{})
 }
 
 // Join assigns playerID to color.
@@ -219,6 +230,7 @@ func (m *Match) Join(playerID string, color chess.Color) error {
 	}
 	m.players[color] = playerID
 	delete(m.spectators, playerID)
+	m.startClockLocked(m.clockNow())
 	return nil
 }
 
@@ -252,6 +264,10 @@ func (m *Match) playerColor(playerID string) (chess.Color, bool) {
 func (m *Match) Resign(playerID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.syncClockLocked(m.clockNow())
+	if m.clock != nil && m.clock.expired {
+		return ErrTimeExpired
+	}
 	if m.result != "" {
 		return ErrMatchOver
 	}
@@ -271,6 +287,10 @@ func (m *Match) Resign(playerID string) error {
 func (m *Match) OfferDraw(playerID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.syncClockLocked(m.clockNow())
+	if m.clock != nil && m.clock.expired {
+		return ErrTimeExpired
+	}
 	if m.result != "" {
 		return ErrMatchOver
 	}
@@ -287,8 +307,9 @@ func (m *Match) OfferDraw(playerID string) error {
 
 // Snapshot returns the current authoritative state.
 func (m *Match) Snapshot() MatchSnapshot {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.syncClockLocked(m.clockNow())
 	turn := "white"
 	if m.position.Turn() == chess.Black {
 		turn = "black"
@@ -297,15 +318,20 @@ func (m *Match) Snapshot() MatchSnapshot {
 	if result == "" {
 		result = "*"
 	}
+	clock := m.clockSnapshotLocked()
 	return MatchSnapshot{
-		MatchID:       m.id,
-		Sequence:      m.sequence,
-		PositionHash:  m.position.Hash(),
-		FEN:           m.position.FEN(),
-		Turn:          turn,
-		Result:        result,
-		DrawOfferedBy: m.drawOfferedBy,
-		Spectators:    len(m.spectators),
+		MatchID:         m.id,
+		Sequence:        m.sequence,
+		PositionHash:    m.position.Hash(),
+		FEN:             m.position.FEN(),
+		Turn:            turn,
+		Result:          result,
+		DrawOfferedBy:   m.drawOfferedBy,
+		Spectators:      len(m.spectators),
+		WhiteTimeMillis: clock.white,
+		BlackTimeMillis: clock.black,
+		IncrementMillis: clock.increment,
+		ClockRunning:    clock.running,
 	}
 }
 
@@ -313,6 +339,11 @@ func (m *Match) Snapshot() MatchSnapshot {
 func (m *Match) ApplyMove(request MoveRequest) (MoveAccepted, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	now := m.clockNow()
+	m.syncClockLocked(now)
+	if m.clock != nil && m.clock.expired {
+		return MoveAccepted{}, ErrTimeExpired
+	}
 	if request.PlayerID == "" {
 		return MoveAccepted{}, ErrUnauthorized
 	}
@@ -325,11 +356,12 @@ func (m *Match) ApplyMove(request MoveRequest) (MoveAccepted, error) {
 	if request.PositionHash != m.position.Hash() {
 		return MoveAccepted{}, ErrPositionMismatch
 	}
-	if m.players[m.position.Turn()] != "" && m.players[m.position.Turn()] != request.PlayerID {
-		return MoveAccepted{}, ErrUnauthorized
-	}
 	if m.result != "" {
 		return MoveAccepted{}, ErrMatchOver
+	}
+	mover := m.position.Turn()
+	if m.players[m.position.Turn()] != "" && m.players[m.position.Turn()] != request.PlayerID {
+		return MoveAccepted{}, ErrUnauthorized
 	}
 	move, err := chess.ParseUCI(request.UCI)
 	if err != nil {
@@ -344,11 +376,24 @@ func (m *Match) ApplyMove(request MoveRequest) (MoveAccepted, error) {
 	if actual := positionResult(next); actual != "" {
 		m.result = actual
 	}
+	m.finishMoveClockLocked(mover, now)
 	result := m.result
 	if result == "" {
 		result = "*"
 	}
-	return MoveAccepted{MatchID: m.id, Sequence: m.sequence, PositionHash: next.Hash(), FEN: next.FEN(), UCI: move.UCI(), Result: result}, nil
+	clock := m.clockSnapshotLocked()
+	return MoveAccepted{
+		MatchID:         m.id,
+		Sequence:        m.sequence,
+		PositionHash:    next.Hash(),
+		FEN:             next.FEN(),
+		UCI:             move.UCI(),
+		Result:          result,
+		WhiteTimeMillis: clock.white,
+		BlackTimeMillis: clock.black,
+		IncrementMillis: clock.increment,
+		ClockRunning:    clock.running,
+	}, nil
 }
 
 func positionResult(position chess.Position) string {

@@ -96,6 +96,17 @@ func (s *Server) Create(request CreateMatchRequest) (MatchSnapshot, error) {
 	if blank(request.MatchID) {
 		return MatchSnapshot{}, ErrInvalidRequest
 	}
+	clockInitial, err := durationFromMillis(request.ClockMillis)
+	if err != nil {
+		return MatchSnapshot{}, ErrInvalidClockConfig
+	}
+	clockIncrement, err := durationFromMillis(request.IncrementMillis)
+	if err != nil {
+		return MatchSnapshot{}, ErrInvalidClockConfig
+	}
+	if clockInitial == 0 && clockIncrement != 0 {
+		return MatchSnapshot{}, ErrInvalidClockConfig
+	}
 	position := chess.NewPosition()
 	if request.InitialFEN != "" {
 		parsed, err := chess.ParseFEN(request.InitialFEN)
@@ -124,7 +135,10 @@ func (s *Server) Create(request CreateMatchRequest) (MatchSnapshot, error) {
 	if _, exists := s.matches[request.MatchID]; exists {
 		return MatchSnapshot{}, ErrMatchExists
 	}
-	match := NewMatch(request.MatchID, position)
+	match, err := NewMatchWithClock(request.MatchID, position, ClockConfig{Initial: clockInitial, Increment: clockIncrement})
+	if err != nil {
+		return MatchSnapshot{}, err
+	}
 	s.matches[request.MatchID] = match
 	if request.PlayerID != "" {
 		session := s.ensureSessionLocked(request.PlayerID)
@@ -358,6 +372,8 @@ func (s *Server) encodeError(requestID string, err error, fallback string) ([]by
 		code = "seat_taken"
 	case errors.Is(err, ErrMatchOver):
 		code = "match_over"
+	case errors.Is(err, ErrTimeExpired):
+		code = "timeout"
 	}
 	return Encode(ProtocolError, requestID, ProtocolErrorBody{Code: code, Message: err.Error()})
 }

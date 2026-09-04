@@ -222,6 +222,12 @@ restored by `Connect` with the same player ID. Domain failures are returned as
 `position_mismatch`, `seat_taken`, and `match_over`; malformed JSON or payloads
 remain ordinary decoding errors.
 
+Pass `ClockMillis` and `IncrementMillis` when creating a match to enable server
+time controls. The clock starts once both player seats are filled, is advanced
+only by the server's monotonic state checks, and is included in snapshots and
+move acknowledgements. A flagging clock produces a terminal result and a
+`timeout` protocol error for later actions.
+
 The wire envelope is documented in [`protocol.schema.json`](protocol.schema.json)
 and is transport-independent, so HTTP and WebSocket adapters can share the same
 messages.
