@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chess-go.example/schema/protocol-v1.json",
+  "$id": "protocol-v1.json",
   "title": "chess-go protocol v1 envelope",
   "type": "object",
   "additionalProperties": false,

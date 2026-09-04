@@ -32,8 +32,12 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 	storePath := options.String("store", os.Getenv("CHESS_MATCH_STORE"), "durable match state JSON path")
 	lanEnabled := options.Bool("lan", envBool("CHESS_LAN_DISCOVERY", false), "advertise this host with DNS-SD/mDNS")
 	instance := options.String("lan-instance", firstSet(os.Getenv("CHESS_LAN_INSTANCE"), "chess-go"), "LAN service instance name")
+	if wantsHelp(args) {
+		printFlagHelp(output, "chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE] [--lan] [--lan-instance NAME]", options)
+		return nil
+	}
 	if err := options.Parse(args); err != nil || options.NArg() != 0 {
-		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE] [--lan]")
+		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE] [--lan] [--lan-instance NAME]")
 	}
 	if (*certificate == "") != (*key == "") {
 		return errors.New("--cert and --key must be provided together")
@@ -111,6 +115,10 @@ func runDiscover(ctx context.Context, args []string, output io.Writer) error {
 	options := flag.NewFlagSet("discover", flag.ContinueOnError)
 	options.SetOutput(io.Discard)
 	seconds := options.Int("seconds", 2, "discovery duration")
+	if wantsHelp(args) {
+		printFlagHelp(output, "chess discover [--seconds N]", options)
+		return nil
+	}
 	if err := options.Parse(args); err != nil || options.NArg() != 0 || *seconds < 1 {
 		return errors.New("usage: chess discover [--seconds N]")
 	}
@@ -137,11 +145,36 @@ func runNetworkCommand(ctx context.Context, command string, args []string, outpu
 	if len(args) < 1 {
 		return errors.New("usage: chess list ADDRESS | chess join|connect|spectate ADDRESS --match ID [options]")
 	}
+	if len(args) == 1 && wantsHelp(args) {
+		if command == "list" {
+			options := flag.NewFlagSet("list", flag.ContinueOnError)
+			options.SetOutput(io.Discard)
+			options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+			printFlagHelp(output, "chess list ADDRESS [--token TOKEN]", options)
+		} else {
+			options := flag.NewFlagSet(command, flag.ContinueOnError)
+			options.SetOutput(io.Discard)
+			options.String("match", os.Getenv("CHESS_MATCH_ID"), "match ID")
+			options.String("player", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")), "player ID")
+			colorDefault := firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white")
+			if command == "spectate" {
+				colorDefault = "spectator"
+			}
+			options.String("color", colorDefault, "white, black, or spectator")
+			options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+			printFlagHelp(output, fmt.Sprintf("chess %s ADDRESS --match ID [--player ID] [--color white|black|spectator] [--token TOKEN]", command), options)
+		}
+		return nil
+	}
 	address := args[0]
 	if command == "list" {
 		options := flag.NewFlagSet("list", flag.ContinueOnError)
 		options.SetOutput(io.Discard)
 		token := options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+		if wantsHelp(args[1:]) {
+			printFlagHelp(output, "chess list ADDRESS [--token TOKEN]", options)
+			return nil
+		}
 		if err := options.Parse(args[1:]); err != nil || options.NArg() != 0 {
 			return errors.New("usage: chess list ADDRESS [--token TOKEN]")
 		}
@@ -162,13 +195,21 @@ func runNetworkCommand(ctx context.Context, command string, args []string, outpu
 	options.SetOutput(io.Discard)
 	matchID := options.String("match", os.Getenv("CHESS_MATCH_ID"), "match ID")
 	playerID := options.String("player", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")), "player ID")
-	color := options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "white, black, or spectator")
-	token := options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+	colorDefault := firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white")
 	if command == "spectate" {
-		*color = "spectator"
+		colorDefault = "spectator"
+	}
+	color := options.String("color", colorDefault, "white, black, or spectator")
+	token := options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+	if wantsHelp(args[1:]) {
+		printFlagHelp(output, fmt.Sprintf("chess %s ADDRESS --match ID [--player ID] [--color white|black|spectator] [--token TOKEN]", command), options)
+		return nil
 	}
 	if err := options.Parse(args[1:]); err != nil || options.NArg() != 0 {
 		return fmt.Errorf("usage: chess %s ADDRESS --match ID [--player ID] [--color white|black|spectator]", command)
+	}
+	if command == "spectate" {
+		*color = "spectator"
 	}
 	if strings.TrimSpace(*matchID) == "" {
 		return errors.New("--match is required")
@@ -186,8 +227,19 @@ func runNetworkCommand(ctx context.Context, command string, args []string, outpu
 }
 
 func runMatchmake(ctx context.Context, args []string, output io.Writer) error {
+	if wantsHelp(args) {
+		options := flag.NewFlagSet("matchmake", flag.ContinueOnError)
+		options.SetOutput(io.Discard)
+		options.String("player", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")), "player ID")
+		options.String("color", os.Getenv("CHESS_PLAYER_COLOR"), "preferred color")
+		options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+		options.Int64("clock-millis", 0, "initial time per side in milliseconds")
+		options.Int64("increment-millis", 0, "increment per move in milliseconds")
+		printFlagHelp(output, "chess matchmake ADDRESS [--player ID] [--color white|black|random] [--token TOKEN] [--clock-millis N] [--increment-millis N]", options)
+		return nil
+	}
 	if len(args) < 1 {
-		return errors.New("usage: chess matchmake ADDRESS [--player ID] [--color white|black] [--clock-millis N --increment-millis N]")
+		return errors.New("usage: chess matchmake ADDRESS [--player ID] [--color white|black|random] [--token TOKEN] [--clock-millis N] [--increment-millis N]")
 	}
 	address := args[0]
 	options := flag.NewFlagSet("matchmake", flag.ContinueOnError)
@@ -197,8 +249,12 @@ func runMatchmake(ctx context.Context, args []string, output io.Writer) error {
 	token := options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
 	clockMillis := options.Int64("clock-millis", 0, "initial time per side in milliseconds")
 	incrementMillis := options.Int64("increment-millis", 0, "increment per move in milliseconds")
+	if wantsHelp(args[1:]) {
+		printFlagHelp(output, "chess matchmake ADDRESS [--player ID] [--color white|black|random] [--token TOKEN] [--clock-millis N] [--increment-millis N]", options)
+		return nil
+	}
 	if err := options.Parse(args[1:]); err != nil || options.NArg() != 0 {
-		return errors.New("usage: chess matchmake ADDRESS [--player ID] [--color white|black] [--clock-millis N --increment-millis N]")
+		return errors.New("usage: chess matchmake ADDRESS [--player ID] [--color white|black|random] [--token TOKEN] [--clock-millis N] [--increment-millis N]")
 	}
 	client, err := transport.NewClient(address, *token)
 	if err != nil {
@@ -213,6 +269,20 @@ func runMatchmake(ctx context.Context, args []string, output io.Writer) error {
 }
 
 func runRemote(ctx context.Context, args []string, input io.Reader, output io.Writer) error {
+	if wantsHelp(args) {
+		options := flag.NewFlagSet("play remote", flag.ContinueOnError)
+		options.SetOutput(io.Discard)
+		options.String("match", os.Getenv("CHESS_MATCH_ID"), "match ID")
+		options.String("player", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")), "player ID")
+		options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "white, black, or spectator")
+		options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+		options.Bool("create", false, "create the match if it does not exist")
+		options.Int64("clock-millis", 0, "initial time per side in milliseconds")
+		options.Int64("increment-millis", 0, "increment per move in milliseconds")
+		options.String("theme", firstSet(os.Getenv("CHESS_THEME"), "unicode"), "board theme: ascii or unicode")
+		printFlagHelp(output, "chess play remote ADDRESS --match ID [--player ID] [--color white|black|spectator] [--token TOKEN] [--create] [--clock-millis N] [--increment-millis N] [--theme ascii|unicode]", options)
+		return nil
+	}
 	if len(args) < 1 {
 		return errors.New("usage: chess play remote ADDRESS --match ID [options]")
 	}
@@ -226,9 +296,13 @@ func runRemote(ctx context.Context, args []string, input io.Reader, output io.Wr
 	create := options.Bool("create", false, "create the match if it does not exist")
 	clockMillis := options.Int64("clock-millis", 0, "initial time per side in milliseconds")
 	incrementMillis := options.Int64("increment-millis", 0, "increment per move in milliseconds")
-	themeName := options.String("theme", firstSet(os.Getenv("CHESS_THEME"), "ascii"), "board theme")
+	themeName := options.String("theme", firstSet(os.Getenv("CHESS_THEME"), "unicode"), "board theme: ascii or unicode")
+	if wantsHelp(args[1:]) {
+		printFlagHelp(output, "chess play remote ADDRESS --match ID [--player ID] [--color white|black|spectator] [--token TOKEN] [--create] [--clock-millis N] [--increment-millis N] [--theme ascii|unicode]", options)
+		return nil
+	}
 	if err := options.Parse(args[1:]); err != nil || options.NArg() != 0 {
-		return errors.New("usage: chess play remote ADDRESS --match ID [--player ID] [--color white|black|spectator]")
+		return errors.New("usage: chess play remote ADDRESS --match ID [--player ID] [--color white|black|spectator] [--token TOKEN] [--create] [--clock-millis N] [--increment-millis N] [--theme ascii|unicode]")
 	}
 	if strings.TrimSpace(*matchID) == "" {
 		return errors.New("--match is required")

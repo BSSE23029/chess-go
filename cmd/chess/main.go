@@ -47,6 +47,13 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 	if len(args) == 0 {
 		return errors.New("usage: chess version | chess play local|bot|remote [options] | chess host|join|connect|spectate|matchmake|list|discover ... | chess load FILE")
 	}
+	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		if len(args) != 1 {
+			return errors.New("usage: chess help")
+		}
+		printTopLevelHelp(output)
+		return nil
+	}
 	if args[0] == "version" {
 		if len(args) != 1 {
 			return errors.New("usage: chess version")
@@ -68,6 +75,10 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 	switch args[0] {
 	case "play":
 		if len(args) < 2 {
+			if wantsHelp(args[1:]) {
+				printTopLevelHelp(output)
+				return nil
+			}
 			return errors.New("play requires local, bot, or remote")
 		}
 		switch args[1] {
@@ -76,8 +87,12 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			options.SetOutput(io.Discard)
 			limit, increment := clockFlags(options)
 			themeName := options.String("theme", s.theme.label(), "board theme: ascii or unicode")
+			if wantsHelp(args[2:]) {
+				printFlagHelp(output, "chess play local [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]", options)
+				return nil
+			}
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 {
-				return errors.New("usage: chess play local [--clock DURATION] [--increment DURATION]")
+				return errors.New("usage: chess play local [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]")
 			}
 			clock, err := parseClock(*limit, *increment)
 			if err != nil {
@@ -102,8 +117,12 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			color := options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "human color")
 			limit, increment := clockFlags(options)
 			themeName := options.String("theme", s.theme.label(), "board theme: ascii or unicode")
+			if wantsHelp(args[2:]) {
+				printFlagHelp(output, "chess play bot [--level NAME | --depth N] [--color white|black] [--personality NAME] [--seed INTEGER] [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]", options)
+				return nil
+			}
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 || *depth < 1 {
-				return errors.New("usage: chess play bot [--level NAME | --depth N] [--color white|black]")
+				return errors.New("usage: chess play bot [--level NAME | --depth N] [--color white|black] [--personality NAME] [--seed INTEGER] [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]")
 			}
 			switch *color {
 			case "white":
@@ -164,6 +183,10 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 	case "discover":
 		return runDiscover(ctx, args[1:], output)
 	case "load":
+		if wantsHelp(args[1:]) {
+			fmt.Fprintln(output, "Usage: chess load FILE")
+			return nil
+		}
 		if len(args) != 2 {
 			return errors.New("load requires one PGN file")
 		}

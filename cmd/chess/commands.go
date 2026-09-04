@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,27 @@ import (
 
 	"chess-go"
 )
+
+func printTopLevelHelp(output io.Writer) {
+	fmt.Fprintln(output, "Usage: chess version | chess play local|bot|remote [options] | chess host|join|connect|spectate|matchmake|list|discover ... | chess load FILE")
+	fmt.Fprintln(output, "Run any subcommand with --help for its flags. Full reference: docs/cli.md")
+}
+
+func wantsHelp(args []string) bool {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
+}
+
+func printFlagHelp(output io.Writer, usage string, options *flag.FlagSet) {
+	fmt.Fprintln(output, "Usage:", usage)
+	fmt.Fprintln(output, "\nOptions:")
+	options.SetOutput(output)
+	options.PrintDefaults()
+}
 
 func (s *session) command(line string, output io.Writer) error {
 	if line == "" {

@@ -108,7 +108,7 @@ func readRawLine(reader *bufio.Reader, output io.Writer) (string, error) {
 		}
 		switch {
 		case char == '\r' || char == '\n':
-			fmt.Fprintln(output)
+			fmt.Fprint(output, "\r\n")
 			return string(line), nil
 		case (char == 8 || char == 127) && len(line) > 0:
 			line = line[:len(line)-1]
@@ -137,9 +137,9 @@ var unicodeTheme = theme{name: "unicode", pieces: [2][7]rune{
 
 func parseTheme(value string) (theme, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "ascii", "letters":
+	case "ascii", "letters":
 		return asciiTheme, nil
-	case "unicode", "symbols":
+	case "", "unicode", "symbols":
 		return unicodeTheme, nil
 	default:
 		return theme{}, fmt.Errorf("unknown theme %q (choose ascii or unicode)", value)

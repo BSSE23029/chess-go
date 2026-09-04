@@ -249,5 +249,7 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 	if ui.message != "" {
 		fmt.Fprintf(&frame, "%s%s  %s%s\n", tuiBold, tuiAccent, tuiDisplayText(ui.message, boardTheme), tuiReset)
 	}
-	writeFrame(output, frame.String())
+	// Raw terminal mode does not translate LF into CRLF. Prefixing each line
+	// with CR keeps narrow and wide terminals aligned instead of drifting right.
+	writeFrame(output, strings.ReplaceAll(frame.String(), "\n", "\r\n"))
 }

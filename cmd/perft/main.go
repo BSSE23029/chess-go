@@ -26,6 +26,13 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	fen := options.String("fen", chess.InitialFEN, "position in FEN")
 	depth := options.Int("depth", 4, "search depth")
 	divide := options.Bool("divide", false, "show each root move")
+	if wantsHelp(args) {
+		fmt.Fprintln(output, "Usage: perft [--fen FEN] [--depth N] [--divide]")
+		fmt.Fprintln(output, "\nOptions:")
+		options.SetOutput(output)
+		options.PrintDefaults()
+		return nil
+	}
 	if err := options.Parse(args); err != nil || options.NArg() != 0 {
 		return errors.New("usage: perft [--fen FEN] [--depth N] [--divide]")
 	}
@@ -55,4 +62,13 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	}
 	fmt.Fprintln(output, nodes)
 	return nil
+}
+
+func wantsHelp(args []string) bool {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
 }

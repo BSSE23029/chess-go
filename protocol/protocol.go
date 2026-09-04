@@ -116,7 +116,7 @@ type CreateMatchRequest struct {
 
 // MatchmakeRequest asks the server to pair a player with a compatible open
 // match, creating a waiting match when none is available. Color may be empty,
-// white, or black; an empty value prefers the first compatible seat.
+// random, white, or black; an empty value prefers the first compatible seat.
 type MatchmakeRequest struct {
 	PlayerID        string `json:"player_id"`
 	Color           string `json:"color,omitempty"`

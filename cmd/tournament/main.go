@@ -39,6 +39,13 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	hardwareClass := options.String("hardware-class", firstSet(os.Getenv("CHESS_TOURNAMENT_HARDWARE"), "unspecified"), "hardware metadata")
 	pgnPath := options.String("pgn", "", "write tournament PGNs to a file")
 	jsonPath := options.String("json", "", "write tournament report JSON to a file")
+	if wantsHelp(args) {
+		fmt.Fprintln(output, "Usage: tournament [--profiles Learner,Beginner] [--uci ENGINE --uci-name NAME --uci-depth N] [--games N] [--plies N] [--seed INTEGER] [--engine-version VERSION] [--node-budget N] [--time-control VALUE] [--hardware-class NAME] [--pgn FILE] [--json FILE]")
+		fmt.Fprintln(output, "\nOptions:")
+		options.SetOutput(output)
+		options.PrintDefaults()
+		return nil
+	}
 	if err := options.Parse(args); err != nil || options.NArg() != 0 {
 		return errors.New("usage: tournament [--profiles Learner,Beginner] [--uci ENGINE --uci-name NAME --uci-depth N] [--games N] [--plies N] [--pgn FILE] [--json FILE]")
 	}
@@ -111,6 +118,15 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func wantsHelp(args []string) bool {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
 }
 
 func parseProfiles(value string) ([]engine.StrengthProfile, error) {

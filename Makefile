@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size bench profile verify build release
+.PHONY: test race vet fmt perft file-size bench profile verify build release release-all
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -42,3 +42,6 @@ build:
 	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} CGO_ENABLED=0 $(GO) build $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" -o "$(DIST)/chess" ./cmd/chess
 
 release: verify build
+
+release-all: verify
+	VERSION=$(VERSION) DIST=$(DIST) sh scripts/release.sh

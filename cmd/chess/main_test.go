@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ func TestLocalGameLifecycleAndSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := output.String()
-	if !strings.Contains(text, "8 r n b q k b n r") || !strings.Contains(text, "Moves: e2e4 e7e5") {
+	if !strings.Contains(text, "8 ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜") || !strings.Contains(text, "Moves: e2e4 e7e5") {
 		t.Fatalf("terminal did not render board and history:\n%s", text)
 	}
 	if !strings.Contains(text, "Nf3(g1f3)") || !strings.Contains(text, "Saved "+path) {
@@ -39,6 +40,78 @@ func TestLocalGameLifecycleAndSave(t *testing.T) {
 	if err != nil || len(game.Moves()) != 2 {
 		t.Fatalf("saved PGN is invalid: %v", err)
 	}
+}
+
+func TestTopLevelHelp(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"help"}, strings.NewReader(""), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Usage: chess") || !strings.Contains(output.String(), "docs/cli.md") {
+		t.Fatalf("top-level help = %q", output.String())
+	}
+}
+
+func TestSubcommandHelpListsAllFlags(t *testing.T) {
+	clearChessEnv(t)
+	for _, test := range []struct {
+		args []string
+		want []string
+	}{
+		{args: []string{"play", "local", "--help"}, want: []string{"--clock", "--increment", "--theme"}},
+		{args: []string{"play", "bot", "--help"}, want: []string{"--level", "--depth", "--personality", "--seed", "--color", "--theme"}},
+		{args: []string{"host", "--help"}, want: []string{"--addr", "--token", "--cert", "--key", "--store", "--lan", "--lan-instance"}},
+		{args: []string{"play", "remote", "--help"}, want: []string{"--match", "--player", "--color", "--token", "--create", "--clock-millis", "--increment-millis", "--theme"}},
+	} {
+		t.Run(strings.Join(test.args, "-"), func(t *testing.T) {
+			var output bytes.Buffer
+			if err := run(context.Background(), test.args, strings.NewReader(""), &output); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range test.want {
+				if !strings.Contains(output.String(), want) {
+					t.Fatalf("help output missing %q:\n%s", want, output.String())
+				}
+			}
+		})
+	}
+}
+
+func TestSpectateForcesSpectatorRole(t *testing.T) {
+	previousClient := http.DefaultClient
+	defer func() { http.DefaultClient = previousClient }()
+	response, err := protocol.Encode(protocol.Snapshot, "snapshot", protocol.MatchSnapshot{MatchID: "game", Turn: "white", Result: "*"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var request protocol.JoinMatchRequest
+	http.DefaultClient = &http.Client{Transport: roundTripFunc(func(httpRequest *http.Request) (*http.Response, error) {
+		body, readErr := io.ReadAll(httpRequest.Body)
+		if readErr != nil {
+			return nil, readErr
+		}
+		envelope, decodeErr := protocol.Decode(body)
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		if decodeErr := envelope.UnmarshalPayload(&request); decodeErr != nil {
+			return nil, decodeErr
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(bytes.NewReader(response))}, nil
+	})}
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"spectate", "http://example.invalid", "--match", "game", "--player", "viewer", "--color", "white"}, strings.NewReader(""), &output); err != nil {
+		t.Fatal(err)
+	}
+	if request.Color != "spectator" {
+		t.Fatalf("spectate sent color %q, want spectator", request.Color)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
 func TestBotGameUsesEnvironmentConfiguration(t *testing.T) {
@@ -255,8 +328,17 @@ func TestInteractiveNavigationAndKeyDecoding(t *testing.T) {
 	}
 	var output bytes.Buffer
 	line, err := readRawLine(bufio.NewReader(strings.NewReader("savx\x7fe game.pgn\r")), &output)
-	if err != nil || line != "save game.pgn" || output.String() != "savx\b \be game.pgn\n" {
+	if err != nil || line != "save game.pgn" || output.String() != "savx\b \be game.pgn\r\n" {
 		t.Fatalf("raw command = %q, %v; output %q", line, err, output.String())
+	}
+}
+
+func TestInteractiveRendererResetsColumnForRawTerminals(t *testing.T) {
+	var output bytes.Buffer
+	ui := boardUI{cursor: chess.NoSquare}
+	renderInteractive(&output, chess.NewGame(), &ui, false, "", asciiTheme)
+	if !strings.Contains(output.String(), "\r\n") {
+		t.Fatal("interactive frame did not use CRLF line starts")
 	}
 }
 
@@ -471,6 +553,10 @@ func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
 }
 
 func TestThemeConfiguration(t *testing.T) {
+	defaultTheme, err := parseTheme("")
+	if err != nil || defaultTheme.label() != "unicode" {
+		t.Fatalf("default theme = %q, %v", defaultTheme.label(), err)
+	}
 	for _, value := range []string{"ascii", "letters", "unicode", "symbols", ""} {
 		if _, err := parseTheme(value); err != nil {
 			t.Errorf("parseTheme(%q): %v", value, err)

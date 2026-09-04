@@ -154,7 +154,7 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 			return err
 		}
 		if pressed == keyCommand {
-			fmt.Fprint(output, "\n:")
+			fmt.Fprint(output, "\r\n:")
 			line, err := readRawLine(reader, output)
 			if err != nil {
 				return err

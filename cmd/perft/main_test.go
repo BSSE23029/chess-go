@@ -21,6 +21,18 @@ func TestCountAndDivide(t *testing.T) {
 	}
 }
 
+func TestHelpListsFlags(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"--help"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{"--fen", "--depth", "--divide"} {
+		if !strings.Contains(output.String(), flag[1:]) {
+			t.Fatalf("help output missing %q:\n%s", flag, output.String())
+		}
+	}
+}
+
 func TestValidationAndCancellation(t *testing.T) {
 	for _, args := range [][]string{{"extra"}, {"--depth", "-1"}, {"--fen", "bad"}, {"--divide", "--depth", "0"}} {
 		if err := run(context.Background(), args, &bytes.Buffer{}); err == nil {

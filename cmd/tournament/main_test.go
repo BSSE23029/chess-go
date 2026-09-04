@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -8,6 +9,18 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestHelpListsFlags(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"--help"}, &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{"--profiles", "--uci", "--uci-name", "--uci-depth", "--games", "--plies", "--seed", "--engine-version", "--node-budget", "--time-control", "--hardware-class", "--pgn", "--json"} {
+		if !strings.Contains(output.String(), flag[1:]) {
+			t.Fatalf("help output missing %q:\n%s", flag, output.String())
+		}
+	}
+}
 
 func TestTournamentCLIIncludesConfiguredUCIPlayer(t *testing.T) {
 	if runtime.GOOS == "windows" {
