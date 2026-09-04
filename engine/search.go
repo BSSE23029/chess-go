@@ -31,14 +31,17 @@ type SearchStats struct {
 	Nodes uint64
 	// Score is the score of the returned move at Depth.
 	Score Score
+	// ReducedNodes is the number of late-move reduced searches attempted.
+	ReducedNodes uint64
 }
 
 type searchControl struct {
-	nodes   uint64
-	limit   uint64
-	table   map[uint64]ttEntry
-	killers [64][2]chess.Move
-	history map[chess.Move]int
+	nodes      uint64
+	limit      uint64
+	table      map[uint64]ttEntry
+	killers    [64][2]chess.Move
+	history    map[chess.Move]int
+	reductions uint64
 }
 
 type ttBound uint8
@@ -115,7 +118,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		for {
 			candidate, score, failLow, failHigh, err := b.iteration(searchCtx, evaluator, &position, moves, depth, alpha, beta, control)
 			if err != nil {
-				stats.Nodes = control.nodes
+				stats.Nodes, stats.ReducedNodes = control.nodes, control.reductions
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					return best, stats, err
 				}
@@ -129,7 +132,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 				continue
 			}
 			best, stats.Depth, stats.Score = candidate, depth, score
-			stats.Nodes = control.nodes
+			stats.Nodes, stats.ReducedNodes = control.nodes, control.reductions
 			break
 		}
 	}
@@ -212,9 +215,23 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 	}
 	best := -infinity
 	bestMove := moves[0]
-	for _, move := range moves {
+	inCheck := position.InCheck()
+	for index, move := range moves {
 		undo := position.MakeLegalMove(move)
-		score, err := b.search(ctx, evaluator, position, depth-1, ply+1, -beta, -alpha, control)
+		reduced := depth >= 3 && index >= 3 && !inCheck && move.Flags&chess.Capture == 0 && move.Promotion == chess.NoPiece
+		if reduced {
+			control.reductions++
+		}
+		searchDepth := depth - 1
+		searchAlpha, searchBeta := -beta, -alpha
+		if reduced {
+			searchDepth = depth - 2
+			searchAlpha, searchBeta = -alpha-1, -alpha
+		}
+		score, err := b.search(ctx, evaluator, position, searchDepth, ply+1, searchAlpha, searchBeta, control)
+		if err == nil && reduced && -score > alpha {
+			score, err = b.search(ctx, evaluator, position, depth-1, ply+1, -beta, -alpha, control)
+		}
 		position.UnmakeMove(undo)
 		if err != nil {
 			return 0, err

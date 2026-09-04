@@ -123,10 +123,13 @@ The search horizon uses quiescence search: tactical captures, promotions, and
 forced check evasions are explored before a leaf is statically evaluated.
 Each search owns a Zobrist-keyed transposition table with exact, lower-bound,
 upper-bound, and preferred-move entries; callers can therefore reuse a single
-`Search` call safely without sharing mutable engine state across games.
+`Search` call safely without sharing mutable engine state across games. Its
+statistics include reduced late-move searches for profiling.
 Quiet cutoffs update per-ply killer and history tables for move ordering, while
 completed iterative scores seed a narrow aspiration window and automatically
 retry with a full window when the score falls outside it.
+At depth three and deeper, late quiet moves use a reduced null-window search
+and are re-searched at full depth only when they raise alpha.
 
 For callers that own time controls, `Bot.Search` performs iterative deepening
 with explicit node and wall-clock limits and returns statistics for the deepest

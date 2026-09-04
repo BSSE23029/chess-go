@@ -81,8 +81,8 @@ func TestBotCancellationAndTerminalPosition(t *testing.T) {
 
 func TestIterativeSearchAndNodeLimit(t *testing.T) {
 	position := chess.NewPosition()
-	move, stats, err := New(3).Search(context.Background(), position, SearchLimits{MaxDepth: 3})
-	if err != nil || stats.Depth != 3 || stats.Nodes == 0 {
+	move, stats, err := New(4).Search(context.Background(), position, SearchLimits{MaxDepth: 4})
+	if err != nil || stats.Depth != 4 || stats.Nodes == 0 || stats.ReducedNodes == 0 {
 		t.Fatalf("iterative search = %s, %#v, %v", move.UCI(), stats, err)
 	}
 	if _, err := position.Apply(move); err != nil {
