@@ -36,7 +36,7 @@ func TestRoundRobinReportIsReproducibleAndPortable(t *testing.T) {
 		t.Fatal(err)
 	}
 	var decoded Report
-	if err := json.Unmarshal(data, &decoded); err != nil || decoded.NodeBudget != 123 || decoded.HardwareClass != "test-cpu" {
+	if err := json.Unmarshal(data, &decoded); err != nil || decoded.Seed != 42 || decoded.NodeBudget != 123 || decoded.HardwareClass != "test-cpu" {
 		t.Fatalf("report JSON = %s, %v", data, err)
 	}
 }
