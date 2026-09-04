@@ -124,6 +124,9 @@ forced check evasions are explored before a leaf is statically evaluated.
 Each search owns a Zobrist-keyed transposition table with exact, lower-bound,
 upper-bound, and preferred-move entries; callers can therefore reuse a single
 `Search` call safely without sharing mutable engine state across games.
+Quiet cutoffs update per-ply killer and history tables for move ordering, while
+completed iterative scores seed a narrow aspiration window and automatically
+retry with a full window when the score falls outside it.
 
 For callers that own time controls, `Bot.Search` performs iterative deepening
 with explicit node and wall-clock limits and returns statistics for the deepest
