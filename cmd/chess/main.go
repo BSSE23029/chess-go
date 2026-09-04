@@ -276,7 +276,7 @@ func (s *session) command(line string, output io.Writer) error {
 	command, argument, _ := strings.Cut(line, " ")
 	argument = strings.TrimSpace(argument)
 	switch strings.ToLower(command) {
-	case "quit", "exit":
+	case "quit", "exit", "q":
 		return io.EOF
 	case "help":
 		fmt.Fprintln(output, "Enter moves as SAN (Nf3, O-O) or UCI (g1f3). File commands accept local paths.")

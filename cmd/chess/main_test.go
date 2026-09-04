@@ -124,6 +124,17 @@ func TestInvalidInputIsRejectedWithoutEndingSession(t *testing.T) {
 	}
 }
 
+func TestLineModeAcceptsShortQuitCommand(t *testing.T) {
+	clearChessEnv(t)
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"play", "local"}, strings.NewReader("q\n"), &output); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "Error:") {
+		t.Fatalf("short quit was parsed as a move:\n%s", output.String())
+	}
+}
+
 func TestCommandValidation(t *testing.T) {
 	clearChessEnv(t)
 	tests := [][]string{
