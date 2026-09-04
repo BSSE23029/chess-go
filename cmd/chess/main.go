@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
@@ -113,16 +115,17 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			depth := options.Int("depth", defaultDepth, "search depth")
 			level := options.String("level", os.Getenv("CHESS_BOT_LEVEL"), "named strength profile")
 			personality := options.String("personality", os.Getenv("CHESS_BOT_PERSONALITY"), "move-selection personality")
-			seed := options.String("seed", os.Getenv("CHESS_BOT_SEED"), "deterministic personality seed")
+			seed := options.String("seed", os.Getenv("CHESS_BOT_SEED"), "move-selection seed; set for reproducible moves")
+			randomize := options.Bool("random", envBool("CHESS_BOT_RANDOM", true), "vary among near-best moves")
 			color := options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "human color")
 			limit, increment := clockFlags(options)
 			themeName := options.String("theme", s.theme.label(), "board theme: ascii or unicode")
 			if wantsHelp(args[2:]) {
-				printFlagHelp(output, "chess play bot [--level NAME | --depth N] [--color white|black] [--personality NAME] [--seed INTEGER] [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]", options)
+				printFlagHelp(output, "chess play bot [--level NAME | --depth N] [--color white|black] [--personality NAME] [--seed INTEGER] [--random[=BOOL]] [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]", options)
 				return nil
 			}
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 || *depth < 1 {
-				return errors.New("usage: chess play bot [--level NAME | --depth N] [--color white|black] [--personality NAME] [--seed INTEGER] [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]")
+				return errors.New("usage: chess play bot [--level NAME | --depth N] [--color white|black] [--personality NAME] [--seed INTEGER] [--random[=BOOL]] [--clock DURATION] [--increment DURATION] [--theme ascii|unicode]")
 			}
 			switch *color {
 			case "white":
@@ -132,6 +135,15 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			default:
 				return fmt.Errorf("invalid color %q", *color)
 			}
+			seedValue := uint64(0)
+			if *seed != "" {
+				seedValue, err = strconv.ParseUint(*seed, 0, 64)
+				if err != nil {
+					return fmt.Errorf("CHESS_BOT_SEED must be an unsigned integer")
+				}
+			} else if *randomize {
+				seedValue = randomBotSeed()
+			}
 			if *level != "" {
 				profile, err := engine.ParseStrengthProfile(*level)
 				if err != nil {
@@ -140,19 +152,26 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 				s.bot = engine.NewProfile(profile)
 				s.botLevel = profile.String()
 			} else {
-				s.bot = engine.New(*depth)
+				if *randomize {
+					s.bot = engine.NewRandom(*depth, seedValue)
+				} else {
+					s.bot = engine.New(*depth)
+				}
+			}
+			if *randomize {
+				if bot, ok := s.bot.(*engine.Bot); ok {
+					bot.Seed = seedValue
+					// Random play samples the opening for imperfect profiles;
+					// deterministic named profiles keep their book when disabled.
+					if *level != "" && bot.Strength < engine.Maximum {
+						bot.Book = nil
+					}
+				}
 			}
 			if *personality != "" {
 				style, err := engine.ParsePersonality(*personality)
 				if err != nil {
 					return err
-				}
-				seedValue := uint64(0)
-				if *seed != "" {
-					seedValue, err = strconv.ParseUint(*seed, 0, 64)
-					if err != nil {
-						return fmt.Errorf("CHESS_BOT_SEED must be an unsigned integer")
-					}
 				}
 				bot, ok := s.bot.(*engine.Bot)
 				if !ok {
@@ -329,6 +348,20 @@ func envInt(name string, fallback int) (int, error) {
 		return 0, fmt.Errorf("%s must be a positive integer", name)
 	}
 	return parsed, nil
+}
+
+func randomBotSeed() uint64 {
+	var bytes [8]byte
+	if _, err := cryptorand.Read(bytes[:]); err == nil {
+		if seed := binary.LittleEndian.Uint64(bytes[:]); seed != 0 {
+			return seed
+		}
+	}
+	seed := uint64(time.Now().UnixNano())
+	if seed == 0 {
+		return 1
+	}
+	return seed
 }
 
 func firstSet(values ...string) string {

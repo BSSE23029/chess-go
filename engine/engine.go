@@ -80,6 +80,17 @@ func New(depth int) *Bot {
 	return &Bot{Depth: depth, Evaluator: MaterialEvaluator{}, Strength: Maximum, Personality: Materialist}
 }
 
+// NewRandom returns a depth-limited bot that samples among near-best moves.
+// A non-zero seed makes the sequence reproducible; use New for deterministic
+// best-move selection.
+func NewRandom(depth int, seed uint64) *Bot {
+	bot := New(depth)
+	bot.MaxLoss = 20
+	bot.Temperature = 8
+	bot.Seed = seed
+	return bot
+}
+
 func orderedMoves(position *chess.Position) []chess.Move {
 	moves := position.LegalMoves()
 	slices.SortStableFunc(moves, func(a, b chess.Move) int {

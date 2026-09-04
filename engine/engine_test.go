@@ -171,6 +171,33 @@ func TestStrengthProfiles(t *testing.T) {
 	}
 }
 
+func TestRandomBotSamplesNearBestMoves(t *testing.T) {
+	position := chess.NewPosition()
+	seen := make(map[string]struct{})
+	for seed := uint64(1); seed <= 8; seed++ {
+		bot := NewRandom(1, seed)
+		move, err := bot.ChooseMove(context.Background(), position)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen[move.UCI()] = struct{}{}
+	}
+	if len(seen) < 2 {
+		t.Fatalf("random bot selected only one opening move: %v", seen)
+	}
+	first, err := NewRandom(1, 42).ChooseMove(context.Background(), position)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := NewRandom(1, 42).ChooseMove(context.Background(), position)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("same seed selected %s then %s", first.UCI(), second.UCI())
+	}
+}
+
 func TestPersonalityStyleBonusesArePositionAware(t *testing.T) {
 	position, err := chess.ParseFEN("4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1")
 	if err != nil {

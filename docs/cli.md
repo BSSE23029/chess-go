@@ -45,11 +45,15 @@ undo/redo, `n` for a confirmed new game, `:` for the command palette, `?` for
 the key guide, and `q` or Ctrl-C to quit. Narrow terminals stack the sidebar
 below the board; redirected output uses the line renderer.
 
+![Wide Unicode terminal layout](images/preview-unicode.svg)
+
+![Narrow ASCII terminal layout](images/preview-ascii.svg)
+
 ## Bot play
 
 ```console
 chess play bot [--level NAME | --depth N] [--color white|black]
-               [--personality NAME] [--seed INTEGER]
+               [--personality NAME] [--seed INTEGER] [--random[=BOOL]]
                [--clock DURATION] [--increment DURATION]
                [--theme ascii|unicode]
 ```
@@ -66,6 +70,13 @@ chess play bot [--level NAME | --depth N] [--color white|black]
 - `--seed INTEGER` makes personality selection reproducible. It accepts Go
   integer syntax such as `42` or `0x2a` and is read from `CHESS_BOT_SEED` when
   omitted.
+- `--random[=BOOL]` varies among near-best moves using a seeded, weighted
+  selector. It defaults to `true` (`CHESS_BOT_RANDOM`) so separate launches
+  can play different legal moves while still preferring the search result.
+  Use `--random=false` for the historical deterministic best-move behavior.
+  Set `--seed` or `CHESS_BOT_SEED` when you want random-looking play that is
+  exactly reproducible. Forced moves remain forced; the strongest `Maximum`
+  profile can also remain deterministic because it accepts no evaluation loss.
 - `--clock`, `--increment`, and `--theme` use the same defaults as local play.
 
 The dashboard displays the bot's latest completed depth, node count, and score
@@ -164,7 +175,8 @@ Commands that change a finished game are rejected. `fen`, `load`, `save`, and
 | `CHESS_BOT_DEPTH` | Raw bot depth. |
 | `CHESS_BOT_LEVEL` | Named bot strength profile. |
 | `CHESS_BOT_PERSONALITY` | Bot style. |
-| `CHESS_BOT_SEED` | Deterministic style seed. |
+| `CHESS_BOT_SEED` | Move-selection seed for reproducible bot play. |
+| `CHESS_BOT_RANDOM` | Enable near-best move variation (default `true`). |
 | `CHESS_CLOCK` / `CHESS_INCREMENT` | Local time control. |
 | `CHESS_NETWORK_ADDR` | Host server bind address. |
 | `CHESS_NETWORK_TOKEN` | HTTP/WebSocket bearer token. |

@@ -59,7 +59,7 @@ func TestSubcommandHelpListsAllFlags(t *testing.T) {
 		want []string
 	}{
 		{args: []string{"play", "local", "--help"}, want: []string{"--clock", "--increment", "--theme"}},
-		{args: []string{"play", "bot", "--help"}, want: []string{"--level", "--depth", "--personality", "--seed", "--color", "--theme"}},
+		{args: []string{"play", "bot", "--help"}, want: []string{"--level", "--depth", "--personality", "--seed", "--random", "--color", "--theme"}},
 		{args: []string{"host", "--help"}, want: []string{"--addr", "--token", "--cert", "--key", "--store", "--lan", "--lan-instance"}},
 		{args: []string{"play", "remote", "--help"}, want: []string{"--match", "--player", "--color", "--token", "--create", "--clock-millis", "--increment-millis", "--theme"}},
 	} {
@@ -219,6 +219,8 @@ func TestCommandValidation(t *testing.T) {
 		{"play", "local", "extra"},
 		{"play", "bot", "--depth", "0"},
 		{"play", "bot", "--level", "unknown"},
+		{"play", "bot", "--seed", "not-a-number"},
+		{"play", "bot", "--random", "maybe"},
 		{"play", "bot", "--color", "red"},
 		{"load"},
 	}
@@ -358,7 +360,7 @@ func TestInteractiveRendererShowsDashboard(t *testing.T) {
 	}
 }
 
-func TestInteractiveRendererUpdatesOnlyClockWhenPositionIsUnchanged(t *testing.T) {
+func TestInteractiveRendererRedrawsWhenClockChanges(t *testing.T) {
 	game := chess.NewGame()
 	ui := boardUI{cursor: chess.NoSquare}
 	var output bytes.Buffer
@@ -366,11 +368,11 @@ func TestInteractiveRendererUpdatesOnlyClockWhenPositionIsUnchanged(t *testing.T
 	output.Reset()
 	renderInteractive(&output, game, &ui, false, "White 00:09 · Black 00:10 · +00:00", asciiTheme)
 	text := output.String()
-	if !strings.Contains(text, "\x1b[10;50H") || !strings.Contains(text, "White 00:09") {
-		t.Fatalf("clock-only update missing: %q", text)
+	if !strings.Contains(text, "\x1b[2J") || !strings.Contains(text, "White 00:09") {
+		t.Fatalf("clock redraw missing: %q", text)
 	}
-	if strings.Contains(text, "\x1b[2J") || strings.Contains(text, "CHESS-GO") {
-		t.Fatalf("clock-only update redrew the full frame: %q", text)
+	if !strings.Contains(text, "CHESS-GO") {
+		t.Fatalf("clock update did not redraw the frame: %q", text)
 	}
 }
 
@@ -380,7 +382,7 @@ func TestInteractiveRendererUsesASCIIChrome(t *testing.T) {
 	var output bytes.Buffer
 	renderInteractive(&output, game, &ui, false, "", asciiTheme)
 	text := output.String()
-	if !strings.Contains(text, "+----+") || strings.Contains(text, "┌") || strings.Contains(text, "·") || strings.Contains(text, "●") {
+	if !strings.Contains(text, "+") || !strings.Contains(text, "----") || strings.Contains(text, "┌") || strings.Contains(text, "·") || strings.Contains(text, "●") {
 		t.Fatalf("ASCII theme emitted Unicode chrome:\n%s", text)
 	}
 }
@@ -390,7 +392,7 @@ func TestInteractiveRendererStacksTheRailWhenNarrow(t *testing.T) {
 	ui := boardUI{cursor: chess.NoSquare}
 	model := ui.model(game, game.Position(), asciiTheme)
 	var output bytes.Buffer
-	renderFullInteractive(&output, game, &ui, model, false, "", asciiTheme, true)
+	renderFullInteractive(&output, game, &ui, model, false, "", asciiTheme, boardScale{cellWidth: 4, cellHeight: 1}, true, 60, 30)
 	for _, line := range strings.Split(output.String(), "\n") {
 		if strings.Contains(line, "8 |") && strings.Contains(line, "MATCH") {
 			t.Fatalf("narrow board still placed the rail beside a rank: %q", line)
@@ -398,10 +400,48 @@ func TestInteractiveRendererStacksTheRailWhenNarrow(t *testing.T) {
 	}
 }
 
+func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
+	wide, compact := boardScaleForTerminal(213, 60)
+	if compact || wide.cellWidth != 10 || wide.cellHeight != 3 {
+		t.Fatalf("wide scale = %#v, compact %v", wide, compact)
+	}
+	narrow, compact := boardScaleForTerminal(60, 30)
+	if !compact || narrow.cellWidth != 4 || narrow.cellHeight != 1 {
+		t.Fatalf("narrow scale = %#v, compact %v", narrow, compact)
+	}
+	tiny, compact := boardScaleForTerminal(30, 24)
+	if !compact || tiny.cellWidth != 1 {
+		t.Fatalf("tiny scale = %#v, compact %v", tiny, compact)
+	}
+}
+
+func TestScaledBoardRepeatsRanksWithoutFixedClockCoordinates(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare}
+	model := ui.model(game, game.Position(), unicodeTheme)
+	var output bytes.Buffer
+	renderFullInteractive(&output, game, &ui, model, false, "White 05:00 · Black 05:00 · +00:03", unicodeTheme, boardScale{cellWidth: 10, cellHeight: 3}, false, 213, 60)
+	text := output.String()
+	if strings.Contains(text, "\x1b[10;50H") || strings.Count(text, "──────────") < 8 || !strings.Contains(text, "    │") {
+		t.Fatalf("scaled frame retained fixed coordinates or rank height:\n%s", text)
+	}
+}
+
 func TestStripSGRPreservesTerminalControls(t *testing.T) {
 	got := stripSGR("\x1b[31mred\x1b[0m\x1b[2J")
 	if got != "red\x1b[2J" {
 		t.Fatalf("stripSGR() = %q", got)
+	}
+}
+
+func TestInteractiveFrameFitsViewport(t *testing.T) {
+	frame := "\x1b[H\x1b[2Jone\ntwo\nthree\n"
+	got := formatInteractiveFrame(frame, 20, 2)
+	if !strings.HasPrefix(got, "\x1b[H\x1b[2J") || strings.Contains(got, "three") || strings.Count(got, "\n") != 1 {
+		t.Fatalf("frame was not vertically fitted: %q", got)
+	}
+	if got := truncateTerminalLine("\x1b[31mabcdef\x1b[0m", 3); !strings.Contains(got, "abc") || strings.Contains(got, "def") {
+		t.Fatalf("line was not horizontally fitted: %q", got)
 	}
 }
 
@@ -542,7 +582,7 @@ func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
 	var output bytes.Buffer
 	renderInteractive(&output, game, &ui, false, "White 05:00 · Black 05:00 · +00:03", unicodeTheme)
 	text := output.String()
-	for _, want := range []string{"\x1b[H\x1b[2J", "\x1b[7m", "\x1b[46m", "\x1b[42m", "\x1b[43m", "8 ", "  a  b  c  d  e  f  g  h", "White 05:00", "Black to move"} {
+	for _, want := range []string{"\x1b[H\x1b[2J", "\x1b[7m", "\x1b[46m", "\x1b[42m", "\x1b[43m", "8 ", "a    b    c    d    e    f    g    h", "White 05:00", "Black to move"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("interactive rendering lacks %q:\n%s", want, text)
 		}
@@ -655,7 +695,7 @@ func TestVersionCommand(t *testing.T) {
 
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_BOT_RANDOM", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
 		t.Setenv(name, "")
 	}
 }

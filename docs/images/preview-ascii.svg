@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="680" viewBox="0 0 1000 680" role="img" aria-labelledby="title desc">
+  <title id="title">chess-go compact ASCII terminal preview</title>
+  <desc id="desc">A compact terminal layout with an ASCII chess board and the status rail stacked below it for a narrow window.</desc>
+  <rect width="1000" height="680" rx="18" fill="#202735"/>
+  <rect width="1000" height="42" rx="18" fill="#111722"/><rect y="24" width="1000" height="18" fill="#111722"/>
+  <circle cx="24" cy="21" r="7" fill="#ff5f57"/><circle cx="48" cy="21" r="7" fill="#febc2e"/><circle cx="72" cy="21" r="7" fill="#28c840"/>
+  <text x="100" y="27" fill="#9ba7ba" font-family="Menlo,monospace" font-size="14">chess-go — compact terminal — 60×30</text>
+  <text x="30" y="78" fill="#73c7ff" font-family="Menlo,monospace" font-size="18" font-weight="700">CHESS-GO</text><text x="30" y="101" fill="#8591a5" font-family="Menlo,monospace" font-size="14">LOCAL MATCH  |  ASCII THEME  |  1 move</text>
+  <g transform="translate(55 130)" font-family="Menlo,monospace" font-size="24">
+    <rect x="40" y="0" width="432" height="432" fill="#5b82a9" stroke="#d6e0ed" stroke-width="3"/>
+    <path d="M40 54h432M40 108h432M40 162h432M40 216h432M40 270h432M40 324h432M40 378h432M94 0v432M148 0v432M202 0v432M256 0v432M310 0v432M364 0v432M418 0v432" stroke="#d9dee4" stroke-width="27" stroke-dasharray="27 27" opacity=".9"/>
+    <g fill="#202735" text-anchor="middle"><text x="67" y="38">r</text><text x="121" y="38">n</text><text x="175" y="38">b</text><text x="229" y="38">q</text><text x="283" y="38">k</text><text x="337" y="38">b</text><text x="391" y="38">n</text><text x="445" y="38">r</text><text x="67" y="92">p</text><text x="121" y="92">p</text><text x="175" y="92">p</text><text x="229" y="92">p</text><text x="283" y="92">p</text><text x="337" y="92">p</text><text x="391" y="92">p</text><text x="445" y="92">p</text></g>
+    <g fill="#f7f9fc" text-anchor="middle"><text x="67" y="362">P</text><text x="121" y="362">P</text><text x="175" y="362">P</text><text x="229" y="362">P</text><text x="283" y="362">P</text><text x="337" y="362">P</text><text x="391" y="362">P</text><text x="445" y="362">P</text><text x="67" y="416">R</text><text x="121" y="416">N</text><text x="175" y="416">B</text><text x="229" y="416">Q</text><text x="283" y="416">K</text><text x="337" y="416">B</text><text x="391" y="416">N</text><text x="445" y="416">R</text></g>
+    <g fill="#b9c4d5" font-size="14"><text x="20" y="38">8</text><text x="20" y="92">7</text><text x="20" y="146">6</text><text x="20" y="200">5</text><text x="20" y="254">4</text><text x="20" y="308">3</text><text x="20" y="362">2</text><text x="20" y="416">1</text><text x="62" y="448">a</text><text x="116" y="448">b</text><text x="170" y="448">c</text><text x="224" y="448">d</text><text x="278" y="448">e</text><text x="332" y="448">f</text><text x="386" y="448">g</text><text x="440" y="448">h</text></g>
+  </g>
+  <g transform="translate(30 610)" font-family="Menlo,monospace"><text x="0" y="0" fill="#73c7ff" font-size="15" font-weight="700">STATUS</text><text x="90" y="0" fill="#e7edf6" font-size="14">Bot played e4 (e2e4)  |  Black to move  |  Clock off</text><text x="0" y="28" fill="#73c7ff" font-size="15" font-weight="700">CONTROLS</text><text x="100" y="28" fill="#b9c4d5" font-size="14">arrows/hjkl move  |  Enter select  |  u/r undo/redo  |  : command  |  q quit</text></g>
+</svg>

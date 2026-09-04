@@ -57,6 +57,7 @@ type tuiRenderState struct {
 	theme        string
 	clocks       string
 	width        int
+	height       int
 	compact      bool
 }
 
@@ -99,8 +100,8 @@ func renderInteractive(output io.Writer, game *chess.Game, ui *boardUI, flipped 
 	}
 	position := game.Position()
 	model := ui.model(game, position, boardTheme)
-	width, _ := terminalSize(output)
-	compact := width < 78
+	width, height := terminalSize(output)
+	scale, compact := boardScaleForTerminal(width, height)
 	state := tuiRenderState{
 		valid:        true,
 		game:         game,
@@ -120,28 +121,18 @@ func renderInteractive(output io.Writer, game *chess.Game, ui *boardUI, flipped 
 		theme:        boardTheme.label(),
 		clocks:       clocks,
 		width:        width,
+		height:       height,
 		compact:      compact,
 	}
 	if ui.rendered.valid && state.sameStatic(ui.rendered) {
-		if state.clocks != ui.rendered.clocks && !state.compact {
-			renderClockOnly(output, clocks)
-			ui.rendered = state
-		}
 		return
 	}
-	renderFullInteractive(output, game, ui, model, flipped, clocks, boardTheme, compact)
+	renderFullInteractive(output, game, ui, model, flipped, clocks, boardTheme, scale, compact, width, height)
 	ui.rendered = state
 }
 
 func (s tuiRenderState) sameStatic(other tuiRenderState) bool {
-	return s.game == other.game && s.positionHash == other.positionHash && s.moveCount == other.moveCount && s.cursor == other.cursor && s.selected == other.selected && s.flipped == other.flipped && s.message == other.message && s.whiteName == other.whiteName && s.blackName == other.blackName && s.mode == other.mode && s.showHelp == other.showHelp && s.thinking == other.thinking && s.botDetail == other.botDetail && s.promotion == other.promotion && s.theme == other.theme && s.width == other.width && s.compact == other.compact
-}
-
-func renderClockOnly(output io.Writer, clocks string) {
-	var frame strings.Builder
-	// The clock rail is line 10, column 50 in the fixed board layout.
-	fmt.Fprintf(&frame, "\x1b[s\x1b[10;50H\x1b[K  %s\x1b[u", clocks)
-	writeFrame(output, frame.String())
+	return s.game == other.game && s.positionHash == other.positionHash && s.moveCount == other.moveCount && s.cursor == other.cursor && s.selected == other.selected && s.flipped == other.flipped && s.message == other.message && s.whiteName == other.whiteName && s.blackName == other.blackName && s.mode == other.mode && s.showHelp == other.showHelp && s.thinking == other.thinking && s.botDetail == other.botDetail && s.promotion == other.promotion && s.theme == other.theme && s.clocks == other.clocks && s.width == other.width && s.height == other.height && s.compact == other.compact
 }
 
 func writeFrame(output io.Writer, frame string) {
@@ -172,7 +163,7 @@ func stripSGR(value string) string {
 }
 
 func boardPadding(line string) string {
-	if strings.HasPrefix(line, "    ") {
+	if strings.HasPrefix(line, "   ") {
 		return ""
 	}
 	return "  "
@@ -190,7 +181,7 @@ func terminalSize(output io.Writer) (int, int) {
 	return width, height
 }
 
-func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, model *tuiCache, flipped bool, clocks string, boardTheme theme, compact bool) {
+func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, model *tuiCache, flipped bool, clocks string, boardTheme theme, scale boardScale, compact bool, width, height int) {
 	position := game.Position()
 	files, ranks := boardOrientation(flipped)
 	legal := legalDestinations(model.legalMoves, ui.selected)
@@ -210,7 +201,7 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 	}
 	fmt.Fprintf(&frame, "%s  %s%s%s theme%s %d move%s%s\n\n", tuiDim, mode, separator, strings.ToUpper(boardTheme.label()), separator, model.moveCount, plural(model.moveCount), tuiReset)
 
-	board := boardLines(position, files, ranks, ui, legal, last, model.checkSquare, boardTheme)
+	board := boardLines(position, files, ranks, ui, legal, last, model.checkSquare, boardTheme, scale)
 	rail := sidebarLines(position, ui, clocks, model, boardTheme)
 	if compact {
 		for _, line := range board {
@@ -218,15 +209,23 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 		}
 	} else {
 		for index, line := range board {
-			fmt.Fprintf(&frame, "  %s%s  %s\n", line, boardPadding(line), rail[index])
+			fmt.Fprintf(&frame, "  %s%s  %s\n", line, boardPadding(line), railLine(rail, index, scale.cellHeight, len(board)))
 		}
 	}
-	fmt.Fprintf(&frame, "    %s%s\n", coordinateLine(files), tuiReset)
+	fmt.Fprintf(&frame, "  %s%s\n", coordinateLine(files, scale.cellWidth), tuiReset)
 	legend := "reverse cursor · cyan selected · green legal · yellow last move · red check"
 	if boardTheme.label() == "ascii" {
 		legend = "reverse cursor | cyan selected | green legal | yellow last move | red check"
 	}
-	fmt.Fprintf(&frame, "    %s%sLEGEND%s  %s\n", tuiAccent, tuiBold, tuiReset, legend)
+	legendLabel := "LEGEND  "
+	if compact {
+		legend = "cursor | selected | legal | last | check"
+		if width < 45 {
+			legend = "cursor/legal/last/check"
+			legendLabel = ""
+		}
+	}
+	fmt.Fprintf(&frame, "    %s%s%s%s  %s\n", tuiAccent, tuiBold, legendLabel, tuiReset, legend)
 	if compact {
 		fmt.Fprintln(&frame)
 		for _, line := range rail {
@@ -234,9 +233,11 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 		}
 	}
 
-	fmt.Fprintf(&frame, "\n%s%s  RECENT MOVES%s\n", tuiAccent, tuiBold, tuiReset)
-	for _, line := range recentMoveLines(model.moves, model.san, boardTheme) {
-		fmt.Fprintf(&frame, "  %s\n", line)
+	if !compact || height >= 36 {
+		fmt.Fprintf(&frame, "\n%s%s  RECENT MOVES%s\n", tuiAccent, tuiBold, tuiReset)
+		for _, line := range recentMoveLines(model.moves, model.san, boardTheme) {
+			fmt.Fprintf(&frame, "  %s\n", line)
+		}
 	}
 	if ui.showHelp {
 		fmt.Fprintf(&frame, "\n%s%s  KEYBOARD GUIDE%s\n", tuiAccent, tuiBold, tuiReset)
@@ -244,12 +245,19 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 		fmt.Fprintln(&frame, "  esc  clear selection               u / r  undo or redo")
 		fmt.Fprintln(&frame, "  n  new game    :  command line     q / ctrl-c  quit")
 	} else {
-		fmt.Fprintf(&frame, "\n%s  arrows/hjkl move%sEnter select%s u/r undo/redo%s n new%s : command%s ? guide%s q quit%s\n", tuiDim, separator, separator, separator, separator, separator, separator, tuiReset)
+		controls := "arrows/hjkl move" + separator + "Enter select" + separator + "u/r undo/redo" + separator + "n new" + separator + ": command" + separator + "? guide" + separator + "q quit"
+		if compact {
+			controls = "h/j/k/l move | Enter | u/r | n | : | ? | q"
+			if width < 45 {
+				controls = "h/j/k/l | Enter | ? | q"
+			}
+		}
+		fmt.Fprintf(&frame, "\n%s  %s%s\n", tuiDim, controls, tuiReset)
 	}
 	if ui.message != "" {
 		fmt.Fprintf(&frame, "%s%s  %s%s\n", tuiBold, tuiAccent, tuiDisplayText(ui.message, boardTheme), tuiReset)
 	}
 	// Raw terminal mode does not translate LF into CRLF. Prefixing each line
 	// with CR keeps narrow and wide terminals aligned instead of drifting right.
-	writeFrame(output, strings.ReplaceAll(frame.String(), "\n", "\r\n"))
+	writeFrame(output, strings.ReplaceAll(formatInteractiveFrame(frame.String(), width, height), "\n", "\r\n"))
 }

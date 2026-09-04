@@ -63,14 +63,24 @@ chess play bot --level Casual
 
 The terminal board uses real Unicode chess symbols by default. Use
 `--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII borders.
-Set `NO_COLOR=1` when ANSI color is not desired. The TUI adapts to narrow
-terminals, restores the terminal on exit, and redraws only changed clock data
-when the position is unchanged.
+Set `NO_COLOR=1` when ANSI color is not desired. The TUI scales its board and
+sidebar to the current terminal size, clips safely at very small viewports,
+restores the terminal on exit, and redraws cleanly when state or clocks change.
 
 Interactive controls are Arrow keys or `h`/`j`/`k`/`l`, Enter/Space to select,
 `Esc` to clear, `u`/`r` for undo/redo, `n` for a confirmed new game, `:` for
 commands, `?` for help, and `q` or Ctrl-C to quit. Promotion choices use
 Left/Right and Enter.
+
+### Terminal previews
+
+The board grows into the available space on a wide terminal and switches to a
+stacked, compact layout when the window is narrow. Both previews are rendered
+from the same themes available at runtime:
+
+![Wide Unicode chess-go terminal board](docs/images/preview-unicode.svg)
+
+![Compact ASCII chess-go terminal board](docs/images/preview-ascii.svg)
 
 ## Go API quick start
 

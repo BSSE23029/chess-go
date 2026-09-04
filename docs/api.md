@@ -175,7 +175,8 @@ If a node limit interrupts after a completed iteration, the last complete move
 is returned with its depth and node count. Context cancellation and a timeout
 before any complete iteration are returned as errors.
 
-For user-facing play, `engine` provides deterministic named strength presets:
+For user-facing play, `engine` provides named strength presets (deterministic
+when constructed directly with `NewProfile`):
 `Learner`, `Beginner`, `Casual`, `Club`, `Advanced`, `Expert`, and `Maximum`.
 The CLI accepts either a preset or the legacy raw depth setting:
 
@@ -187,6 +188,11 @@ go run ./cmd/chess play bot --level Expert --color black
 `ParseStrengthProfile` accepts names case-insensitively. Each preset controls
 search depth and the maximum evaluation loss allowed when ranking candidate
 moves; no hidden random source is used, so repeated tests are reproducible.
+`engine.NewRandom(depth, seed)` is available when an application wants the
+same bounded near-best move variation used by the CLI. The CLI enables that
+mode by default, creates a fresh seed per process unless `--seed` (or
+`CHESS_BOT_SEED`) is supplied, and accepts `--random=false` for deterministic
+selection.
 
 Strength and personality are separate. `ParsePersonality` supports Cautious,
 Aggressive, Materialist, Tactician, Positional, Simplifier, and Trickster.

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">chess-go responsive Unicode terminal preview</title>
+  <desc id="desc">A dark terminal window with a large Unicode chess board, bot status, captured pieces, recent moves, and keyboard controls.</desc>
+  <defs>
+    <pattern id="squares" width="192" height="102" patternUnits="userSpaceOnUse">
+      <rect width="192" height="102" fill="#5b82a9"/>
+      <rect width="96" height="51" fill="#d9dee4"/>
+      <rect x="96" y="51" width="96" height="51" fill="#d9dee4"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="650" rx="18" fill="#202735" filter="url(#shadow)"/>
+  <rect width="1200" height="42" rx="18" fill="#111722"/>
+  <rect y="24" width="1200" height="18" fill="#111722"/>
+  <circle cx="24" cy="21" r="7" fill="#ff5f57"/><circle cx="48" cy="21" r="7" fill="#febc2e"/><circle cx="72" cy="21" r="7" fill="#28c840"/>
+  <text x="100" y="27" fill="#9ba7ba" font-family="Menlo,monospace" font-size="14">chess-go — chess play bot --level Club --color black — 143×38</text>
+  <text x="30" y="78" fill="#73c7ff" font-family="Menlo,monospace" font-size="18" font-weight="700">CHESS-GO</text>
+  <text x="30" y="101" fill="#8591a5" font-family="Menlo,monospace" font-size="14">LOCAL MATCH  ·  UNICODE THEME  ·  14 moves</text>
+  <rect x="45" y="130" width="768" height="408" rx="4" fill="url(#squares)" stroke="#d6e0ed" stroke-width="3"/>
+  <g fill="#202735" font-family="DejaVu Sans,Arial,sans-serif" font-size="43" text-anchor="middle">
+    <text x="93" y="164">♜</text><text x="189" y="164">♞</text><text x="285" y="164">♝</text><text x="381" y="164">♛</text><text x="477" y="164">♚</text><text x="573" y="164">♝</text><text x="669" y="164">♞</text><text x="765" y="164">♜</text>
+    <text x="93" y="215">♟</text><text x="189" y="215">♟</text><text x="285" y="215">♟</text><text x="381" y="215">♟</text><text x="477" y="215">♟</text><text x="573" y="215">♟</text><text x="669" y="215">♟</text><text x="765" y="215">♟</text>
+  </g>
+  <g fill="#f7f9fc" font-family="DejaVu Sans,Arial,sans-serif" font-size="43" text-anchor="middle">
+    <text x="93" y="470">♙</text><text x="189" y="470">♙</text><text x="285" y="470">♙</text><text x="381" y="470">♙</text><text x="477" y="470">♙</text><text x="573" y="470">♙</text><text x="669" y="470">♙</text><text x="765" y="470">♙</text>
+    <text x="93" y="521">♖</text><text x="189" y="521">♘</text><text x="285" y="521">♗</text><text x="381" y="521">♕</text><text x="477" y="521">♔</text><text x="573" y="521">♗</text><text x="669" y="521">♘</text><text x="765" y="521">♖</text>
+  </g>
+  <g fill="#b9c4d5" font-family="Menlo,monospace" font-size="14"><text x="25" y="169">8</text><text x="25" y="220">7</text><text x="25" y="271">6</text><text x="25" y="322">5</text><text x="25" y="373">4</text><text x="25" y="424">3</text><text x="25" y="475">2</text><text x="25" y="526">1</text><text x="72" y="561">a</text><text x="168" y="561">b</text><text x="264" y="561">c</text><text x="360" y="561">d</text><text x="456" y="561">e</text><text x="552" y="561">f</text><text x="648" y="561">g</text><text x="744" y="561">h</text></g>
+  <g font-family="Menlo,monospace">
+    <text x="855" y="145" fill="#73c7ff" font-size="16" font-weight="700">MATCH</text><text x="875" y="170" fill="#e7edf6" font-size="15">● raza</text><text x="875" y="195" fill="#9ba7ba" font-size="15">○ Bot [Club]</text>
+    <text x="855" y="235" fill="#73c7ff" font-size="16" font-weight="700">STATUS</text><text x="875" y="260" fill="#e7edf6" font-size="15">Depth 3  |  3475 nodes</text><text x="875" y="284" fill="#e7edf6" font-size="15">Black to move  |  Clock off</text>
+    <text x="855" y="324" fill="#73c7ff" font-size="16" font-weight="700">CAPTURED</text><text x="875" y="349" fill="#e7edf6" font-size="15">White: ♙  ·  Black: —</text>
+    <text x="855" y="395" fill="#73c7ff" font-size="16" font-weight="700">RECENT MOVES</text><text x="875" y="422" fill="#e7edf6" font-size="14">4. c5     bxc5</text><text x="875" y="445" fill="#e7edf6" font-size="14">5. b4     axb4</text><text x="875" y="468" fill="#e7edf6" font-size="14">6. a3     c6</text><text x="875" y="491" fill="#e7edf6" font-size="14">7. axb4  Rxa1</text>
+    <text x="30" y="615" fill="#73c7ff" font-size="14">LEGEND</text><text x="105" y="615" fill="#b9c4d5" font-size="14">reverse cursor · cyan selected · green legal · yellow last move · red check</text>
+    <text x="855" y="615" fill="#8591a5" font-size="13">arrows/hjkl move  ·  Enter select  ·  ? guide  ·  q quit</text>
+  </g>
+</svg>
