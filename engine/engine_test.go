@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"chess-go"
 )
@@ -75,6 +76,35 @@ func TestBotCancellationAndTerminalPosition(t *testing.T) {
 	position, _ := chess.ParseFEN("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1")
 	if _, err := New(1).ChooseMove(context.Background(), position); !errors.Is(err, ErrNoLegalMoves) {
 		t.Fatalf("terminal search error = %v", err)
+	}
+}
+
+func TestIterativeSearchAndNodeLimit(t *testing.T) {
+	position := chess.NewPosition()
+	move, stats, err := New(3).Search(context.Background(), position, SearchLimits{MaxDepth: 3})
+	if err != nil || stats.Depth != 3 || stats.Nodes == 0 {
+		t.Fatalf("iterative search = %s, %#v, %v", move.UCI(), stats, err)
+	}
+	if _, err := position.Apply(move); err != nil {
+		t.Fatalf("iterative search returned illegal move: %v", err)
+	}
+	limitedMove, limited, err := New(4).Search(context.Background(), position, SearchLimits{MaxDepth: 4, MaxNodes: 25})
+	if err != nil || limited.Depth != 1 || limited.Nodes > 25 {
+		t.Fatalf("limited search = %s, %#v, %v", limitedMove.UCI(), limited, err)
+	}
+	if _, err := position.Apply(limitedMove); err != nil {
+		t.Fatalf("limited search returned illegal move: %v", err)
+	}
+}
+
+func TestSearchTimeAndContextLimits(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := New(3).Search(ctx, chess.NewPosition(), SearchLimits{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled search error = %v", err)
+	}
+	if _, _, err := New(5).Search(context.Background(), chess.NewPosition(), SearchLimits{MaxDepth: 5, Time: time.Nanosecond}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("timed search error = %v", err)
 	}
 }
 

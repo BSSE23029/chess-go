@@ -2,7 +2,6 @@
 package engine
 
 import (
-	"context"
 	"errors"
 	"slices"
 
@@ -63,91 +62,6 @@ func New(depth int) *Bot {
 		depth = 1
 	}
 	return &Bot{Depth: depth, Evaluator: MaterialEvaluator{}, Strength: Maximum}
-}
-
-// ChooseMove searches position and returns its best legal move.
-func (b *Bot) ChooseMove(ctx context.Context, position chess.Position) (chess.Move, error) {
-	if err := ctx.Err(); err != nil {
-		return chess.Move{}, err
-	}
-	moves := orderedMoves(&position)
-	if len(moves) == 0 {
-		return chess.Move{}, ErrNoLegalMoves
-	}
-	depth := b.Depth
-	if depth < 1 {
-		depth = 1
-	}
-	evaluator := b.Evaluator
-	if evaluator == nil {
-		evaluator = MaterialEvaluator{}
-	}
-	best, bestScore := moves[0], -infinity
-	type candidate struct {
-		move  chess.Move
-		score Score
-	}
-	candidates := make([]candidate, 0, len(moves))
-	for _, move := range moves {
-		undo := position.MakeLegalMove(move)
-		score, err := b.search(ctx, evaluator, &position, depth-1, 1, -infinity, infinity)
-		position.UnmakeMove(undo)
-		if err != nil {
-			return chess.Move{}, err
-		}
-		score = -score
-		candidates = append(candidates, candidate{move: move, score: score})
-		if score > bestScore {
-			best, bestScore = move, score
-		}
-	}
-	threshold := bestScore - b.MaxLoss
-	for _, candidate := range candidates {
-		if candidate.score >= threshold {
-			return candidate.move, nil
-		}
-	}
-	return best, nil
-}
-
-func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.Position, depth, ply int, alpha, beta Score) (Score, error) {
-	if err := ctx.Err(); err != nil {
-		return 0, err
-	}
-	moves := orderedMoves(position)
-	if len(moves) == 0 {
-		if position.InCheck() {
-			return -MateScore + Score(ply), nil
-		}
-		return 0, nil
-	}
-	if depth == 0 {
-		score := evaluator.Evaluate(*position)
-		if position.Turn() == chess.Black {
-			score = -score
-		}
-		return score, nil
-	}
-	best := -infinity
-	for _, move := range moves {
-		undo := position.MakeLegalMove(move)
-		score, err := b.search(ctx, evaluator, position, depth-1, ply+1, -beta, -alpha)
-		position.UnmakeMove(undo)
-		if err != nil {
-			return 0, err
-		}
-		score = -score
-		if score > best {
-			best = score
-		}
-		if score > alpha {
-			alpha = score
-		}
-		if alpha >= beta {
-			break
-		}
-	}
-	return best, nil
 }
 
 func orderedMoves(position *chess.Position) []chess.Move {

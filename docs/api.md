@@ -119,6 +119,22 @@ material evaluator for compatibility; named profiles use the deterministic
 bishop-pair, passed-pawn, and king-safety terms. Callers may replace
 `Bot.Evaluator` with any value implementing `engine.Evaluator`.
 
+For callers that own time controls, `Bot.Search` performs iterative deepening
+with explicit node and wall-clock limits and returns statistics for the deepest
+completed iteration:
+
+```go
+move, stats, err := bot.Search(ctx, position, engine.SearchLimits{
+    MaxDepth: 8,
+    MaxNodes: 250_000,
+    Time:     750 * time.Millisecond,
+})
+```
+
+If a node limit interrupts after a completed iteration, the last complete move
+is returned with its depth and node count. Context cancellation and a timeout
+before any complete iteration are returned as errors.
+
 For user-facing play, `engine` provides deterministic named strength presets:
 `Learner`, `Beginner`, `Casual`, `Club`, `Advanced`, `Expert`, and `Maximum`.
 The CLI accepts either a preset or the legacy raw depth setting:
