@@ -117,6 +117,19 @@ The current engine uses fixed-depth alpha-beta search and material evaluation.
 Callers may replace `Bot.Evaluator` with any value implementing
 `engine.Evaluator`.
 
+For user-facing play, `engine` provides deterministic named strength presets:
+`Learner`, `Beginner`, `Casual`, `Club`, `Advanced`, `Expert`, and `Maximum`.
+The CLI accepts either a preset or the legacy raw depth setting:
+
+```console
+CHESS_BOT_LEVEL=club go run ./cmd/chess play bot
+go run ./cmd/chess play bot --level Expert --color black
+```
+
+`ParseStrengthProfile` accepts names case-insensitively. Each preset controls
+search depth and the maximum evaluation loss allowed when ranking candidate
+moves; no hidden random source is used, so repeated tests are reproducible.
+
 ## Perft
 
 Use `perft.Count` for a total or `perft.Divide` for one count per legal root

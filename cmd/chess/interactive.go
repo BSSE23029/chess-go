@@ -63,7 +63,7 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 				s.flag(mover)
 				continue
 			}
-			ui.message = fmt.Sprintf("%s played %s (%s)", s.botName, san, move.UCI())
+			ui.message = fmt.Sprintf("%s played %s (%s)", s.botLabel(), san, move.UCI())
 		}
 		renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary())
 		if s.timeout != "" {

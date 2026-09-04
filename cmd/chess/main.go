@@ -22,6 +22,7 @@ type session struct {
 	human     chess.Color
 	humanName string
 	botName   string
+	botLevel  string
 	clock     *gameClock
 	timeout   string
 }
@@ -35,7 +36,7 @@ func main() {
 
 func run(ctx context.Context, args []string, input io.Reader, output io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: chess play local [--clock DURATION] [--increment DURATION] | chess play bot [options] | chess load FILE")
+		return errors.New("usage: chess play local [options] | chess play bot [--level NAME | --depth N] [options] | chess load FILE")
 	}
 	s := session{
 		game:      chess.NewGame(),
@@ -69,10 +70,11 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			options := flag.NewFlagSet("play bot", flag.ContinueOnError)
 			options.SetOutput(io.Discard)
 			depth := options.Int("depth", defaultDepth, "search depth")
+			level := options.String("level", os.Getenv("CHESS_BOT_LEVEL"), "named strength profile")
 			color := options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "human color")
 			limit, increment := clockFlags(options)
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 || *depth < 1 {
-				return errors.New("usage: chess play bot [--depth N] [--color white|black]")
+				return errors.New("usage: chess play bot [--level NAME | --depth N] [--color white|black]")
 			}
 			switch *color {
 			case "white":
@@ -82,7 +84,16 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			default:
 				return fmt.Errorf("invalid color %q", *color)
 			}
-			s.bot = engine.New(*depth)
+			if *level != "" {
+				profile, err := engine.ParseStrengthProfile(*level)
+				if err != nil {
+					return err
+				}
+				s.bot = engine.NewProfile(profile)
+				s.botLevel = profile.String()
+			} else {
+				s.bot = engine.New(*depth)
+			}
 			s.clock, err = parseClock(*limit, *increment)
 			if err != nil {
 				return err
@@ -149,7 +160,7 @@ func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) e
 				s.flag(mover)
 				continue
 			}
-			fmt.Fprintf(output, "%s played %s (%s)\n", s.botName, san, move.UCI())
+			fmt.Fprintf(output, "%s played %s (%s)\n", s.botLabel(), san, move.UCI())
 			continue
 		}
 		name := colorName(s.game.Position().Turn())
@@ -294,6 +305,13 @@ func firstSet(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func (s *session) botLabel() string {
+	if s.botLevel == "" {
+		return s.botName
+	}
+	return s.botName + " [" + s.botLevel + "]"
 }
 
 func loadPGN(path string) (*chess.Game, error) {

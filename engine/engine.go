@@ -51,6 +51,10 @@ type Bot struct {
 	Depth int
 	// Evaluator scores leaf positions; nil selects MaterialEvaluator.
 	Evaluator Evaluator
+	// Strength identifies the preset used to construct the bot.
+	Strength StrengthProfile
+	// MaxLoss is the candidate-move tolerance in evaluation units.
+	MaxLoss Score
 }
 
 // New returns a bot with at least depth one and material evaluation.
@@ -58,7 +62,7 @@ func New(depth int) *Bot {
 	if depth < 1 {
 		depth = 1
 	}
-	return &Bot{Depth: depth, Evaluator: MaterialEvaluator{}}
+	return &Bot{Depth: depth, Evaluator: MaterialEvaluator{}, Strength: Maximum}
 }
 
 // ChooseMove searches position and returns its best legal move.
@@ -79,6 +83,11 @@ func (b *Bot) ChooseMove(ctx context.Context, position chess.Position) (chess.Mo
 		evaluator = MaterialEvaluator{}
 	}
 	best, bestScore := moves[0], -infinity
+	type candidate struct {
+		move  chess.Move
+		score Score
+	}
+	candidates := make([]candidate, 0, len(moves))
 	for _, move := range moves {
 		undo := position.MakeLegalMove(move)
 		score, err := b.search(ctx, evaluator, &position, depth-1, 1, -infinity, infinity)
@@ -87,8 +96,15 @@ func (b *Bot) ChooseMove(ctx context.Context, position chess.Position) (chess.Mo
 			return chess.Move{}, err
 		}
 		score = -score
+		candidates = append(candidates, candidate{move: move, score: score})
 		if score > bestScore {
 			best, bestScore = move, score
+		}
+	}
+	threshold := bestScore - b.MaxLoss
+	for _, candidate := range candidates {
+		if candidate.score >= threshold {
+			return candidate.move, nil
 		}
 	}
 	return best, nil

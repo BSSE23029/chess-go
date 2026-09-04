@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"chess-go"
@@ -60,5 +61,34 @@ func TestBotCancellationAndTerminalPosition(t *testing.T) {
 	position, _ := chess.ParseFEN("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1")
 	if _, err := New(1).ChooseMove(context.Background(), position); !errors.Is(err, ErrNoLegalMoves) {
 		t.Fatalf("terminal search error = %v", err)
+	}
+}
+
+func TestStrengthProfiles(t *testing.T) {
+	want := []struct {
+		name  string
+		level StrengthProfile
+		depth int
+		loss  Score
+	}{
+		{"Learner", Learner, 1, 300}, {"Beginner", Beginner, 2, 200},
+		{"Casual", Casual, 2, 100}, {"Club", Club, 3, 50},
+		{"Advanced", Advanced, 3, 25}, {"Expert", Expert, 4, 10}, {"Maximum", Maximum, 4, 0},
+	}
+	for _, test := range want {
+		profile, err := ParseStrengthProfile(strings.ToLower(test.name))
+		if err != nil || profile != test.level || profile.String() != test.name {
+			t.Fatalf("profile %q = %v, %v", test.name, profile, err)
+		}
+		bot := NewProfile(profile)
+		if bot.Depth != test.depth || bot.MaxLoss != test.loss || bot.Strength != test.level {
+			t.Fatalf("config %q = depth %d loss %d level %v", test.name, bot.Depth, bot.MaxLoss, bot.Strength)
+		}
+	}
+	if _, err := ParseStrengthProfile("unrated"); err == nil {
+		t.Fatal("unknown profile accepted")
+	}
+	if got := Profiles(); len(got) != 7 || got[0] != Learner || got[6] != Maximum {
+		t.Fatalf("profiles = %#v", got)
 	}
 }
