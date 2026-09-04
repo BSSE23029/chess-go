@@ -110,22 +110,27 @@ func boardLines(position chess.Position, files, ranks []int, ui *boardUI, legal,
 	lines := []string{strings.Repeat(" ", 3) + border.leftTop + strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.topJoin, 7) + strings.Repeat(border.horizontal, cellWidth) + border.rightTop}
 	for _, rank := range ranks {
 		var row strings.Builder
+		var blankRow strings.Builder
 		fmt.Fprintf(&row, "%d %s", rank+1, border.vertical)
+		fmt.Fprintf(&blankRow, "  %s", border.vertical)
 		for index, file := range files {
 			square := chess.Square(rank*8 + file)
 			row.WriteString(boardCell(position.PieceAt(square), square, file+rank, ui, legal, last, checkSquare, boardTheme, cellWidth))
+			blankRow.WriteString(boardCellWithoutPiece(position.PieceAt(square), square, file+rank, ui, legal, last, checkSquare, boardTheme, cellWidth))
 			if index < 7 {
 				row.WriteString(border.vertical)
+				blankRow.WriteString(border.vertical)
 			}
 		}
 		row.WriteString(border.vertical)
+		blankRow.WriteString(border.vertical)
 		rankRow := row.String()
 		for repeat := range cellHeight {
 			if repeat == 0 {
 				lines = append(lines, rankRow)
 				continue
 			}
-			lines = append(lines, "  "+rankRow[2:])
+			lines = append(lines, blankRow.String())
 		}
 	}
 	lines = append(lines, strings.Repeat(" ", 3)+border.leftBottom+strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.bottomJoin, 7)+strings.Repeat(border.horizontal, cellWidth)+border.rightBottom)
@@ -133,6 +138,14 @@ func boardLines(position chess.Position, files, ranks []int, ui *boardUI, legal,
 }
 
 func boardCell(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, cellWidth int) string {
+	return boardCellGlyph(piece, square, index, ui, legal, last, checkSquare, boardTheme, boardTheme.glyph(piece), cellWidth)
+}
+
+func boardCellWithoutPiece(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, cellWidth int) string {
+	return boardCellGlyph(piece, square, index, ui, legal, last, checkSquare, boardTheme, ' ', cellWidth)
+}
+
+func boardCellGlyph(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, glyph rune, cellWidth int) string {
 	cellWidth = maxInt(cellWidth, 1)
 	background := tuiDarkSquare
 	if index%2 == 0 {
@@ -157,7 +170,7 @@ func boardCell(piece chess.Piece, square chess.Square, index int, ui *boardUI, l
 	}
 	left := (cellWidth - 1) / 2
 	right := cellWidth - left - 1
-	return fmt.Sprintf("%s%s%s%s%c%s%s", background, state, foreground, strings.Repeat(" ", left), boardTheme.glyph(piece), strings.Repeat(" ", right), tuiReset)
+	return fmt.Sprintf("%s%s%s%s%c%s%s", background, state, foreground, strings.Repeat(" ", left), glyph, strings.Repeat(" ", right), tuiReset)
 }
 
 func coordinateLine(files []int, cellWidth int) string {

@@ -422,7 +422,7 @@ func TestScaledBoardRepeatsRanksWithoutFixedClockCoordinates(t *testing.T) {
 	var output bytes.Buffer
 	renderFullInteractive(&output, game, &ui, model, false, "White 05:00 · Black 05:00 · +00:03", unicodeTheme, boardScale{cellWidth: 10, cellHeight: 3}, false, 213, 60)
 	text := output.String()
-	if strings.Contains(text, "\x1b[10;50H") || strings.Count(text, "──────────") < 8 || !strings.Contains(text, "    │") {
+	if strings.Contains(text, "\x1b[10;50H") || strings.Count(text, "──────────") < 8 || strings.Count(text, "♜") != 2 || !strings.Contains(text, "    │") {
 		t.Fatalf("scaled frame retained fixed coordinates or rank height:\n%s", text)
 	}
 }
