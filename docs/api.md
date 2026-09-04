@@ -300,7 +300,7 @@ go run ./cmd/tournament --profiles Learner,Club,Expert --games 20 \
 
 # Add a locally installed UCI engine (for example Stockfish) to the same
 # round-robin without embedding its path in the project:
-CHESS_UCI_ENGINE=/usr/local/bin/stockfish go run ./cmd/tournament \
+CHESS_UCI_ENGINE="$(command -v stockfish)" go run ./cmd/tournament \
   --profiles Club,Expert --uci-name Stockfish --uci-depth 12 --games 10
 ```
 
