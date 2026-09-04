@@ -204,6 +204,7 @@ func recentMoveLines(game *chess.Game) []string {
 	if len(moves) == 0 {
 		return []string{tuiDim + "  — no moves yet —" + tuiReset}
 	}
+	notation := sanMoveList(moves)
 	start := len(moves) - 8
 	if start < 0 {
 		start = 0
@@ -216,14 +217,35 @@ func recentMoveLines(game *chess.Game) []string {
 		lines = append(lines, tuiDim+"  … older moves hidden …"+tuiReset)
 	}
 	for index := start; index < len(moves); index += 2 {
-		white := moves[index].UCI()
+		white := moveLabel(moves[index], notation, index)
 		black := ""
 		if index+1 < len(moves) {
-			black = moves[index+1].UCI()
+			black = moveLabel(moves[index+1], notation, index+1)
 		}
 		lines = append(lines, fmt.Sprintf("  %2d. %-7s %s", index/2+1, white, black))
 	}
 	return lines
+}
+
+func sanMoveList(moves []chess.Move) []string {
+	replay := chess.NewGame()
+	notation := make([]string, len(moves))
+	for index, move := range moves {
+		san, err := replay.Position().SAN(move)
+		if err != nil || replay.Play(move) != nil {
+			return nil
+		}
+		notation[index] = san
+	}
+	return notation
+}
+
+func moveLabel(move chess.Move, notation []string, index int) string {
+	uci := move.UCI()
+	if index >= len(notation) || notation[index] == "" || notation[index] == uci {
+		return uci
+	}
+	return notation[index] + " " + tuiDim + "(" + uci + ")" + tuiReset
 }
 
 func plural(value int) string {

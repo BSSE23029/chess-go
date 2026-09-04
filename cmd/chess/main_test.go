@@ -266,7 +266,7 @@ func TestInteractiveRendererShowsDashboard(t *testing.T) {
 	var output bytes.Buffer
 	renderInteractive(&output, game, ui, false, "White 05:00 · Black 04:58 · +00:03", asciiTheme)
 	text := output.String()
-	for _, want := range []string{"CHESS-GO", "MATCH", "Ada", "HAL", "STATUS", "Black to move", "RECENT MOVES", "1. e2e4", "KEYBOARD", "LEGEND"} {
+	for _, want := range []string{"CHESS-GO", "MATCH", "Ada", "HAL", "STATUS", "Black to move", "RECENT MOVES", "1. e4", "e2e4", "KEYBOARD", "LEGEND"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("dashboard rendering lacks %q:\n%s", want, text)
 		}
