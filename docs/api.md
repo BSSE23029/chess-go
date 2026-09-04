@@ -290,7 +290,9 @@ it does not bypass the normal HTTP token or TLS checks when a client connects.
 profiles, alternates colors, exports each game as portable PGN, and reports
 Elo-style estimates with approximate 95% confidence intervals. The command
 records engine version, node-budget metadata, time-control metadata, hardware
-class, seed, and game count:
+class, seed, and game count. A `BASE+INCREMENT` time control (for example
+`5+3` or `5m+3s`) also enforces per-move deadlines and records timeout results;
+`fixed`/`unlimited` retain the historical no-clock mode:
 
 ```console
 go run ./cmd/tournament --profiles Learner,Club,Expert --games 20 \

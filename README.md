@@ -45,7 +45,8 @@ The library's public packages are the root `chess-go`, `engine`, `perft`,
 `protocol`, `transport`, `storage`, `lan`, and `tournament` packages. The
 wire format is documented in [`docs/protocol.schema.json`](docs/protocol.schema.json).
 Contribution and release procedures are in [`docs/contributing.md`](docs/contributing.md)
-and [`docs/releasing.md`](docs/releasing.md).
+and [`docs/releasing.md`](docs/releasing.md); the monorepo decision is recorded
+in [`docs/architecture.md`](docs/architecture.md).
 
 This repository currently has no license file. Reuse or redistribution should
 wait for the copyright owner to choose and add an explicit license.

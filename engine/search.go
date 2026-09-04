@@ -187,17 +187,7 @@ func (b *Bot) iteration(ctx context.Context, evaluator Evaluator, position *ches
 			break
 		}
 	}
-	threshold := bestScore - b.MaxLoss
-	eligible := candidates[:0]
-	for _, candidate := range candidates {
-		if candidate.score >= threshold {
-			eligible = append(eligible, candidate)
-		}
-	}
-	if len(eligible) > 0 {
-		return chooseCandidate(eligible, bestScore, b.Temperature, control), bestScore, bestScore <= originalAlpha, bestScore >= beta, nil
-	}
-	return best, bestScore, bestScore <= originalAlpha, bestScore >= beta, nil
+	return b.selectCandidate(*position, candidates, bestScore, control), bestScore, bestScore <= originalAlpha, bestScore >= beta, nil
 }
 
 type scoredMove struct {

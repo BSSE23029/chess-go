@@ -138,18 +138,26 @@ type StrengthConfig struct {
 	MaxLoss Score
 	// Temperature controls deterministic imperfect selection within MaxLoss.
 	Temperature float64
+	// InaccuracyChance is the base chance of accepting a small evaluation loss.
+	InaccuracyChance float64
+	// MistakeChance is the base chance of accepting a medium evaluation loss.
+	MistakeChance float64
+	// BlunderChance is the base chance of accepting a severe evaluation loss.
+	BlunderChance float64
+	// TacticalAwareness reduces error risk when forcing moves are available.
+	TacticalAwareness float64
 }
 
 // Config returns immutable search settings for p.
 func (p StrengthProfile) Config() StrengthConfig {
 	configs := [...]StrengthConfig{
-		{Depth: 1, MaxLoss: 300, Temperature: 80},
-		{Depth: 2, MaxLoss: 200, Temperature: 40},
-		{Depth: 2, MaxLoss: 100, Temperature: 20},
-		{Depth: 3, MaxLoss: 50, Temperature: 10},
-		{Depth: 3, MaxLoss: 25, Temperature: 5},
-		{Depth: 4, MaxLoss: 10, Temperature: 2},
-		{Depth: 4, MaxLoss: 0, Temperature: 0},
+		{Depth: 1, MaxLoss: 300, Temperature: 80, InaccuracyChance: 0.35, MistakeChance: 0.12, BlunderChance: 0.03, TacticalAwareness: 0.35},
+		{Depth: 2, MaxLoss: 200, Temperature: 40, InaccuracyChance: 0.25, MistakeChance: 0.08, BlunderChance: 0.015, TacticalAwareness: 0.50},
+		{Depth: 2, MaxLoss: 100, Temperature: 20, InaccuracyChance: 0.15, MistakeChance: 0.04, BlunderChance: 0.008, TacticalAwareness: 0.65},
+		{Depth: 3, MaxLoss: 50, Temperature: 10, InaccuracyChance: 0.08, MistakeChance: 0.02, BlunderChance: 0.003, TacticalAwareness: 0.75},
+		{Depth: 3, MaxLoss: 25, Temperature: 5, InaccuracyChance: 0.04, MistakeChance: 0.01, BlunderChance: 0.001, TacticalAwareness: 0.85},
+		{Depth: 4, MaxLoss: 10, Temperature: 2, InaccuracyChance: 0.01, MistakeChance: 0.002, BlunderChance: 0, TacticalAwareness: 0.95},
+		{Depth: 4, MaxLoss: 0, Temperature: 0, InaccuracyChance: 0, MistakeChance: 0, BlunderChance: 0, TacticalAwareness: 1},
 	}
 	if p > Maximum {
 		return configs[Casual]
@@ -169,7 +177,7 @@ func NewProfile(p StrengthProfile) *Bot {
 	if p >= Advanced {
 		evaluator = EndgameEvaluator{}
 	}
-	return &Bot{Depth: config.Depth, Evaluator: evaluator, Strength: p, MaxLoss: config.MaxLoss, Temperature: config.Temperature, Seed: 0x9e3779b97f4a7c15 + uint64(p), Personality: Positional, Book: BuiltinOpeningBook()}
+	return &Bot{Depth: config.Depth, Evaluator: evaluator, Strength: p, MaxLoss: config.MaxLoss, Temperature: config.Temperature, Seed: 0x9e3779b97f4a7c15 + uint64(p), Personality: Positional, InaccuracyChance: config.InaccuracyChance, MistakeChance: config.MistakeChance, BlunderChance: config.BlunderChance, TacticalAwareness: config.TacticalAwareness, Book: BuiltinOpeningBook()}
 }
 
 // SetPersonality applies a deterministic move-selection style to b.

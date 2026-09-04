@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"chess-go"
 	"chess-go/engine"
@@ -72,5 +73,43 @@ func TestRunPlayersAcceptsExternalPlayer(t *testing.T) {
 	}
 	if report.Records[0].White != "local" || report.Records[0].Black != "external" {
 		t.Fatalf("external-player names = %#v", report.Records[0])
+	}
+}
+
+func TestTournamentTimeControlParsesAndFlags(t *testing.T) {
+	clock, err := newTournamentClock("5+3")
+	if err != nil || clock.remaining[chess.White] != 5*time.Minute || clock.increment != 3*time.Second {
+		t.Fatalf("parsed clock = %#v, %v", clock, err)
+	}
+	for _, value := range []string{"", "fixed", "unlimited", "5m+3s"} {
+		if _, err := newTournamentClock(value); err != nil {
+			t.Fatalf("time control %q rejected: %v", value, err)
+		}
+	}
+	for _, value := range []string{"0+3", "bad", "5+-1"} {
+		if _, err := newTournamentClock(value); err == nil {
+			t.Fatalf("invalid time control %q accepted", value)
+		}
+	}
+	if !clock.complete(chess.White, 2*time.Minute) || clock.remaining[chess.White] != 3*time.Minute+3*time.Second {
+		t.Fatalf("clock completion = %s", clock.remaining[chess.White])
+	}
+}
+
+type slowPlayer struct{}
+
+func (slowPlayer) ChooseMove(_ context.Context, position chess.Position) (chess.Move, error) {
+	time.Sleep(5 * time.Millisecond)
+	return position.LegalMoves()[0], nil
+}
+
+func TestTournamentTimeControlProducesTimeoutResult(t *testing.T) {
+	players := []PlayerSpec{
+		{Name: "slow-white", New: func() chess.Player { return slowPlayer{} }},
+		{Name: "fast-black", New: func() chess.Player { return firstMovePlayer{} }},
+	}
+	report, err := RunPlayers(context.Background(), Config{GamesPerPair: 1, MaxPlies: 1, TimeControl: "1ms"}, players)
+	if err != nil || len(report.Records) != 1 || report.Records[0].Result != "0-1" {
+		t.Fatalf("timeout report = %#v, %v", report, err)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	"chess-go"
 	"chess-go/engine"
@@ -80,6 +81,9 @@ func RunPlayers(ctx context.Context, config Config, players []PlayerSpec) (Repor
 		return Report{}, errors.New("nil tournament context")
 	}
 	if err := validatePlayers(config, players); err != nil {
+		return Report{}, err
+	}
+	if _, err := newTournamentClock(config.TimeControl); err != nil {
 		return Report{}, err
 	}
 	report := Report{
@@ -192,6 +196,10 @@ func validatePlayers(config Config, players []PlayerSpec) error {
 
 func playGame(ctx context.Context, number int, whitePlayer, blackPlayer PlayerSpec, config Config) (GameRecord, error) {
 	game := chess.NewGame()
+	clock, err := newTournamentClock(config.TimeControl)
+	if err != nil {
+		return GameRecord{}, err
+	}
 	white := whitePlayer.New()
 	black := blackPlayer.New()
 	if white == nil || black == nil {
@@ -208,8 +216,30 @@ func playGame(ctx context.Context, number int, whitePlayer, blackPlayer PlayerSp
 		if game.Position().Turn() == chess.Black {
 			player = black
 		}
-		move, err := chooseMove(ctx, player, game.Position(), config.NodeBudget)
+		mover := game.Position().Turn()
+		moveContext, cancel, available := clock.moveContext(ctx, mover)
+		if !available {
+			if err := game.SetResult(timeoutResult(mover)); err != nil {
+				return GameRecord{}, err
+			}
+			break
+		}
+		started := time.Now()
+		move, err := chooseMove(moveContext, player, game.Position(), config.NodeBudget)
+		cancel()
+		if clock != nil && !clock.complete(mover, time.Since(started)) {
+			if err := game.SetResult(timeoutResult(mover)); err != nil {
+				return GameRecord{}, err
+			}
+			break
+		}
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) && clock != nil {
+				if setErr := game.SetResult(timeoutResult(mover)); setErr != nil {
+					return GameRecord{}, setErr
+				}
+				break
+			}
 			return GameRecord{}, err
 		}
 		if err := game.Play(move); err != nil {
@@ -238,6 +268,13 @@ func playGame(ctx context.Context, number int, whitePlayer, blackPlayer PlayerSp
 		}
 	}
 	return GameRecord{Number: number, White: whiteName, Black: blackName, Result: game.Result(), Plies: len(game.Moves()), PGN: game.PGN()}, nil
+}
+
+func timeoutResult(color chess.Color) string {
+	if color == chess.White {
+		return "0-1"
+	}
+	return "1-0"
 }
 
 func chooseMove(ctx context.Context, player chess.Player, position chess.Position, nodeBudget uint64) (chess.Move, error) {

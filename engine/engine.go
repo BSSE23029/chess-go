@@ -62,6 +62,14 @@ type Bot struct {
 	Seed uint64
 	// Personality identifies the independent move-selection style.
 	Personality Personality
+	// InaccuracyChance is the base chance of accepting a roughly 30-80 cp loss.
+	InaccuracyChance float64
+	// MistakeChance is the base chance of accepting a roughly 80-200 cp loss.
+	MistakeChance float64
+	// BlunderChance is the base chance of accepting a 200+ cp loss.
+	BlunderChance float64
+	// TacticalAwareness reduces mistake risk in positions with forcing moves.
+	TacticalAwareness float64
 }
 
 // New returns a bot with at least depth one and material evaluation.

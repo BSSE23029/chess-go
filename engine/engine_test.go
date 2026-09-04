@@ -159,12 +159,44 @@ func TestStrengthProfiles(t *testing.T) {
 		if bot.Depth != test.depth || bot.MaxLoss != test.loss || bot.Strength != test.level {
 			t.Fatalf("config %q = depth %d loss %d level %v", test.name, bot.Depth, bot.MaxLoss, bot.Strength)
 		}
+		if profile < Maximum && (bot.InaccuracyChance <= 0 || bot.TacticalAwareness <= 0) {
+			t.Fatalf("profile %q has no calibrated imperfection settings", test.name)
+		}
 	}
 	if _, err := ParseStrengthProfile("unrated"); err == nil {
 		t.Fatal("unknown profile accepted")
 	}
 	if got := Profiles(); len(got) != 7 || got[0] != Learner || got[6] != Maximum {
 		t.Fatalf("profiles = %#v", got)
+	}
+}
+
+func TestPersonalityStyleBonusesArePositionAware(t *testing.T) {
+	position, err := chess.ParseFEN("4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture, quiet chess.Move
+	for _, move := range position.LegalMoves() {
+		if move.UCI() == "d2d4" {
+			capture = move
+		}
+		if move.UCI() == "d2d3" {
+			quiet = move
+		}
+	}
+	if styleBonus(position, capture, Aggressive) <= styleBonus(position, quiet, Aggressive) {
+		t.Fatal("aggressive style did not prefer a forcing capture")
+	}
+	if !tacticalPosition(position) {
+		t.Fatal("capture position was not classified as tactical")
+	}
+	quietPosition, err := chess.ParseFEN("4k3/8/8/8/8/8/3P4/4K3 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tacticalPosition(quietPosition) {
+		t.Fatal("quiet position was classified as tactical")
 	}
 }
 
