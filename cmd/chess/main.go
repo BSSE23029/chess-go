@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"chess-go"
@@ -30,7 +32,9 @@ type session struct {
 }
 
 func main() {
-	if err := run(context.Background(), os.Args[1:], os.Stdin, os.Stdout); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx, os.Args[1:], os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, "chess:", err)
 		os.Exit(1)
 	}
@@ -38,7 +42,7 @@ func main() {
 
 func run(ctx context.Context, args []string, input io.Reader, output io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: chess play local [options] | chess play bot [--level NAME | --depth N] [options] | chess load FILE")
+		return errors.New("usage: chess play local|bot|remote [options] | chess host|join|connect|spectate|list ... | chess load FILE")
 	}
 	s := session{
 		game:      chess.NewGame(),
@@ -54,7 +58,7 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 	switch args[0] {
 	case "play":
 		if len(args) < 2 {
-			return errors.New("play requires local or bot")
+			return errors.New("play requires local, bot, or remote")
 		}
 		switch args[1] {
 		case "local":
@@ -136,9 +140,17 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			if err != nil {
 				return err
 			}
+		case "remote":
+			return runRemote(ctx, args[2:], input, output)
 		default:
 			return fmt.Errorf("unknown play mode %q", args[1])
 		}
+	case "host":
+		return runHost(ctx, args[1:], output)
+	case "join", "connect", "spectate":
+		return runNetworkCommand(ctx, args[0], args[1:], output)
+	case "list":
+		return runNetworkCommand(ctx, args[0], args[1:], output)
 	case "load":
 		if len(args) != 2 {
 			return errors.New("load requires one PGN file")

@@ -3,6 +3,7 @@ package transport
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -60,6 +61,35 @@ func TestHTTPTransportEndpointsAndBearerAuth(t *testing.T) {
 	var snapshot protocol.MatchSnapshot
 	if err := json.NewDecoder(recorder.Body).Decode(&snapshot); err != nil || recorder.Code != http.StatusOK || snapshot.MatchID != "http-match" {
 		t.Fatalf("snapshot = %#v, status %d, %v", snapshot, recorder.Code, err)
+	}
+}
+
+func TestHTTPClientTypedLifecycle(t *testing.T) {
+	authority := protocol.NewServer()
+	adapter := NewHTTPServer(authority, "secret")
+	client, err := NewClient("http://example.test/", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.HTTPClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		adapter.ServeHTTP(recorder, request)
+		return &http.Response{StatusCode: recorder.Code, Header: recorder.Header(), Body: io.NopCloser(bytes.NewReader(recorder.Body.Bytes())), Request: request}, nil
+	})}
+	snapshot, err := client.Create(context.Background(), "client-create", protocol.CreateMatchRequest{MatchID: "client-match", PlayerID: "alice", Color: "white"})
+	if err != nil || snapshot.MatchID != "client-match" {
+		t.Fatalf("client create = %#v, %v", snapshot, err)
+	}
+	matches, err := client.List(context.Background())
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("client list = %#v, %v", matches, err)
+	}
+	fetched, err := client.Snapshot(context.Background(), protocol.SnapshotRequest{MatchID: "client-match", PlayerID: "alice"})
+	if err != nil || fetched.PositionHash != snapshot.PositionHash {
+		t.Fatalf("client snapshot = %#v, %v", fetched, err)
+	}
+	if _, err := client.Create(context.Background(), "duplicate", protocol.CreateMatchRequest{MatchID: "client-match"}); err == nil || !strings.Contains(err.Error(), "match_exists") {
+		t.Fatalf("client domain error = %v", err)
 	}
 }
 
@@ -157,6 +187,10 @@ type hijackResponseWriter struct {
 	status     int
 	body       bytes.Buffer
 }
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) { return f(request) }
 
 func (w *hijackResponseWriter) Header() http.Header { return w.header }
 

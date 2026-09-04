@@ -231,3 +231,18 @@ move acknowledgements. A flagging clock produces a terminal result and a
 The wire envelope is documented in [`protocol.schema.json`](protocol.schema.json)
 and is transport-independent, so HTTP and WebSocket adapters can share the same
 messages.
+
+The `chess` command exposes the adapters without hard-coded deployment values:
+
+```console
+CHESS_NETWORK_ADDR=:8080 CHESS_NETWORK_TOKEN=local chess host
+CHESS_NETWORK_URL=http://127.0.0.1:8080 chess list http://127.0.0.1:8080
+chess join http://127.0.0.1:8080 --match game --player alice --color white
+chess play remote http://127.0.0.1:8080 --match game --player alice
+```
+
+`host` serves HTTP under `/v1/` and WebSocket clients under `/ws`. `play
+remote` is a line-mode client; use `refresh` to pull an opponent's latest
+authoritative snapshot. `CHESS_NETWORK_URL`, `CHESS_NETWORK_ADDR`,
+`CHESS_NETWORK_TOKEN`, `CHESS_MATCH_ID`, and `CHESS_PLAYER_ID` provide the
+corresponding defaults.
