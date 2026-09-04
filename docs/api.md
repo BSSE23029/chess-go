@@ -252,6 +252,20 @@ snapshot. `CHESS_NETWORK_URL`, `CHESS_NETWORK_ADDR`, `CHESS_NETWORK_TOKEN`,
 `CHESS_TLS_CERT`, `CHESS_TLS_KEY`, `CHESS_MATCH_STORE`, `CHESS_MATCH_ID`, and
 `CHESS_PLAYER_ID` provide the corresponding defaults.
 
+For local networks, pass `--lan` (or set `CHESS_LAN_DISCOVERY=true`) to
+advertise a host through dependency-free DNS-SD/mDNS. The service name and
+advertised hostname can be changed with `CHESS_LAN_INSTANCE` and
+`CHESS_LAN_HOST`; the latter is useful when a machine has multiple interfaces.
+Discover advertised hosts with:
+
+```console
+CHESS_LAN_DISCOVERY=true chess host --addr :8080
+chess discover --seconds 2
+```
+
+Discovery returns the instance name, hostname, port, and protocol metadata;
+it does not bypass the normal HTTP token or TLS checks when a client connects.
+
 ## Calibration tournaments
 
 `chess-go/tournament` runs deterministic round-robin games between named

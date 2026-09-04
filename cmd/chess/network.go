@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"chess-go"
+	"chess-go/lan"
 	"chess-go/protocol"
 	"chess-go/storage"
 	"chess-go/transport"
@@ -29,8 +30,10 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 	certificate := options.String("cert", os.Getenv("CHESS_TLS_CERT"), "TLS certificate PEM path")
 	key := options.String("key", os.Getenv("CHESS_TLS_KEY"), "TLS private key PEM path")
 	storePath := options.String("store", os.Getenv("CHESS_MATCH_STORE"), "durable match state JSON path")
+	lanEnabled := options.Bool("lan", envBool("CHESS_LAN_DISCOVERY", false), "advertise this host with DNS-SD/mDNS")
+	instance := options.String("lan-instance", firstSet(os.Getenv("CHESS_LAN_INSTANCE"), "chess-go"), "LAN service instance name")
 	if err := options.Parse(args); err != nil || options.NArg() != 0 {
-		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE]")
+		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE] [--lan]")
 	}
 	if (*certificate == "") != (*key == "") {
 		return errors.New("--cert and --key must be provided together")
@@ -52,6 +55,30 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 		}
 		authority.SetPersistenceHook(store.SaveStates)
 		defer func() { _ = store.SaveServer(authority) }()
+	}
+	var advertiser *lan.Advertiser
+	if *lanEnabled {
+		host := os.Getenv("CHESS_LAN_HOST")
+		if host == "" {
+			host, err = os.Hostname()
+			if err != nil {
+				return err
+			}
+		}
+		tcpAddress, ok := listener.Addr().(*net.TCPAddr)
+		if !ok {
+			return errors.New("LAN discovery requires a TCP listener")
+		}
+		advertiser, err = lan.NewAdvertiser(lan.Service{Instance: *instance, Host: host, Port: tcpAddress.Port, Metadata: map[string]string{"protocol": "1"}})
+		if err != nil {
+			return err
+		}
+		defer advertiser.Close()
+		go func() {
+			if err := advertiser.Serve(ctx); err != nil && ctx.Err() == nil {
+				fmt.Fprintf(output, "LAN discovery: %v\n", err)
+			}
+		}()
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/ws", transport.NewWebSocketServer(authority, *token))
@@ -78,6 +105,29 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 		_ = httpServer.Shutdown(shutdownContext)
 		return ctx.Err()
 	}
+}
+
+func runDiscover(ctx context.Context, args []string, output io.Writer) error {
+	options := flag.NewFlagSet("discover", flag.ContinueOnError)
+	options.SetOutput(io.Discard)
+	seconds := options.Int("seconds", 2, "discovery duration")
+	if err := options.Parse(args); err != nil || options.NArg() != 0 || *seconds < 1 {
+		return errors.New("usage: chess discover [--seconds N]")
+	}
+	discoveryContext, cancel := context.WithTimeout(ctx, time.Duration(*seconds)*time.Second)
+	defer cancel()
+	services, err := lan.Discover(discoveryContext)
+	if err != nil {
+		return err
+	}
+	for _, service := range services {
+		fmt.Fprintf(output, "%s http://%s:%d", service.Instance, service.Host, service.Port)
+		if len(service.Metadata) != 0 {
+			fmt.Fprintf(output, " %#v", service.Metadata)
+		}
+		fmt.Fprintln(output)
+	}
+	return nil
 }
 
 func runNetworkCommand(ctx context.Context, command string, args []string, output io.Writer) error {
@@ -283,4 +333,16 @@ func colorNameLower(color chess.Color) string {
 		return "white"
 	}
 	return "black"
+}
+
+func envBool(name string, fallback bool) bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(name)))
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
 }

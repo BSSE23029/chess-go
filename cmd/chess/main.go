@@ -42,7 +42,7 @@ func main() {
 
 func run(ctx context.Context, args []string, input io.Reader, output io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: chess play local|bot|remote [options] | chess host|join|connect|spectate|list ... | chess load FILE")
+		return errors.New("usage: chess play local|bot|remote [options] | chess host|join|connect|spectate|list|discover ... | chess load FILE")
 	}
 	s := session{
 		game:      chess.NewGame(),
@@ -151,6 +151,8 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 		return runNetworkCommand(ctx, args[0], args[1:], output)
 	case "list":
 		return runNetworkCommand(ctx, args[0], args[1:], output)
+	case "discover":
+		return runDiscover(ctx, args[1:], output)
 	case "load":
 		if len(args) != 2 {
 			return errors.New("load requires one PGN file")
