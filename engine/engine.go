@@ -56,6 +56,12 @@ type Bot struct {
 	MaxLoss Score
 	// Book supplies an optional deterministic opening move before search.
 	Book OpeningBook
+	// Temperature controls weighted imperfect selection among eligible moves.
+	Temperature float64
+	// Seed is the deterministic random seed used for imperfect selection.
+	Seed uint64
+	// Personality identifies the independent move-selection style.
+	Personality Personality
 }
 
 // New returns a bot with at least depth one and material evaluation.
@@ -63,7 +69,7 @@ func New(depth int) *Bot {
 	if depth < 1 {
 		depth = 1
 	}
-	return &Bot{Depth: depth, Evaluator: MaterialEvaluator{}, Strength: Maximum}
+	return &Bot{Depth: depth, Evaluator: MaterialEvaluator{}, Strength: Maximum, Personality: Materialist}
 }
 
 func orderedMoves(position *chess.Position) []chess.Move {

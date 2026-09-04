@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"math"
 	"slices"
 	"time"
 
@@ -42,6 +43,7 @@ type searchControl struct {
 	killers    [64][2]chess.Move
 	history    map[chess.Move]int
 	reductions uint64
+	random     uint64
 }
 
 type ttBound uint8
@@ -105,7 +107,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		searchCtx, cancel = context.WithTimeout(ctx, limits.Time)
 		defer cancel()
 	}
-	control := &searchControl{limit: limits.MaxNodes, table: make(map[uint64]ttEntry), history: make(map[chess.Move]int)}
+	control := &searchControl{limit: limits.MaxNodes, table: make(map[uint64]ttEntry), history: make(map[chess.Move]int), random: b.Seed}
 	evaluator := b.Evaluator
 	if evaluator == nil {
 		evaluator = MaterialEvaluator{}
@@ -162,11 +164,7 @@ func (b *Bot) iteration(ctx context.Context, evaluator Evaluator, position *ches
 	moves = orderedSearchMoves(position, 0, control)
 	originalAlpha := alpha
 	best, bestScore := moves[0], -infinity
-	type candidate struct {
-		move  chess.Move
-		score Score
-	}
-	candidates := make([]candidate, 0, len(moves))
+	candidates := make([]scoredMove, 0, len(moves))
 	for _, move := range moves {
 		undo := position.MakeLegalMove(move)
 		score, err := b.search(ctx, evaluator, position, depth-1, 1, -beta, -alpha, control)
@@ -175,7 +173,7 @@ func (b *Bot) iteration(ctx context.Context, evaluator Evaluator, position *ches
 			return best, bestScore, false, false, err
 		}
 		score = -score
-		candidates = append(candidates, candidate{move: move, score: score})
+		candidates = append(candidates, scoredMove{move: move, score: score})
 		if score > bestScore {
 			best, bestScore = move, score
 		}
@@ -187,12 +185,50 @@ func (b *Bot) iteration(ctx context.Context, evaluator Evaluator, position *ches
 		}
 	}
 	threshold := bestScore - b.MaxLoss
+	eligible := candidates[:0]
 	for _, candidate := range candidates {
 		if candidate.score >= threshold {
-			return candidate.move, bestScore, bestScore <= originalAlpha, bestScore >= beta, nil
+			eligible = append(eligible, candidate)
 		}
 	}
+	if len(eligible) > 0 {
+		return chooseCandidate(eligible, bestScore, b.Temperature, control), bestScore, bestScore <= originalAlpha, bestScore >= beta, nil
+	}
 	return best, bestScore, bestScore <= originalAlpha, bestScore >= beta, nil
+}
+
+type scoredMove struct {
+	move  chess.Move
+	score Score
+}
+
+func chooseCandidate(candidates []scoredMove, bestScore Score, temperature float64, control *searchControl) chess.Move {
+	if temperature <= 0 || control.random == 0 || len(candidates) == 1 {
+		return candidates[0].move
+	}
+	total := 0.0
+	weights := make([]float64, len(candidates))
+	for index, candidate := range candidates {
+		weight := math.Exp(float64(candidate.score-bestScore) / temperature)
+		weights[index], total = weight, total+weight
+	}
+	target := randomUnit(control) * total
+	for index, weight := range weights {
+		if target < weight {
+			return candidates[index].move
+		}
+		target -= weight
+	}
+	return candidates[len(candidates)-1].move
+}
+
+func randomUnit(control *searchControl) float64 {
+	control.random += 0x9e3779b97f4a7c15
+	value := control.random
+	value = (value ^ value>>30) * 0xbf58476d1ce4e5b9
+	value = (value ^ value>>27) * 0x94d049bb133111eb
+	value ^= value >> 31
+	return float64(value>>11) / float64(uint64(1)<<53)
 }
 
 func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.Position, depth, ply int, alpha, beta Score, control *searchControl) (Score, error) {

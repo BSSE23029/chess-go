@@ -168,6 +168,33 @@ func TestStrengthProfiles(t *testing.T) {
 	}
 }
 
+func TestPersonalitiesAndSeededCandidateSelection(t *testing.T) {
+	for _, name := range []string{"cautious", "aggressive", "materialist", "tactician", "positional", "simplifier", "trickster"} {
+		personality, err := ParsePersonality(name)
+		if err != nil || strings.ToLower(personality.String()) != name {
+			t.Fatalf("personality %q = %v, %v", name, personality, err)
+		}
+	}
+	candidates := []scoredMove{
+		{move: chess.Move{From: 1, To: 2}, score: 100},
+		{move: chess.Move{From: 2, To: 3}, score: 95},
+		{move: chess.Move{From: 3, To: 4}, score: 90},
+	}
+	first := chooseCandidate(candidates, 100, 20, &searchControl{random: 7})
+	second := chooseCandidate(candidates, 100, 20, &searchControl{random: 7})
+	if first != second {
+		t.Fatalf("same seed selected %s then %s", first.UCI(), second.UCI())
+	}
+	bot := New(1)
+	bot.SetPersonality(Trickster, 0)
+	if bot.Seed == 0 || bot.Temperature != Trickster.Config().Temperature {
+		t.Fatalf("personality config = seed %x temperature %v", bot.Seed, bot.Temperature)
+	}
+	if _, err := ParsePersonality("random"); err == nil {
+		t.Fatal("unknown personality accepted")
+	}
+}
+
 func TestOpeningBookUsesLegalEntriesAndFallsBack(t *testing.T) {
 	position := chess.NewPosition()
 	profile := NewProfile(Learner)

@@ -167,6 +167,11 @@ go run ./cmd/chess play bot --level Expert --color black
 search depth and the maximum evaluation loss allowed when ranking candidate
 moves; no hidden random source is used, so repeated tests are reproducible.
 
+Strength and personality are separate. `ParsePersonality` supports Cautious,
+Aggressive, Materialist, Tactician, Positional, Simplifier, and Trickster.
+`Bot.SetPersonality` accepts an explicit seed; positive temperatures select
+among eligible candidates deterministically from that seed.
+
 ## Perft
 
 Use `perft.Count` for a total or `perft.Divide` for one count per legal root

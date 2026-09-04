@@ -23,6 +23,7 @@ type session struct {
 	humanName string
 	botName   string
 	botLevel  string
+	botStyle  string
 	clock     *gameClock
 	timeout   string
 }
@@ -71,6 +72,8 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			options.SetOutput(io.Discard)
 			depth := options.Int("depth", defaultDepth, "search depth")
 			level := options.String("level", os.Getenv("CHESS_BOT_LEVEL"), "named strength profile")
+			personality := options.String("personality", os.Getenv("CHESS_BOT_PERSONALITY"), "move-selection personality")
+			seed := options.String("seed", os.Getenv("CHESS_BOT_SEED"), "deterministic personality seed")
 			color := options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "human color")
 			limit, increment := clockFlags(options)
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 || *depth < 1 {
@@ -93,6 +96,25 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 				s.botLevel = profile.String()
 			} else {
 				s.bot = engine.New(*depth)
+			}
+			if *personality != "" {
+				style, err := engine.ParsePersonality(*personality)
+				if err != nil {
+					return err
+				}
+				seedValue := uint64(0)
+				if *seed != "" {
+					seedValue, err = strconv.ParseUint(*seed, 0, 64)
+					if err != nil {
+						return fmt.Errorf("CHESS_BOT_SEED must be an unsigned integer")
+					}
+				}
+				bot, ok := s.bot.(*engine.Bot)
+				if !ok {
+					return errors.New("personality requires the built-in bot")
+				}
+				bot.SetPersonality(style, seedValue)
+				s.botStyle = style.String()
 			}
 			s.clock, err = parseClock(*limit, *increment)
 			if err != nil {
@@ -308,10 +330,20 @@ func firstSet(values ...string) string {
 }
 
 func (s *session) botLabel() string {
-	if s.botLevel == "" {
+	if s.botLevel == "" && s.botStyle == "" {
 		return s.botName
 	}
-	return s.botName + " [" + s.botLevel + "]"
+	label := s.botName + " ["
+	if s.botLevel != "" {
+		label += s.botLevel
+	}
+	if s.botStyle != "" {
+		if s.botLevel != "" {
+			label += "/"
+		}
+		label += s.botStyle
+	}
+	return label + "]"
 }
 
 func loadPGN(path string) (*chess.Game, error) {

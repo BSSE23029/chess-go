@@ -71,6 +71,21 @@ func TestNamedBotLevelUsesEnvironmentProfile(t *testing.T) {
 	}
 }
 
+func TestNamedBotPersonalityUsesEnvironmentSeed(t *testing.T) {
+	clearChessEnv(t)
+	t.Setenv("CHESS_BOT_LEVEL", "learner")
+	t.Setenv("CHESS_BOT_PERSONALITY", "trickster")
+	t.Setenv("CHESS_BOT_SEED", "42")
+	t.Setenv("CHESS_PLAYER_COLOR", "black")
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"play", "bot"}, strings.NewReader("quit\n"), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "Bot [Learner/Trickster] played") {
+		t.Fatalf("named bot personality was not applied:\n%s", output.String())
+	}
+}
+
 func TestFENReplacementCompletesGame(t *testing.T) {
 	clearChessEnv(t)
 	input := strings.NewReader("fen 7k/8/8/8/8/8/8/K7 w - - 0 1\n")
@@ -301,7 +316,7 @@ func TestClockConfigurationFromFlagsAndEnvironment(t *testing.T) {
 
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT"} {
 		t.Setenv(name, "")
 	}
 }

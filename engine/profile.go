@@ -67,6 +67,59 @@ func (p StrengthProfile) String() string {
 	return [...]string{"Learner", "Beginner", "Casual", "Club", "Advanced", "Expert", "Maximum"}[p]
 }
 
+// Personality names a move-selection style independent of playing strength.
+type Personality uint8
+
+const (
+	// Cautious prefers lower-variance candidate choices.
+	Cautious Personality = iota
+	// Aggressive favors forcing and capture candidates.
+	Aggressive
+	// Materialist favors material-winning candidates.
+	Materialist
+	// Tactician favors sharp tactical candidates.
+	Tactician
+	// Positional favors quiet positional candidates.
+	Positional
+	// Simplifier favors exchanges when candidates are close.
+	Simplifier
+	// Trickster accepts volatile candidates.
+	Trickster
+)
+
+// String returns the canonical personality name.
+func (p Personality) String() string {
+	if p > Trickster {
+		return "Unknown"
+	}
+	return [...]string{"Cautious", "Aggressive", "Materialist", "Tactician", "Positional", "Simplifier", "Trickster"}[p]
+}
+
+// ParsePersonality parses a personality name case-insensitively.
+func ParsePersonality(value string) (Personality, error) {
+	for personality := Cautious; personality <= Trickster; personality++ {
+		if strings.EqualFold(strings.TrimSpace(value), personality.String()) {
+			return personality, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown personality %q", value)
+}
+
+// PersonalityConfig controls deterministic imperfect move selection.
+type PersonalityConfig struct {
+	// Temperature controls weighted selection among eligible candidates.
+	Temperature float64
+}
+
+// Config returns move-selection settings for p.
+func (p Personality) Config() PersonalityConfig {
+	configs := [...]PersonalityConfig{{0}, {20}, {10}, {30}, {0}, {5}, {45}}
+	if p > Trickster {
+		return configs[Positional]
+	}
+	return configs[p]
+}
+
 // ParseStrengthProfile parses a profile name case-insensitively.
 func ParseStrengthProfile(value string) (StrengthProfile, error) {
 	for profile := Learner; profile <= Maximum; profile++ {
@@ -83,18 +136,20 @@ type StrengthConfig struct {
 	Depth int
 	// MaxLoss is the largest centipawn loss accepted when choosing among candidates.
 	MaxLoss Score
+	// Temperature controls deterministic imperfect selection within MaxLoss.
+	Temperature float64
 }
 
 // Config returns immutable search settings for p.
 func (p StrengthProfile) Config() StrengthConfig {
 	configs := [...]StrengthConfig{
-		{Depth: 1, MaxLoss: 300},
-		{Depth: 2, MaxLoss: 200},
-		{Depth: 2, MaxLoss: 100},
-		{Depth: 3, MaxLoss: 50},
-		{Depth: 3, MaxLoss: 25},
-		{Depth: 4, MaxLoss: 10},
-		{Depth: 4, MaxLoss: 0},
+		{Depth: 1, MaxLoss: 300, Temperature: 80},
+		{Depth: 2, MaxLoss: 200, Temperature: 40},
+		{Depth: 2, MaxLoss: 100, Temperature: 20},
+		{Depth: 3, MaxLoss: 50, Temperature: 10},
+		{Depth: 3, MaxLoss: 25, Temperature: 5},
+		{Depth: 4, MaxLoss: 10, Temperature: 2},
+		{Depth: 4, MaxLoss: 0, Temperature: 0},
 	}
 	if p > Maximum {
 		return configs[Casual]
@@ -114,5 +169,15 @@ func NewProfile(p StrengthProfile) *Bot {
 	if p >= Advanced {
 		evaluator = EndgameEvaluator{}
 	}
-	return &Bot{Depth: config.Depth, Evaluator: evaluator, Strength: p, MaxLoss: config.MaxLoss, Book: BuiltinOpeningBook()}
+	return &Bot{Depth: config.Depth, Evaluator: evaluator, Strength: p, MaxLoss: config.MaxLoss, Temperature: config.Temperature, Seed: 0x9e3779b97f4a7c15 + uint64(p), Personality: Positional, Book: BuiltinOpeningBook()}
+}
+
+// SetPersonality applies a deterministic move-selection style to b.
+func (b *Bot) SetPersonality(personality Personality, seed uint64) {
+	b.Personality = personality
+	b.Temperature = personality.Config().Temperature
+	if seed == 0 {
+		seed = 0x243f6a8885a308d3
+	}
+	b.Seed = seed
 }
