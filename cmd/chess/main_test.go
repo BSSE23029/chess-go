@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"chess-go"
 	"chess-go/engine"
@@ -214,9 +215,9 @@ func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
 	e6, _ := chess.ParseSquare("e6")
 	ui := boardUI{cursor: e6, selected: e7}
 	var output bytes.Buffer
-	renderInteractive(&output, game, ui, false)
+	renderInteractive(&output, game, ui, false, "White 05:00 · Black 05:00 · +00:03")
 	text := output.String()
-	for _, want := range []string{"\x1b[H\x1b[2J", "\x1b[7m", "\x1b[46m", "\x1b[42m", "\x1b[43m", "8 ", "  a  b  c  d  e  f  g  h", "Black to move"} {
+	for _, want := range []string{"\x1b[H\x1b[2J", "\x1b[7m", "\x1b[46m", "\x1b[42m", "\x1b[43m", "8 ", "  a  b  c  d  e  f  g  h", "White 05:00", "Black to move"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("interactive rendering lacks %q:\n%s", want, text)
 		}
@@ -234,9 +235,59 @@ func TestCapturedPieceSummary(t *testing.T) {
 	}
 }
 
+func TestChessClockLifecycle(t *testing.T) {
+	clock, err := parseClock("10s", "2s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(100, 0)
+	clock.now = func() time.Time { return now }
+	clock.start(chess.White)
+	now = now.Add(3 * time.Second)
+	if got := clock.values(); got != ([2]time.Duration{7 * time.Second, 10 * time.Second}) {
+		t.Fatalf("running values = %v", got)
+	}
+	if !clock.completeMove(chess.White) {
+		t.Fatal("white incorrectly lost on time")
+	}
+	if got := clock.values(); got != ([2]time.Duration{9 * time.Second, 10 * time.Second}) {
+		t.Fatalf("incremented values = %v", got)
+	}
+	now = now.Add(10 * time.Second)
+	if clock.completeMove(chess.Black) {
+		t.Fatal("black move completed after flag fall")
+	}
+	if got := formatClock(1500 * time.Millisecond); got != "00:02" {
+		t.Fatalf("rounded clock = %q", got)
+	}
+}
+
+func TestClockConfigurationFromFlagsAndEnvironment(t *testing.T) {
+	clearChessEnv(t)
+	t.Setenv("CHESS_CLOCK", "1m")
+	t.Setenv("CHESS_INCREMENT", "2s")
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"play", "local"}, strings.NewReader("quit\n"), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "White 01:00 · Black 01:00 · +00:02") {
+		t.Fatalf("configured clocks not rendered:\n%s", output.String())
+	}
+	for _, args := range [][]string{
+		{"play", "local", "--clock", "fast"},
+		{"play", "local", "--increment", "1s"},
+		{"play", "bot", "--clock", "1m", "--increment", "-1s"},
+	} {
+		clearChessEnv(t)
+		if err := run(context.Background(), args, strings.NewReader(""), &bytes.Buffer{}); err == nil {
+			t.Errorf("run(%q) accepted invalid clock", args)
+		}
+	}
+}
+
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT"} {
 		t.Setenv(name, "")
 	}
 }

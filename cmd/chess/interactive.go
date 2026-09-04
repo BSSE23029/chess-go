@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"chess-go"
 	"golang.org/x/term"
@@ -38,21 +39,69 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 	ui := boardUI{cursor: initialCursor(s.human), selected: chess.NoSquare}
 	reader := bufio.NewReader(input)
 	for {
-		if result := s.game.Result(); result != "*" {
+		if s.timeout != "" {
+			ui.message = "Game over: " + s.timeout + " — n: new game, q: quit"
+		} else if result := s.game.Result(); result != "*" {
 			ui.message = "Game over: " + result + " — n: new game, q: quit"
 		} else if s.bot != nil && s.game.Position().Turn() != s.human {
-			move, err := s.bot.ChooseMove(ctx, s.game.Position())
+			mover := s.game.Position().Turn()
+			moveCtx, cancel := s.clock.context(ctx, mover)
+			move, err := s.bot.ChooseMove(moveCtx, s.game.Position())
+			cancel()
 			if err != nil {
+				if s.clock != nil && s.clock.values()[mover] <= 0 {
+					s.flag(mover)
+					continue
+				}
 				return fmt.Errorf("bot move: %w", err)
 			}
 			san, _ := s.game.Position().SAN(move)
 			if err := s.game.Play(move); err != nil {
 				return fmt.Errorf("bot returned invalid move: %w", err)
 			}
+			if !s.clock.completeMove(mover) {
+				s.flag(mover)
+				continue
+			}
 			ui.message = fmt.Sprintf("%s played %s (%s)", s.botName, san, move.UCI())
 		}
-		renderInteractive(output, s.game, ui, s.human == chess.Black)
-		pressed, err := readKey(reader)
+		renderInteractive(output, s.game, ui, s.human == chess.Black, s.clockSummary())
+		if s.timeout != "" {
+			return nil
+		}
+		mover := s.game.Position().Turn()
+		if s.timeout == "" && s.game.Result() == "*" {
+			s.clock.start(mover)
+		}
+		var pressed key
+		var err error
+		if s.clock == nil || s.timeout != "" || s.game.Result() != "*" {
+			pressed, err = readKey(reader)
+		} else {
+			keys := make(chan key, 1)
+			keyErrors := make(chan error, 1)
+			go func() {
+				value, readErr := readKey(reader)
+				if readErr != nil {
+					keyErrors <- readErr
+					return
+				}
+				keys <- value
+			}()
+			timer := time.NewTimer(s.clock.untilFlag(mover))
+			select {
+			case pressed = <-keys:
+				timer.Stop()
+			case err = <-keyErrors:
+				timer.Stop()
+			case <-timer.C:
+				s.flag(mover)
+				continue
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			}
+		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -65,11 +114,15 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 			if err != nil {
 				return err
 			}
+			before := len(s.game.Moves())
 			if err := s.command(strings.TrimSpace(line), output); errors.Is(err, io.EOF) {
 				return nil
 			} else if err != nil {
 				ui.message = "Error: " + err.Error()
 			} else {
+				if len(s.game.Moves()) > before && !s.clock.completeMove(mover) {
+					s.flag(mover)
+				}
 				ui.selected = chess.NoSquare
 				ui.message = "Command completed"
 			}
@@ -116,6 +169,8 @@ func (s *session) handleKey(ui *boardUI, pressed key) bool {
 		}
 	case keyNew:
 		s.game = chess.NewGame()
+		s.timeout = ""
+		s.clock.reset()
 		ui.cursor, ui.selected = initialCursor(s.human), chess.NoSquare
 		ui.message = "New game"
 	case keyHelp:
@@ -158,6 +213,9 @@ func (s *session) selectSquare(ui *boardUI) {
 			ui.message = err.Error()
 			return
 		}
+		if !s.clock.completeMove(position.Turn()) {
+			s.flag(position.Turn())
+		}
 		ui.selected = chess.NoSquare
 		ui.message = "Played " + san
 		return
@@ -171,7 +229,7 @@ func (s *session) selectSquare(ui *boardUI) {
 	ui.message = "That is not a legal destination"
 }
 
-func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped bool) {
+func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped bool, clocks string) {
 	position := game.Position()
 	files, ranks := []int{0, 1, 2, 3, 4, 5, 6, 7}, []int{7, 6, 5, 4, 3, 2, 1, 0}
 	if flipped {
@@ -225,7 +283,11 @@ func renderInteractive(output io.Writer, game *chess.Game, ui boardUI, flipped b
 	for _, file := range files {
 		fmt.Fprintf(output, "%c  ", 'a'+file)
 	}
-	fmt.Fprintf(output, "\n\n%s\n%s to move", capturedSummary(game), colorName(position.Turn()))
+	fmt.Fprint(output, "\n")
+	if clocks != "" {
+		fmt.Fprintln(output, clocks)
+	}
+	fmt.Fprintf(output, "%s\n%s to move", capturedSummary(game), colorName(position.Turn()))
 	if position.InCheck() {
 		fmt.Fprint(output, " — Check")
 	}

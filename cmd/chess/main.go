@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"chess-go"
 	"chess-go/engine"
@@ -21,6 +22,8 @@ type session struct {
 	human     chess.Color
 	humanName string
 	botName   string
+	clock     *gameClock
+	timeout   string
 }
 
 func main() {
@@ -32,7 +35,7 @@ func main() {
 
 func run(ctx context.Context, args []string, input io.Reader, output io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: chess play local | chess play bot [--depth N] [--color white|black] | chess load FILE")
+		return errors.New("usage: chess play local [--clock DURATION] [--increment DURATION] | chess play bot [options] | chess load FILE")
 	}
 	s := session{
 		game:      chess.NewGame(),
@@ -47,9 +50,17 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 		}
 		switch args[1] {
 		case "local":
-			if len(args) != 2 {
-				return errors.New("local play takes no options")
+			options := flag.NewFlagSet("play local", flag.ContinueOnError)
+			options.SetOutput(io.Discard)
+			limit, increment := clockFlags(options)
+			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 {
+				return errors.New("usage: chess play local [--clock DURATION] [--increment DURATION]")
 			}
+			clock, err := parseClock(*limit, *increment)
+			if err != nil {
+				return err
+			}
+			s.clock = clock
 		case "bot":
 			defaultDepth, err := envInt("CHESS_BOT_DEPTH", 3)
 			if err != nil {
@@ -59,6 +70,7 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 			options.SetOutput(io.Discard)
 			depth := options.Int("depth", defaultDepth, "search depth")
 			color := options.String("color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "human color")
+			limit, increment := clockFlags(options)
 			if err := options.Parse(args[2:]); err != nil || options.NArg() != 0 || *depth < 1 {
 				return errors.New("usage: chess play bot [--depth N] [--color white|black]")
 			}
@@ -71,6 +83,10 @@ func run(ctx context.Context, args []string, input io.Reader, output io.Writer) 
 				return fmt.Errorf("invalid color %q", *color)
 			}
 			s.bot = engine.New(*depth)
+			s.clock, err = parseClock(*limit, *increment)
+			if err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unknown play mode %q", args[1])
 		}
@@ -94,21 +110,44 @@ func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) e
 		return s.playInteractive(ctx, input, output)
 	}
 	scanner := bufio.NewScanner(input)
+	lines := make(chan string)
+	scanDone := make(chan error, 1)
+	go func() {
+		for scanner.Scan() {
+			lines <- scanner.Text()
+		}
+		scanDone <- scanner.Err()
+	}()
 	fmt.Fprintln(output, "Commands: SAN or UCI move, moves, undo, redo, fen FEN, load FILE, save FILE, help, quit")
 	for {
-		render(output, s.game, s.human == chess.Black)
+		render(output, s.game, s.human == chess.Black, s.clockSummary())
+		if s.timeout != "" {
+			fmt.Fprintln(output, "Game over:", s.timeout)
+			return nil
+		}
 		if result := s.game.Result(); result != "*" {
 			fmt.Fprintln(output, "Game over:", result)
 			return nil
 		}
 		if s.bot != nil && s.game.Position().Turn() != s.human {
-			move, err := s.bot.ChooseMove(ctx, s.game.Position())
+			mover := s.game.Position().Turn()
+			moveCtx, cancel := s.clock.context(ctx, mover)
+			move, err := s.bot.ChooseMove(moveCtx, s.game.Position())
+			cancel()
 			if err != nil {
+				if s.clock != nil && s.clock.values()[mover] <= 0 {
+					s.flag(mover)
+					continue
+				}
 				return fmt.Errorf("bot move: %w", err)
 			}
 			san, _ := s.game.Position().SAN(move)
 			if err := s.game.Play(move); err != nil {
 				return fmt.Errorf("bot returned invalid move: %w", err)
+			}
+			if !s.clock.completeMove(mover) {
+				s.flag(mover)
+				continue
 			}
 			fmt.Fprintf(output, "%s played %s (%s)\n", s.botName, san, move.UCI())
 			continue
@@ -118,13 +157,42 @@ func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) e
 			name = s.humanName
 		}
 		fmt.Fprintf(output, "%s to move > ", name)
-		if !scanner.Scan() {
-			return scanner.Err()
+		mover := s.game.Position().Turn()
+		s.clock.start(mover)
+		var line string
+		if s.clock == nil {
+			select {
+			case line = <-lines:
+			case err := <-scanDone:
+				return err
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		} else {
+			timer := time.NewTimer(s.clock.untilFlag(mover))
+			select {
+			case line = <-lines:
+				if !timer.Stop() {
+					<-timer.C
+				}
+			case err := <-scanDone:
+				timer.Stop()
+				return err
+			case <-timer.C:
+				s.flag(mover)
+				continue
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			}
 		}
-		if err := s.command(strings.TrimSpace(scanner.Text()), output); errors.Is(err, io.EOF) {
+		before := len(s.game.Moves())
+		if err := s.command(strings.TrimSpace(line), output); errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
 			fmt.Fprintln(output, "Error:", err)
+		} else if len(s.game.Moves()) > before && !s.clock.completeMove(mover) {
+			s.flag(mover)
 		}
 	}
 }
@@ -153,6 +221,8 @@ func (s *session) command(line string, output io.Writer) error {
 			return err
 		}
 		s.game = chess.NewGameFromPosition(position)
+		s.timeout = ""
+		s.clock.reset()
 		return nil
 	case "load":
 		game, err := loadPGN(argument)
@@ -160,6 +230,8 @@ func (s *session) command(line string, output io.Writer) error {
 			return err
 		}
 		s.game = game
+		s.timeout = ""
+		s.clock.reset()
 		return nil
 	case "save":
 		if argument == "" {
@@ -199,6 +271,7 @@ func (s *session) travel(redo bool) error {
 		}
 		completed++
 	}
+	s.clock.sync(s.game.Position().Turn())
 	return nil
 }
 
@@ -231,7 +304,7 @@ func loadPGN(path string) (*chess.Game, error) {
 	return chess.ParsePGN(string(data))
 }
 
-func render(output io.Writer, game *chess.Game, flipped bool) {
+func render(output io.Writer, game *chess.Game, flipped bool, clocks string) {
 	position := game.Position()
 	files := []int{0, 1, 2, 3, 4, 5, 6, 7}
 	ranks := []int{7, 6, 5, 4, 3, 2, 1, 0}
@@ -251,6 +324,9 @@ func render(output io.Writer, game *chess.Game, flipped bool) {
 		fmt.Fprintf(output, "%c ", 'a'+file)
 	}
 	fmt.Fprintln(output)
+	if clocks != "" {
+		fmt.Fprintln(output, clocks)
+	}
 	fmt.Fprintln(output, capturedSummary(game))
 	fmt.Fprint(output, "Moves:")
 	for _, move := range game.Moves() {
