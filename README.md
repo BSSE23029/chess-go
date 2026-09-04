@@ -12,6 +12,7 @@ Use the checked-out source directly:
 ```console
 go run ./cmd/chess play local
 go run ./cmd/chess play bot --level Club --color black
+go run ./cmd/chess matchmake http://127.0.0.1:8080 --player alice --color random
 go run ./cmd/chess version
 ```
 

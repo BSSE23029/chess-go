@@ -131,6 +131,9 @@ func runDiscover(ctx context.Context, args []string, output io.Writer) error {
 }
 
 func runNetworkCommand(ctx context.Context, command string, args []string, output io.Writer) error {
+	if command == "matchmake" {
+		return runMatchmake(ctx, args, output)
+	}
 	if len(args) < 1 {
 		return errors.New("usage: chess list ADDRESS | chess join|connect|spectate ADDRESS --match ID [options]")
 	}
@@ -175,6 +178,33 @@ func runNetworkCommand(ctx context.Context, command string, args []string, outpu
 		return err
 	}
 	snapshot, err := client.Join(ctx, command+"-join", protocol.JoinMatchRequest{MatchID: *matchID, PlayerID: *playerID, Color: *color})
+	if err != nil {
+		return err
+	}
+	printNetworkSnapshot(output, snapshot)
+	return nil
+}
+
+func runMatchmake(ctx context.Context, args []string, output io.Writer) error {
+	if len(args) < 1 {
+		return errors.New("usage: chess matchmake ADDRESS [--player ID] [--color white|black] [--clock-millis N --increment-millis N]")
+	}
+	address := args[0]
+	options := flag.NewFlagSet("matchmake", flag.ContinueOnError)
+	options.SetOutput(io.Discard)
+	playerID := options.String("player", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")), "player ID")
+	color := options.String("color", os.Getenv("CHESS_PLAYER_COLOR"), "preferred color")
+	token := options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "bearer token")
+	clockMillis := options.Int64("clock-millis", 0, "initial time per side in milliseconds")
+	incrementMillis := options.Int64("increment-millis", 0, "increment per move in milliseconds")
+	if err := options.Parse(args[1:]); err != nil || options.NArg() != 0 {
+		return errors.New("usage: chess matchmake ADDRESS [--player ID] [--color white|black] [--clock-millis N --increment-millis N]")
+	}
+	client, err := transport.NewClient(address, *token)
+	if err != nil {
+		return err
+	}
+	snapshot, err := client.Matchmake(ctx, "matchmake", protocol.MatchmakeRequest{PlayerID: *playerID, Color: *color, ClockMillis: *clockMillis, IncrementMillis: *incrementMillis})
 	if err != nil {
 		return err
 	}

@@ -84,6 +84,10 @@ func TestHTTPClientTypedLifecycle(t *testing.T) {
 	if err != nil || len(matches) != 1 {
 		t.Fatalf("client list = %#v, %v", matches, err)
 	}
+	matched, err := client.Matchmake(context.Background(), "client-matchmake", protocol.MatchmakeRequest{PlayerID: "bob"})
+	if err != nil || matched.MatchID != "client-match" {
+		t.Fatalf("client matchmaking = %#v, %v", matched, err)
+	}
 	fetched, err := client.Snapshot(context.Background(), protocol.SnapshotRequest{MatchID: "client-match", PlayerID: "alice"})
 	if err != nil || fetched.PositionHash != snapshot.PositionHash {
 		t.Fatalf("client snapshot = %#v, %v", fetched, err)

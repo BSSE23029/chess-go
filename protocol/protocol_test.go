@@ -82,6 +82,29 @@ func TestAuthoritativeMatchSynchronizationAndValidation(t *testing.T) {
 	}
 }
 
+func TestMatchmakingPairsOpenSeatsAndCreatesWaitingMatches(t *testing.T) {
+	server := NewServer()
+	first, err := server.Matchmake(MatchmakeRequest{PlayerID: "alice"})
+	if err != nil || first.MatchID != "match-1" || first.Spectators != 0 {
+		t.Fatalf("first matchmaking result = %#v, %v", first, err)
+	}
+	second, err := server.Matchmake(MatchmakeRequest{PlayerID: "bob"})
+	if err != nil || second.MatchID != first.MatchID {
+		t.Fatalf("second matchmaking result = %#v, %v", second, err)
+	}
+	third, err := server.Matchmake(MatchmakeRequest{PlayerID: "carol", Color: "black"})
+	if err != nil || third.MatchID != "match-2" {
+		t.Fatalf("third matchmaking result = %#v, %v", third, err)
+	}
+	reconnected, err := server.Matchmake(MatchmakeRequest{PlayerID: "alice"})
+	if err != nil || reconnected.MatchID != first.MatchID {
+		t.Fatalf("existing matchmaking session = %#v, %v", reconnected, err)
+	}
+	if _, err := server.Matchmake(MatchmakeRequest{PlayerID: "bad", Color: "spectator"}); !errors.Is(err, ErrInvalidColor) {
+		t.Fatalf("invalid matchmaking color = %v", err)
+	}
+}
+
 func TestAuthoritativeMatchRejectsIllegalMove(t *testing.T) {
 	match := NewMatch("m1", chess.NewPosition())
 	snapshot := match.Snapshot()

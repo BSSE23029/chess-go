@@ -9,7 +9,7 @@
     "version": {"const": 1},
     "type": {
       "enum": [
-        "match.create", "match.join", "match.snapshot", "match.move",
+        "match.create", "match.matchmake", "match.join", "match.snapshot", "match.move",
         "match.move.accepted", "match.resign", "match.draw.offer", "error"
       ]
     },
@@ -26,6 +26,17 @@
         "initial_fen": {"type": "string"},
         "player_id": {"type": "string"},
         "color": {"enum": ["white", "black", "spectator"]},
+        "clock_millis": {"type": "integer", "minimum": 0},
+        "increment_millis": {"type": "integer", "minimum": 0}
+      }
+    },
+    "matchmake": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["player_id"],
+      "properties": {
+        "player_id": {"type": "string", "minLength": 1},
+        "color": {"enum": ["white", "black", "random"]},
         "clock_millis": {"type": "integer", "minimum": 0},
         "increment_millis": {"type": "integer", "minimum": 0}
       }

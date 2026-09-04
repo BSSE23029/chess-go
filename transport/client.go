@@ -93,6 +93,15 @@ func (c *Client) Create(ctx context.Context, requestID string, request protocol.
 	return snapshot, nil
 }
 
+// Matchmake joins a compatible open match or creates a waiting match.
+func (c *Client) Matchmake(ctx context.Context, requestID string, request protocol.MatchmakeRequest) (protocol.MatchSnapshot, error) {
+	response, err := c.Do(ctx, protocol.Matchmake, requestID, request)
+	if err != nil {
+		return protocol.MatchSnapshot{}, err
+	}
+	return snapshotResponse(response, "matchmake")
+}
+
 // Join claims a seat or spectator role and decodes its snapshot.
 func (c *Client) Join(ctx context.Context, requestID string, request protocol.JoinMatchRequest) (protocol.MatchSnapshot, error) {
 	response, err := c.Do(ctx, protocol.JoinMatch, requestID, request)

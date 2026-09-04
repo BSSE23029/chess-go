@@ -39,6 +39,7 @@ type Server struct {
 	mu          sync.RWMutex
 	matches     map[string]*Match
 	sessions    map[string]*Session
+	nextMatchID uint64
 	persistence func([]MatchState) error
 }
 
@@ -319,6 +320,16 @@ func (s *Server) Handle(data []byte) ([]byte, error) {
 			return nil, fmt.Errorf("invalid create payload: %w", err)
 		}
 		snapshot, err := s.Create(request)
+		if err != nil {
+			return s.encodeError(envelope.RequestID, err, "invalid_request")
+		}
+		return Encode(Snapshot, envelope.RequestID, snapshot)
+	case Matchmake:
+		var request MatchmakeRequest
+		if err := envelope.UnmarshalPayload(&request); err != nil {
+			return nil, fmt.Errorf("invalid matchmaking payload: %w", err)
+		}
+		snapshot, err := s.Matchmake(request)
 		if err != nil {
 			return s.encodeError(envelope.RequestID, err, "invalid_request")
 		}

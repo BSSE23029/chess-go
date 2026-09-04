@@ -22,6 +22,8 @@ type MessageType string
 const (
 	// CreateMatch requests a new match.
 	CreateMatch MessageType = "match.create"
+	// Matchmake requests an open seat or a newly created waiting match.
+	Matchmake MessageType = "match.matchmake"
 	// JoinMatch requests a player seat.
 	JoinMatch MessageType = "match.join"
 	// Snapshot reports authoritative state.
@@ -95,7 +97,7 @@ func (e Envelope) UnmarshalPayload(target any) error {
 
 func knownMessageType(messageType MessageType) bool {
 	switch messageType {
-	case CreateMatch, JoinMatch, Snapshot, Move, MoveAcceptedType, Resign, DrawOffer, ProtocolError:
+	case CreateMatch, Matchmake, JoinMatch, Snapshot, Move, MoveAcceptedType, Resign, DrawOffer, ProtocolError:
 		return true
 	default:
 		return false
@@ -107,6 +109,16 @@ type CreateMatchRequest struct {
 	MatchID         string `json:"match_id"`
 	InitialFEN      string `json:"initial_fen,omitempty"`
 	PlayerID        string `json:"player_id,omitempty"`
+	Color           string `json:"color,omitempty"`
+	ClockMillis     int64  `json:"clock_millis,omitempty"`
+	IncrementMillis int64  `json:"increment_millis,omitempty"`
+}
+
+// MatchmakeRequest asks the server to pair a player with a compatible open
+// match, creating a waiting match when none is available. Color may be empty,
+// white, or black; an empty value prefers the first compatible seat.
+type MatchmakeRequest struct {
+	PlayerID        string `json:"player_id"`
 	Color           string `json:"color,omitempty"`
 	ClockMillis     int64  `json:"clock_millis,omitempty"`
 	IncrementMillis int64  `json:"increment_millis,omitempty"`

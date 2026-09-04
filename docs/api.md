@@ -259,6 +259,7 @@ The `chess` command exposes the adapters without hard-coded deployment values:
 CHESS_NETWORK_ADDR=:8080 CHESS_NETWORK_TOKEN=local CHESS_MATCH_STORE=matches.json chess host
 # Hosted mode: CHESS_TLS_CERT=server.crt CHESS_TLS_KEY=server.key chess host
 CHESS_NETWORK_URL=http://127.0.0.1:8080 chess list http://127.0.0.1:8080
+chess matchmake http://127.0.0.1:8080 --player alice --color random
 chess join http://127.0.0.1:8080 --match game --player alice --color white
 chess play remote http://127.0.0.1:8080 --match game --player alice
 ```
@@ -269,6 +270,10 @@ line-mode client; use `refresh` to pull an opponent's latest authoritative
 snapshot. `CHESS_NETWORK_URL`, `CHESS_NETWORK_ADDR`, `CHESS_NETWORK_TOKEN`,
 `CHESS_TLS_CERT`, `CHESS_TLS_KEY`, `CHESS_MATCH_STORE`, `CHESS_MATCH_ID`, and
 `CHESS_PLAYER_ID` provide the corresponding defaults.
+
+`matchmake` pairs a player with the first compatible open seat in stable match
+ID order, or creates a `match-N` waiting room when none exists. Repeating the
+request for a connected player returns that player's existing match.
 
 For local networks, pass `--lan` (or set `CHESS_LAN_DISCOVERY=true`) to
 advertise a host through dependency-free DNS-SD/mDNS. The service name and
