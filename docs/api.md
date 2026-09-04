@@ -119,6 +119,9 @@ material evaluator for compatibility; named profiles use the deterministic
 bishop-pair, passed-pawn, and king-safety terms. Callers may replace
 `Bot.Evaluator` with any value implementing `engine.Evaluator`.
 
+`EndgameEvaluator` adds sparse-position king centralization and king-to-pawn
+proximity; Advanced, Expert, and Maximum profiles use it automatically.
+
 The search horizon uses quiescence search: tactical captures, promotions, and
 forced check evasions are explored before a leaf is statically evaluated.
 Each search owns a Zobrist-keyed transposition table with exact, lower-bound,

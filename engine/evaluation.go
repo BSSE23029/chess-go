@@ -6,6 +6,10 @@ import "chess-go"
 // It is deterministic and returns a score from White's perspective.
 type PositionalEvaluator struct{}
 
+// EndgameEvaluator adds king-centralization and king-pawn proximity to the
+// positional evaluator for sparse positions.
+type EndgameEvaluator struct{}
+
 var pieceSquare = map[chess.PieceType][64]Score{
 	chess.Pawn: {
 		0, 0, 0, 0, 0, 0, 0, 0,
@@ -121,6 +125,92 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 		score -= mobility
 	}
 	return score + passedPawns(position)
+}
+
+// Evaluate returns positional evaluation with endgame-specific terms.
+func (EndgameEvaluator) Evaluate(position chess.Position) Score {
+	score := PositionalEvaluator{}.Evaluate(position)
+	queens, rooks, pawns := 0, 0, 0
+	for square := chess.Square(0); square < 64; square++ {
+		switch position.PieceAt(square).Type {
+		case chess.Queen:
+			queens++
+		case chess.Rook:
+			rooks++
+		case chess.Pawn:
+			pawns++
+		}
+	}
+	if queens == 0 && rooks == 0 {
+		score += kingCentralization(position)
+	}
+	if pawns > 0 && queens == 0 && rooks == 0 {
+		score += kingPawnProximity(position)
+	}
+	return score
+}
+
+func kingCentralization(position chess.Position) Score {
+	white, black := chess.NoSquare, chess.NoSquare
+	for square := chess.Square(0); square < 64; square++ {
+		piece := position.PieceAt(square)
+		if piece.Type != chess.King {
+			continue
+		}
+		if piece.Color == chess.White {
+			white = square
+		} else {
+			black = square
+		}
+	}
+	if white == chess.NoSquare || black == chess.NoSquare {
+		return 0
+	}
+	whiteDistance := centerDistance(white)
+	blackDistance := centerDistance(black)
+	return Score((blackDistance - whiteDistance) * 12)
+}
+
+func kingPawnProximity(position chess.Position) Score {
+	var score Score
+	for square := chess.Square(0); square < 64; square++ {
+		pawn := position.PieceAt(square)
+		if pawn.Type != chess.Pawn {
+			continue
+		}
+		king := chess.NoSquare
+		for kingSquare := chess.Square(0); kingSquare < 64; kingSquare++ {
+			piece := position.PieceAt(kingSquare)
+			if piece.Type == chess.King && piece.Color == pawn.Color {
+				king = kingSquare
+				break
+			}
+		}
+		if king == chess.NoSquare {
+			continue
+		}
+		bonus := Score(14 - squareDistance(king, square))
+		if pawn.Color == chess.White {
+			score += bonus
+		} else {
+			score -= bonus
+		}
+	}
+	return score
+}
+
+func centerDistance(square chess.Square) int {
+	file, rank := int(square)%8, int(square)/8
+	return abs(file*2-7) + abs(rank*2-7)
+}
+
+func squareDistance(first, second chess.Square) int {
+	file := abs(int(first)%8 - int(second)%8)
+	rank := abs(int(first)/8 - int(second)/8)
+	if file > rank {
+		return file
+	}
+	return rank
 }
 
 func pawnStructure(pawns [2][8]int) Score {

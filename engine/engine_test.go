@@ -37,6 +37,18 @@ func TestPositionalEvaluationAddsStructureTerms(t *testing.T) {
 	}
 }
 
+func TestEndgameEvaluationRewardsKingActivityAndPawnSupport(t *testing.T) {
+	evaluator := EndgameEvaluator{}
+	central, _ := chess.ParseFEN("4k3/8/8/3P4/3K4/8/8/8 w - - 0 1")
+	corner, _ := chess.ParseFEN("4k3/8/8/3P4/8/8/8/7K w - - 0 1")
+	if evaluator.Evaluate(central) <= evaluator.Evaluate(corner) {
+		t.Fatalf("active king was not rewarded: central %d corner %d", evaluator.Evaluate(central), evaluator.Evaluate(corner))
+	}
+	if _, ok := NewProfile(Advanced).Evaluator.(EndgameEvaluator); !ok {
+		t.Fatal("advanced profile did not use endgame evaluator")
+	}
+}
+
 func TestBotChoosesMaterialAndLeavesInputUnchanged(t *testing.T) {
 	position, _ := chess.ParseFEN("4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1")
 	hash := position.Hash()
