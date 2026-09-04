@@ -76,5 +76,5 @@ func Profiles() []StrengthProfile {
 // NewProfile returns a deterministic bot configured with p.
 func NewProfile(p StrengthProfile) *Bot {
 	config := p.Config()
-	return &Bot{Depth: config.Depth, Evaluator: MaterialEvaluator{}, Strength: p, MaxLoss: config.MaxLoss}
+	return &Bot{Depth: config.Depth, Evaluator: PositionalEvaluator{}, Strength: p, MaxLoss: config.MaxLoss}
 }

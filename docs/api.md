@@ -113,9 +113,11 @@ if err != nil {
 fmt.Println(move.UCI())
 ```
 
-The current engine uses fixed-depth alpha-beta search and material evaluation.
-Callers may replace `Bot.Evaluator` with any value implementing
-`engine.Evaluator`.
+The current engine uses fixed-depth alpha-beta search. `engine.New` retains a
+material evaluator for compatibility; named profiles use the deterministic
+`PositionalEvaluator`, which adds piece-square, mobility, pawn-structure,
+bishop-pair, passed-pawn, and king-safety terms. Callers may replace
+`Bot.Evaluator` with any value implementing `engine.Evaluator`.
 
 For user-facing play, `engine` provides deterministic named strength presets:
 `Learner`, `Beginner`, `Casual`, `Club`, `Advanced`, `Expert`, and `Maximum`.

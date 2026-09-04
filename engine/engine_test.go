@@ -22,6 +22,20 @@ func TestMaterialEvaluation(t *testing.T) {
 	}
 }
 
+func TestPositionalEvaluationAddsStructureTerms(t *testing.T) {
+	evaluator := PositionalEvaluator{}
+	initial := evaluator.Evaluate(chess.NewPosition())
+	central, _ := chess.ParseFEN("4k3/8/8/3pp3/3PP3/8/8/4K3 w - - 0 1")
+	if got := evaluator.Evaluate(central); got == 0 || initial == got {
+		t.Fatalf("positional evaluator did not add terms: initial %d central %d", initial, got)
+	}
+	passed, _ := chess.ParseFEN("4k3/8/8/4P3/8/8/8/4K3 w - - 0 1")
+	blocked, _ := chess.ParseFEN("4k3/8/4p3/4P3/8/8/8/4K3 w - - 0 1")
+	if evaluator.Evaluate(passed) <= evaluator.Evaluate(blocked) {
+		t.Fatal("passed pawn was not rewarded")
+	}
+}
+
 func TestBotChoosesMaterialAndLeavesInputUnchanged(t *testing.T) {
 	position, _ := chess.ParseFEN("4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1")
 	hash := position.Hash()
