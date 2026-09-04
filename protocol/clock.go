@@ -50,6 +50,7 @@ func newMatch(id string, position chess.Position, config ClockConfig) *Match {
 	return &Match{
 		id:         id,
 		position:   position,
+		initialFEN: position.FEN(),
 		spectators: make(map[string]struct{}),
 		result:     positionResult(position),
 		clock:      newMatchClock(config),

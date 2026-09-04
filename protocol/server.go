@@ -36,9 +36,10 @@ type Session struct {
 // transport-independent: HTTP, WebSocket, and tests can all call Handle with
 // the same versioned JSON envelopes.
 type Server struct {
-	mu       sync.RWMutex
-	matches  map[string]*Match
-	sessions map[string]*Session
+	mu          sync.RWMutex
+	matches     map[string]*Match
+	sessions    map[string]*Session
+	persistence func([]MatchState) error
 }
 
 // NewServer creates an empty authoritative match server.
@@ -130,13 +131,14 @@ func (s *Server) Create(request CreateMatchRequest) (MatchSnapshot, error) {
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.ensureMapsLocked()
 	if _, exists := s.matches[request.MatchID]; exists {
+		s.mu.Unlock()
 		return MatchSnapshot{}, ErrMatchExists
 	}
 	match, err := NewMatchWithClock(request.MatchID, position, ClockConfig{Initial: clockInitial, Increment: clockIncrement})
 	if err != nil {
+		s.mu.Unlock()
 		return MatchSnapshot{}, err
 	}
 	s.matches[request.MatchID] = match
@@ -150,11 +152,17 @@ func (s *Server) Create(request CreateMatchRequest) (MatchSnapshot, error) {
 		}
 		if err != nil {
 			delete(s.matches, request.MatchID)
+			s.mu.Unlock()
 			return MatchSnapshot{}, err
 		}
 		session.MatchID = request.MatchID
 	}
-	return match.Snapshot(), nil
+	s.mu.Unlock()
+	snapshot := match.Snapshot()
+	if err := s.persist(); err != nil {
+		return MatchSnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 // Join connects playerID and claims a white, black, or spectator role.
@@ -167,9 +175,9 @@ func (s *Server) Join(request JoinMatchRequest) (MatchSnapshot, error) {
 		return MatchSnapshot{}, ErrInvalidColor
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	match, ok := s.matches[request.MatchID]
 	if !ok {
+		s.mu.Unlock()
 		return MatchSnapshot{}, ErrMatchNotFound
 	}
 	var err error
@@ -179,11 +187,17 @@ func (s *Server) Join(request JoinMatchRequest) (MatchSnapshot, error) {
 		err = match.Join(request.PlayerID, color)
 	}
 	if err != nil {
+		s.mu.Unlock()
 		return MatchSnapshot{}, err
 	}
 	session := s.ensureSessionLocked(request.PlayerID)
 	session.MatchID = request.MatchID
-	return match.Snapshot(), nil
+	s.mu.Unlock()
+	snapshot := match.Snapshot()
+	if err := s.persist(); err != nil {
+		return MatchSnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 // Snapshot returns the current state. A non-empty PlayerID must have an active
@@ -216,7 +230,14 @@ func (s *Server) ApplyMove(request MoveRequest) (MoveAccepted, error) {
 	if err := s.authorizeSession(request.PlayerID, request.MatchID); err != nil {
 		return MoveAccepted{}, err
 	}
-	return match.ApplyMove(request)
+	accepted, err := match.ApplyMove(request)
+	if err != nil {
+		return MoveAccepted{}, err
+	}
+	if err := s.persist(); err != nil {
+		return MoveAccepted{}, err
+	}
+	return accepted, nil
 }
 
 // Resign ends a match in favor of the opposing player.
@@ -234,7 +255,11 @@ func (s *Server) Resign(request ResignRequest) (MatchSnapshot, error) {
 	if err := match.Resign(request.PlayerID); err != nil {
 		return MatchSnapshot{}, err
 	}
-	return match.Snapshot(), nil
+	snapshot := match.Snapshot()
+	if err := s.persist(); err != nil {
+		return MatchSnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 // OfferDraw offers a draw or accepts an offer from the other player.
@@ -252,7 +277,11 @@ func (s *Server) OfferDraw(request DrawOfferRequest) (MatchSnapshot, error) {
 	if err := match.OfferDraw(request.PlayerID); err != nil {
 		return MatchSnapshot{}, err
 	}
-	return match.Snapshot(), nil
+	snapshot := match.Snapshot()
+	if err := s.persist(); err != nil {
+		return MatchSnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 // ListMatches returns all matches in stable ID order.

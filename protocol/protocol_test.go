@@ -95,3 +95,41 @@ func TestAuthoritativeMatchRejectsIllegalMove(t *testing.T) {
 		t.Fatalf("empty player error = %v", err)
 	}
 }
+
+func TestMatchStateRoundTripAndPersistenceHook(t *testing.T) {
+	match := NewMatch("state", chess.NewPosition())
+	if err := match.Join("alice", chess.White); err != nil {
+		t.Fatal(err)
+	}
+	initial := match.Snapshot()
+	if _, err := match.ApplyMove(MoveRequest{MatchID: "state", PlayerID: "alice", Sequence: initial.Sequence, PositionHash: initial.PositionHash, UCI: "e2e4"}); err != nil {
+		t.Fatal(err)
+	}
+	state, err := match.State()
+	if err != nil || state.Sequence != 1 || len(state.Moves) != 1 || state.Moves[0] != "e2e4" {
+		t.Fatalf("state = %#v, %v", state, err)
+	}
+	restored, err := NewMatchFromState(state)
+	if err != nil || restored.Snapshot().FEN != match.Snapshot().FEN {
+		t.Fatalf("restored = %#v, %v", restored.Snapshot(), err)
+	}
+	if _, err := NewMatchFromState(MatchState{MatchID: "bad", InitialFEN: chess.InitialFEN, FEN: chess.InitialFEN, Sequence: 1}); err == nil {
+		t.Fatal("inconsistent state accepted")
+	}
+
+	server := NewServer()
+	saves := 0
+	server.SetPersistenceHook(func(states []MatchState) error {
+		saves++
+		if len(states) != 1 || states[0].MatchID != "hook" {
+			return errors.New("unexpected persisted states")
+		}
+		return nil
+	})
+	if _, err := server.Create(CreateMatchRequest{MatchID: "hook"}); err != nil {
+		t.Fatal(err)
+	}
+	if saves != 1 {
+		t.Fatalf("create persistence calls = %d", saves)
+	}
+}

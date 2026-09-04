@@ -337,9 +337,15 @@ func TestClockConfigurationFromFlagsAndEnvironment(t *testing.T) {
 	}
 }
 
+func TestHostTLSFlagsRequireCertificatePair(t *testing.T) {
+	if err := run(context.Background(), []string{"host", "--cert", "server.crt"}, strings.NewReader(""), &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "must be provided together") {
+		t.Fatalf("host TLS validation error = %v", err)
+	}
+}
+
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_MATCH_STORE"} {
 		t.Setenv(name, "")
 	}
 }

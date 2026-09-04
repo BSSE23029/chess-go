@@ -15,6 +15,7 @@ import (
 
 	"chess-go"
 	"chess-go/protocol"
+	"chess-go/storage"
 	"chess-go/transport"
 )
 
@@ -25,20 +26,45 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 	options.SetOutput(io.Discard)
 	address := options.String("addr", firstSet(os.Getenv("CHESS_NETWORK_ADDR"), ":8080"), "listen address")
 	token := options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "optional bearer token")
+	certificate := options.String("cert", os.Getenv("CHESS_TLS_CERT"), "TLS certificate PEM path")
+	key := options.String("key", os.Getenv("CHESS_TLS_KEY"), "TLS private key PEM path")
+	storePath := options.String("store", os.Getenv("CHESS_MATCH_STORE"), "durable match state JSON path")
 	if err := options.Parse(args); err != nil || options.NArg() != 0 {
-		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN]")
+		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE]")
+	}
+	if (*certificate == "") != (*key == "") {
+		return errors.New("--cert and --key must be provided together")
 	}
 	listener, err := net.Listen("tcp", *address)
 	if err != nil {
 		return err
 	}
+	defer listener.Close()
 	authority := protocol.NewServer()
+	var store *storage.FileStore
+	if *storePath != "" {
+		store, err = storage.NewFileStore(*storePath)
+		if err != nil {
+			return err
+		}
+		if err := store.Load(authority); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		authority.SetPersistenceHook(store.SaveStates)
+		defer func() { _ = store.SaveServer(authority) }()
+	}
 	mux := http.NewServeMux()
 	mux.Handle("/ws", transport.NewWebSocketServer(authority, *token))
 	mux.Handle("/", transport.NewHTTPServer(authority, *token))
 	httpServer := &http.Server{Handler: mux}
 	serveDone := make(chan error, 1)
-	go func() { serveDone <- httpServer.Serve(listener) }()
+	go func() {
+		if *certificate != "" {
+			serveDone <- httpServer.ServeTLS(listener, *certificate, *key)
+			return
+		}
+		serveDone <- httpServer.Serve(listener)
+	}()
 	fmt.Fprintf(output, "Hosting chess server on %s\n", listener.Addr())
 	select {
 	case err := <-serveDone:

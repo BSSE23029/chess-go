@@ -162,18 +162,19 @@ type DrawOfferRequest struct {
 
 // MatchSnapshot is a synchronizable authoritative position snapshot.
 type MatchSnapshot struct {
-	MatchID         string `json:"match_id"`
-	Sequence        uint64 `json:"sequence"`
-	PositionHash    uint64 `json:"position_hash"`
-	FEN             string `json:"fen"`
-	Turn            string `json:"turn"`
-	Result          string `json:"result"`
-	DrawOfferedBy   string `json:"draw_offered_by,omitempty"`
-	Spectators      int    `json:"spectators"`
-	WhiteTimeMillis int64  `json:"white_time_millis,omitempty"`
-	BlackTimeMillis int64  `json:"black_time_millis,omitempty"`
-	IncrementMillis int64  `json:"increment_millis,omitempty"`
-	ClockRunning    bool   `json:"clock_running,omitempty"`
+	MatchID         string   `json:"match_id"`
+	Sequence        uint64   `json:"sequence"`
+	PositionHash    uint64   `json:"position_hash"`
+	FEN             string   `json:"fen"`
+	Turn            string   `json:"turn"`
+	Result          string   `json:"result"`
+	DrawOfferedBy   string   `json:"draw_offered_by,omitempty"`
+	Spectators      int      `json:"spectators"`
+	WhiteTimeMillis int64    `json:"white_time_millis,omitempty"`
+	BlackTimeMillis int64    `json:"black_time_millis,omitempty"`
+	IncrementMillis int64    `json:"increment_millis,omitempty"`
+	ClockRunning    bool     `json:"clock_running,omitempty"`
+	Moves           []string `json:"moves,omitempty"`
 }
 
 // ProtocolErrorBody describes a stable machine-readable protocol failure.
@@ -206,6 +207,8 @@ type Match struct {
 	result        string
 	drawOfferedBy string
 	clock         *matchClock
+	moves         []chess.Move
+	initialFEN    string
 }
 
 // NewMatch creates a match from position with sequence zero.
@@ -332,6 +335,7 @@ func (m *Match) Snapshot() MatchSnapshot {
 		BlackTimeMillis: clock.black,
 		IncrementMillis: clock.increment,
 		ClockRunning:    clock.running,
+		Moves:           moveStrings(m.moves),
 	}
 }
 
@@ -372,6 +376,7 @@ func (m *Match) ApplyMove(request MoveRequest) (MoveAccepted, error) {
 		return MoveAccepted{}, err
 	}
 	m.position, m.sequence = next, m.sequence+1
+	m.moves = append(m.moves, move)
 	m.drawOfferedBy = ""
 	if actual := positionResult(next); actual != "" {
 		m.result = actual
