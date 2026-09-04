@@ -119,6 +119,9 @@ material evaluator for compatibility; named profiles use the deterministic
 bishop-pair, passed-pawn, and king-safety terms. Callers may replace
 `Bot.Evaluator` with any value implementing `engine.Evaluator`.
 
+The search horizon uses quiescence search: tactical captures, promotions, and
+forced check evasions are explored before a leaf is statically evaluated.
+
 For callers that own time controls, `Bot.Search` performs iterative deepening
 with explicit node and wall-clock limits and returns statistics for the deepest
 completed iteration:

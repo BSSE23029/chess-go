@@ -146,11 +146,7 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 		return 0, nil
 	}
 	if depth == 0 {
-		score := evaluator.Evaluate(*position)
-		if position.Turn() == chess.Black {
-			score = -score
-		}
-		return score, nil
+		return b.quiescence(ctx, evaluator, position, ply, alpha, beta, control)
 	}
 	best := -infinity
 	for _, move := range moves {
@@ -172,4 +168,49 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 		}
 	}
 	return best, nil
+}
+
+func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *chess.Position, ply int, alpha, beta Score, control *searchControl) (Score, error) {
+	if err := control.visit(ctx); err != nil {
+		return 0, err
+	}
+	moves := orderedMoves(position)
+	if len(moves) == 0 {
+		if position.InCheck() {
+			return -MateScore + Score(ply), nil
+		}
+		return 0, nil
+	}
+	inCheck := position.InCheck()
+	if !inCheck {
+		standPat := evaluator.Evaluate(*position)
+		if position.Turn() == chess.Black {
+			standPat = -standPat
+		}
+		if standPat >= beta {
+			return standPat, nil
+		}
+		if standPat > alpha {
+			alpha = standPat
+		}
+	}
+	for _, move := range moves {
+		if !inCheck && move.Flags&chess.Capture == 0 && move.Promotion == chess.NoPiece {
+			continue
+		}
+		undo := position.MakeLegalMove(move)
+		score, err := b.quiescence(ctx, evaluator, position, ply+1, -beta, -alpha, control)
+		position.UnmakeMove(undo)
+		if err != nil {
+			return 0, err
+		}
+		score = -score
+		if score >= beta {
+			return score, nil
+		}
+		if score > alpha {
+			alpha = score
+		}
+	}
+	return alpha, nil
 }

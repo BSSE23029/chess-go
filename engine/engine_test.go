@@ -88,8 +88,8 @@ func TestIterativeSearchAndNodeLimit(t *testing.T) {
 	if _, err := position.Apply(move); err != nil {
 		t.Fatalf("iterative search returned illegal move: %v", err)
 	}
-	limitedMove, limited, err := New(4).Search(context.Background(), position, SearchLimits{MaxDepth: 4, MaxNodes: 25})
-	if err != nil || limited.Depth != 1 || limited.Nodes > 25 {
+	limitedMove, limited, err := New(4).Search(context.Background(), position, SearchLimits{MaxDepth: 4, MaxNodes: 45})
+	if err != nil || limited.Depth != 1 || limited.Nodes > 45 {
 		t.Fatalf("limited search = %s, %#v, %v", limitedMove.UCI(), limited, err)
 	}
 	if _, err := position.Apply(limitedMove); err != nil {
