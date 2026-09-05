@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -79,5 +81,43 @@ func TestLauncherActionDispatchesEveryRootAction(t *testing.T) {
 	}
 	if _, err := launcherAction(bufio.NewReader(strings.NewReader("")), &bytes.Buffer{}, "unknown"); err == nil {
 		t.Fatal("unknown launcher action was accepted")
+	}
+}
+
+func TestLauncherNetworkDispatchesEverySubmenuItem(t *testing.T) {
+	tests := []struct {
+		name  string
+		index int
+		form  string
+		want  string
+	}{
+		{name: "host", index: 0, form: ":0\n\nnone\nnone\nyes\nnone\nyes\nlab\nboard.local\n", want: "host"},
+		{name: "join", index: 1, form: "https://example.invalid\nmatch\nplayer\nwhite\ntoken\n", want: "join"},
+		{name: "connect", index: 2, form: "https://example.invalid\nmatch\nplayer\nwhite\ntoken\n", want: "connect"},
+		{name: "spectate", index: 3, form: "https://example.invalid\nmatch\nplayer\nwhite\ntoken\n", want: "spectate"},
+		{name: "matchmake", index: 4, form: "https://example.invalid\nplayer\nrandom\ntoken\n0\n0\n", want: "matchmake"},
+		{name: "list", index: 5, form: "https://example.invalid\ntoken\n", want: "list"},
+		{name: "discover", index: 6, form: "2\n", want: "discover"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			input := strings.Repeat("\x1b[B", test.index) + "\n" + test.form
+			args, err := launcherNetwork(bufio.NewReader(strings.NewReader(input)), &bytes.Buffer{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(args) == 0 || args[0] != test.want {
+				t.Fatalf("network menu args = %#v, want %q", args, test.want)
+			}
+		})
+	}
+	if args, err := launcherNetwork(bufio.NewReader(strings.NewReader(strings.Repeat("\x1b[B", 7)+"\n")), &bytes.Buffer{}); err != nil || len(args) != 0 {
+		t.Fatalf("network back = %#v, %v", args, err)
+	}
+	if args, err := launcherNetwork(bufio.NewReader(strings.NewReader("\x1b")), &bytes.Buffer{}); err != nil || len(args) != 0 {
+		t.Fatalf("network escape = %#v, %v", args, err)
+	}
+	if _, err := launcherNetwork(bufio.NewReader(strings.NewReader("q")), &bytes.Buffer{}); !errors.Is(err, io.EOF) {
+		t.Fatalf("network quit error = %v", err)
 	}
 }
