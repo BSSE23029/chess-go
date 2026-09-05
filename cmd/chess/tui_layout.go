@@ -200,7 +200,7 @@ func boardCellGlyphText(piece chess.Piece, square chess.Square, index int, ui *b
 	if boardTheme.label() == "unicode" && !piece.IsEmpty() && cellWidth >= 4 {
 		weight = tuiBold
 	}
-	glyphWidth := len([]rune(glyphText))
+	glyphWidth := terminalTextWidth(glyphText)
 	if glyphWidth == 0 {
 		glyphText = " "
 		glyphWidth = 1
@@ -209,8 +209,8 @@ func boardCellGlyphText(piece chess.Piece, square chess.Square, index int, ui *b
 		glyphText, glyphWidth = pieceGlyphText(piece, []rune(glyphText)[0], boardTheme, cellWidth)
 	}
 	if glyphWidth > cellWidth {
-		glyphText = string([]rune(glyphText)[:cellWidth])
-		glyphWidth = cellWidth
+		glyphText = truncateTerminalText(glyphText, cellWidth)
+		glyphWidth = terminalTextWidth(glyphText)
 	}
 	left := (cellWidth - glyphWidth) / 2
 	right := cellWidth - left - glyphWidth

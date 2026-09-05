@@ -742,6 +742,36 @@ func TestCompactUnicodePiecesStayCenteredAndReadable(t *testing.T) {
 	t.Fatal("compact board did not render a rook")
 }
 
+func TestEveryTextPieceUsesBalancedTerminalPadding(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "text")
+	ui := boardUI{cursor: chess.NoSquare}
+	square, err := chess.ParseSquare("e2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, color := range []chess.Color{chess.White, chess.Black} {
+		for _, pieceType := range []chess.PieceType{chess.Pawn, chess.Knight, chess.Bishop, chess.Rook, chess.Queen, chess.King} {
+			piece := chess.Piece{Color: color, Type: pieceType}
+			glyph := unicodeTheme.glyph(piece)
+			for _, cellWidth := range []int{4, 5, 10, 16} {
+				cell := stripSGR(boardCell(piece, square, 0, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, cellWidth))
+				if got := terminalTextWidth(cell); got != cellWidth {
+					t.Fatalf("%v %v cell width = %d, want %d: %q", color, pieceType, got, cellWidth, cell)
+				}
+				at := strings.IndexRune(cell, glyph)
+				if at < 0 {
+					t.Fatalf("%v %v glyph missing from cell %q", color, pieceType, cell)
+				}
+				left := terminalTextWidth(cell[:at])
+				right := terminalTextWidth(cell[at+len(string(glyph)):])
+				if left < right-1 || right < left-1 {
+					t.Fatalf("%v %v cell padding is unbalanced: left=%d right=%d cell=%q", color, pieceType, left, right, cell)
+				}
+			}
+		}
+	}
+}
+
 func TestScaledUnicodeSpritesFillAndCenterLargeCells(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "sprite")
 	ui := boardUI{cursor: chess.NoSquare}
@@ -951,7 +981,7 @@ func TestCompactFrameFitsTerminalViewport(t *testing.T) {
 	frame := formatInteractiveFrame(output.String(), 106, 30)
 	body := strings.TrimPrefix(frame, tuiFrameStart)
 	for index, line := range strings.Split(body, "\n") {
-		if got := len([]rune(stripSGR(line))); got > 106 {
+		if got := terminalTextWidth(stripSGR(line)); got > 106 {
 			t.Fatalf("compact frame line %d is %d columns wide: %q", index, got, line)
 		}
 	}

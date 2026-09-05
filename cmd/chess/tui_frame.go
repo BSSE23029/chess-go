@@ -21,7 +21,7 @@ func formatInteractiveFrame(frame string, width, height int) string {
 	}
 	maxWidth := 0
 	for _, line := range lines {
-		if current := len([]rune(stripSGR(line))); current > maxWidth {
+		if current := terminalTextWidth(stripSGR(line)); current > maxWidth {
 			maxWidth = current
 		}
 	}
@@ -50,7 +50,7 @@ func formatInteractiveFrame(frame string, width, height int) string {
 	}
 	if width > 0 {
 		for index, line := range lines {
-			visible := len([]rune(stripSGR(line)))
+			visible := terminalTextWidth(stripSGR(line))
 			if visible < width {
 				lines[index] = tuiSurface + line + strings.Repeat(" ", width-visible) + tuiReset
 			}
@@ -75,21 +75,37 @@ func truncateTerminalLine(line string, width int) string {
 				continue
 			}
 		}
-		if visible >= width {
+		r, size := utf8.DecodeRuneInString(line[index:])
+		if size == 0 {
 			break
 		}
-		_, size := utf8.DecodeRuneInString(line[index:])
-		if size == 0 {
+		runeWidth := terminalRuneWidth(r)
+		if visible+runeWidth > width {
 			break
 		}
 		out.WriteString(line[index : index+size])
 		index += size
-		visible++
+		visible += runeWidth
 	}
-	if visible < len([]rune(stripSGR(line))) {
+	if visible < terminalTextWidth(stripSGR(line)) {
 		out.WriteString(tuiReset)
 	}
 	return out.String()
+}
+
+func truncateTerminalText(text string, width int) string {
+	if width < 1 {
+		return ""
+	}
+	visible := 0
+	for index, r := range text {
+		runeWidth := terminalRuneWidth(r)
+		if visible+runeWidth > width {
+			return text[:index]
+		}
+		visible += runeWidth
+	}
+	return text
 }
 
 func railLine(rail []string, boardRow, cellHeight, boardRows int) string {
