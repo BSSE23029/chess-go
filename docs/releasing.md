@@ -34,8 +34,8 @@ git tag -a v0.1.0 -m "chess-go v0.1.0"
 git show --stat v0.1.0
 ```
 
-Do not claim a public release until the owner has selected a license, chosen the
-canonical module/repository URL, reviewed the generated checksums, and
-published the release notes. External UCI engines such as Stockfish remain
-separately installed and licensed; configure their executable through
+Do not claim a public release until the owner has chosen the canonical
+module/repository URL, reviewed the generated checksums, and published release
+notes. This repository is released under the MIT License; external UCI engines
+such as Stockfish remain separately installed and licensed, configured through
 `CHESS_UCI_ENGINE`.

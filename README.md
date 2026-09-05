@@ -252,7 +252,7 @@ find dist/releases/v0.2.0 -maxdepth 1 -type f -print
 ## Development
 
 ```console
-make verify       # tests, race detector, vet, formatting, perft, file size
+make verify       # tests, race, vet, formatting, perft, size, coverage gate
 make build        # deterministic CGO-free dist/chess binary
 make bench        # engine and TUI benchmark baselines
 make profile      # CPU and allocation profiles
@@ -268,9 +268,9 @@ and keep maintained production Go files below the 500-line hard limit.
 
 The repository now has CI verification, cross-platform packaging, checksum
 generation, 55 examples, and an automatic tag-triggered release workflow.
-Before a public release, the owner still needs to choose and add an explicit
-license, select the canonical repository/module URL, review dependency and
-security policy, create a version tag, and publish release notes.
+Before a public release, the owner still needs to select the canonical
+repository/module URL, review dependency and security policy, create a version
+tag, and publish release notes. The repository already includes the MIT license.
 
 The project does not push tags, publish artifacts, or claim ownership of any
 GitHub account automatically.
