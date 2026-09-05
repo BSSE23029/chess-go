@@ -41,6 +41,7 @@ type SearchStats struct {
 type searchControl struct {
 	nodes       uint64
 	limit       uint64
+	tt          *transpositionTable
 	table       map[uint64]ttEntry
 	killers     [64][2]chess.Move
 	history     map[chess.Move]int
@@ -55,14 +56,8 @@ const (
 	ttExact ttBound = iota
 	ttLower
 	ttUpper
+	searchTableSize = 1 << 9
 )
-
-type ttEntry struct {
-	depth int
-	score Score
-	move  chess.Move
-	bound ttBound
-}
 
 func (c *searchControl) visit(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
@@ -110,7 +105,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		searchCtx, cancel = context.WithTimeout(ctx, limits.Time)
 		defer cancel()
 	}
-	control := &searchControl{limit: limits.MaxNodes, table: make(map[uint64]ttEntry), history: make(map[chess.Move]int), random: b.Seed}
+	control := &searchControl{limit: limits.MaxNodes, tt: newTranspositionTable(searchTableSize), history: make(map[chess.Move]int), random: b.Seed}
 	evaluator := b.Evaluator
 	if evaluator == nil {
 		evaluator = MaterialEvaluator{}
@@ -255,8 +250,8 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 	}
 	originalAlpha := alpha
 	var cached ttEntry
-	if depth > 0 && control.table != nil {
-		if entry, ok := control.table[position.Hash()]; ok {
+	if depth > 0 {
+		if entry, ok := control.lookup(position.Hash()); ok {
 			cached = entry
 			if entry.depth >= depth {
 				switch {
@@ -362,8 +357,11 @@ func canNullMove(position *chess.Position) bool {
 }
 
 func (b *Bot) store(position *chess.Position, depth int, score Score, move chess.Move, bound ttBound, control *searchControl) Score {
-	if control.table != nil {
-		control.table[position.Hash()] = ttEntry{depth: depth, score: score, move: move, bound: bound}
+	entry := ttEntry{depth: depth, score: score, move: move, bound: bound}
+	if control.tt != nil {
+		control.tt.store(position.Hash(), entry)
+	} else if control.table != nil {
+		control.table[position.Hash()] = entry
 	}
 	return score
 }

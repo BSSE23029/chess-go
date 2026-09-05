@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -572,6 +573,34 @@ func TestScaledUnicodePiecesAreCenteredAndEmphasized(t *testing.T) {
 	if len(pieceRows) != 1 || pieceRows[0] != 2 {
 		t.Fatalf("wide Unicode pieces rendered on rows %v, want both on centered row 2", pieceRows)
 	}
+}
+
+func TestCompactUnicodePiecesStayCenteredAndReadable(t *testing.T) {
+	ui := boardUI{cursor: chess.NoSquare}
+	position := chess.NewGame().Position()
+	files, ranks := boardOrientation(false)
+	lines := boardLines(position, files, ranks, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, boardScale{cellWidth: 5, cellHeight: 1})
+	for _, line := range lines {
+		clean := stripSGR(line)
+		if !strings.Contains(clean, "♜") {
+			continue
+		}
+		lineRunes := []rune(clean)
+		start := slices.Index(lineRunes, '│')
+		end := slices.Index(lineRunes[start+1:], '│')
+		if start < 0 || end < 0 {
+			t.Fatalf("compact board lost cell separators: %q", clean)
+		}
+		cell := string(lineRunes[start+1 : start+1+end])
+		if cell != "  ♜  " {
+			t.Fatalf("compact Unicode piece is not centered: %q", cell)
+		}
+		if !strings.Contains(line, tuiBold) {
+			t.Fatalf("compact Unicode piece is not emphasized: %q", line)
+		}
+		return
+	}
+	t.Fatal("compact board did not render a rook")
 }
 
 func TestScaledUnicodeSpritesFillAndCenterLargeCells(t *testing.T) {

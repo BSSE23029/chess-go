@@ -192,7 +192,7 @@ func boardCellGlyphText(piece chess.Piece, square chess.Square, index int, ui *b
 	// Terminals do not expose a portable font-size control. On wider Unicode
 	// cells, bold presentation makes the fixed-size chess glyphs more legible;
 	// vertical centering keeps them visually scaled with the larger box.
-	if boardTheme.label() == "unicode" && !piece.IsEmpty() && cellWidth >= 6 {
+	if boardTheme.label() == "unicode" && !piece.IsEmpty() && cellWidth >= 4 {
 		weight = tuiBold
 	}
 	glyphWidth := len([]rune(glyphText))

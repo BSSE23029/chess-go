@@ -139,6 +139,20 @@ func TestTranspositionTableCachesCompletedSearch(t *testing.T) {
 	}
 }
 
+func TestTranspositionTablePrefersDeeperCollidingEntries(t *testing.T) {
+	table := newTranspositionTable(1)
+	table.store(1, ttEntry{depth: 4, score: 10})
+	table.store(2, ttEntry{depth: 2, score: 20})
+	if _, ok := table.lookup(2); ok {
+		t.Fatal("shallower colliding entry replaced a deeper entry")
+	}
+	table.store(2, ttEntry{depth: 5, score: 30})
+	entry, ok := table.lookup(2)
+	if !ok || entry.depth != 5 || entry.score != 30 {
+		t.Fatalf("deeper replacement = %#v, found %v", entry, ok)
+	}
+}
+
 func TestStrengthProfiles(t *testing.T) {
 	want := []struct {
 		name  string
