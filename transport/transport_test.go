@@ -33,6 +33,19 @@ func TestDefaultTLSConfigRequiresTLS13(t *testing.T) {
 	}
 }
 
+func TestEnvironmentWireFormatIsValidated(t *testing.T) {
+	t.Setenv("CHESS_NETWORK_URL", "https://example.test")
+	t.Setenv("CHESS_NETWORK_FORMAT", "protobuf")
+	client, err := NewClientFromEnv()
+	if err != nil || client.Format != WireProtobuf {
+		t.Fatalf("protobuf environment format = %#v, %v", client, err)
+	}
+	t.Setenv("CHESS_NETWORK_FORMAT", "yaml")
+	if _, err := NewClientFromEnv(); err == nil || !strings.Contains(err.Error(), "CHESS_NETWORK_FORMAT") {
+		t.Fatalf("invalid environment format error = %v", err)
+	}
+}
+
 func TestHTTPTransportEndpointsAndBearerAuth(t *testing.T) {
 	server := protocol.NewServer()
 	httpServer := NewHTTPServer(server, "secret")

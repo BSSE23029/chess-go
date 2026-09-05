@@ -65,7 +65,10 @@ func NewClientFromEnv() (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	client.Format = wireFormatFromEnv()
+	client.Format, err = wireFormatFromEnv()
+	if err != nil {
+		return nil, err
+	}
 	return client, nil
 }
 
@@ -81,7 +84,10 @@ func NewClientFromEnvTLS(baseURL, token string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	client.Format = wireFormatFromEnv()
+	client.Format, err = wireFormatFromEnv()
+	if err != nil {
+		return nil, err
+	}
 	return client, nil
 }
 
@@ -132,11 +138,15 @@ func (c *Client) encode(messageType protocol.MessageType, requestID string, payl
 	return body, "application/json", err
 }
 
-func wireFormatFromEnv() WireFormat {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("CHESS_NETWORK_FORMAT")), string(WireProtobuf)) {
-		return WireProtobuf
+func wireFormatFromEnv() (WireFormat, error) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("CHESS_NETWORK_FORMAT"))) {
+	case "", string(WireJSON):
+		return WireJSON, nil
+	case string(WireProtobuf):
+		return WireProtobuf, nil
+	default:
+		return "", fmt.Errorf("CHESS_NETWORK_FORMAT must be %q or %q", WireJSON, WireProtobuf)
 	}
-	return WireJSON
 }
 
 // Create creates a match and decodes its initial snapshot.
