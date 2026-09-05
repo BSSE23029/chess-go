@@ -29,18 +29,25 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 	token := options.String("token", os.Getenv("CHESS_NETWORK_TOKEN"), "optional bearer token")
 	certificate := options.String("cert", os.Getenv("CHESS_TLS_CERT"), "TLS certificate PEM path")
 	key := options.String("key", os.Getenv("CHESS_TLS_KEY"), "TLS private key PEM path")
+	insecure := options.Bool("insecure", envBool("CHESS_NETWORK_INSECURE", false), "allow plaintext HTTP for local development only")
 	storePath := options.String("store", os.Getenv("CHESS_MATCH_STORE"), "durable match state JSON path")
 	lanEnabled := options.Bool("lan", envBool("CHESS_LAN_DISCOVERY", false), "advertise this host with DNS-SD/mDNS")
 	instance := options.String("lan-instance", firstSet(os.Getenv("CHESS_LAN_INSTANCE"), "chess-go"), "LAN service instance name")
 	if wantsHelp(args) {
-		printFlagHelp(output, "chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE] [--lan] [--lan-instance NAME]", options)
+		printFlagHelp(output, "chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--insecure] [--store FILE] [--lan] [--lan-instance NAME]", options)
 		return nil
 	}
 	if err := options.Parse(args); err != nil || options.NArg() != 0 {
-		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--store FILE] [--lan] [--lan-instance NAME]")
+		return errors.New("usage: chess host [--addr ADDRESS] [--token TOKEN] [--cert FILE --key FILE] [--insecure] [--store FILE] [--lan] [--lan-instance NAME]")
 	}
 	if (*certificate == "") != (*key == "") {
 		return errors.New("--cert and --key must be provided together")
+	}
+	if *certificate == "" && !*insecure {
+		return errors.New("TLS is required; provide --cert and --key, or use --insecure for local development")
+	}
+	if *insecure && *certificate != "" {
+		return errors.New("--insecure cannot be combined with --cert or --key")
 	}
 	listener, err := net.Listen("tcp", *address)
 	if err != nil {
@@ -73,7 +80,11 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 		if !ok {
 			return errors.New("LAN discovery requires a TCP listener")
 		}
-		advertiser, err = lan.NewAdvertiser(lan.Service{Instance: *instance, Host: host, Port: tcpAddress.Port, Metadata: map[string]string{"protocol": "1"}})
+		scheme := "https"
+		if *insecure {
+			scheme = "http"
+		}
+		advertiser, err = lan.NewAdvertiser(lan.Service{Instance: *instance, Host: host, Port: tcpAddress.Port, Metadata: map[string]string{"protocol": "1", "scheme": scheme}})
 		if err != nil {
 			return err
 		}
@@ -87,7 +98,7 @@ func runHost(ctx context.Context, args []string, output io.Writer) error {
 	mux := http.NewServeMux()
 	mux.Handle("/ws", transport.NewWebSocketServer(authority, *token))
 	mux.Handle("/", transport.NewHTTPServer(authority, *token))
-	httpServer := &http.Server{Handler: mux}
+	httpServer := &http.Server{Handler: mux, TLSConfig: transport.DefaultTLSConfig()}
 	serveDone := make(chan error, 1)
 	go func() {
 		if *certificate != "" {
@@ -129,7 +140,8 @@ func runDiscover(ctx context.Context, args []string, output io.Writer) error {
 		return err
 	}
 	for _, service := range services {
-		fmt.Fprintf(output, "%s http://%s:%d", service.Instance, service.Host, service.Port)
+		scheme := firstSet(service.Metadata["scheme"], "https")
+		fmt.Fprintf(output, "%s %s://%s:%d", service.Instance, scheme, service.Host, service.Port)
 		if len(service.Metadata) != 0 {
 			fmt.Fprintf(output, " %#v", service.Metadata)
 		}
@@ -178,7 +190,7 @@ func runNetworkCommand(ctx context.Context, command string, args []string, outpu
 		if err := options.Parse(args[1:]); err != nil || options.NArg() != 0 {
 			return errors.New("usage: chess list ADDRESS [--token TOKEN]")
 		}
-		client, err := transport.NewClient(address, *token)
+		client, err := transport.NewClientFromEnvTLS(address, *token)
 		if err != nil {
 			return err
 		}
@@ -214,7 +226,7 @@ func runNetworkCommand(ctx context.Context, command string, args []string, outpu
 	if strings.TrimSpace(*matchID) == "" {
 		return errors.New("--match is required")
 	}
-	client, err := transport.NewClient(address, *token)
+	client, err := transport.NewClientFromEnvTLS(address, *token)
 	if err != nil {
 		return err
 	}
@@ -256,7 +268,7 @@ func runMatchmake(ctx context.Context, args []string, output io.Writer) error {
 	if err := options.Parse(args[1:]); err != nil || options.NArg() != 0 {
 		return errors.New("usage: chess matchmake ADDRESS [--player ID] [--color white|black|random] [--token TOKEN] [--clock-millis N] [--increment-millis N]")
 	}
-	client, err := transport.NewClient(address, *token)
+	client, err := transport.NewClientFromEnvTLS(address, *token)
 	if err != nil {
 		return err
 	}
@@ -315,7 +327,7 @@ func runRemote(ctx context.Context, args []string, input io.Reader, output io.Wr
 	if err != nil {
 		return err
 	}
-	client, err := transport.NewClient(address, *token)
+	client, err := transport.NewClientFromEnvTLS(address, *token)
 	if err != nil {
 		return err
 	}

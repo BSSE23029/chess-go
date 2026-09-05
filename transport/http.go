@@ -16,6 +16,8 @@ import (
 
 const maxMessageBytes = 1 << 20
 
+const protobufContentType = "application/x-protobuf"
+
 // HTTPServer exposes protocol messages and read-only match resources over HTTP.
 // Token is optional; when non-empty requests must include Authorization:
 // Bearer <Token>.
@@ -67,9 +69,21 @@ func (h *HTTPServer) serveMessage(writer http.ResponseWriter, request *http.Requ
 		http.Error(writer, "request body too large", http.StatusRequestEntityTooLarge)
 		return
 	}
-	response, err := h.MatchServer.Handle(body)
+	protobuf := strings.HasPrefix(strings.ToLower(request.Header.Get("Content-Type")), protobufContentType)
+	var response []byte
+	if protobuf {
+		response, err = h.MatchServer.HandleProto(body)
+	} else {
+		response, err = h.MatchServer.Handle(body)
+	}
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if protobuf {
+		writer.Header().Set("Content-Type", protobufContentType)
+		writer.WriteHeader(http.StatusOK)
+		_, _ = writer.Write(response)
 		return
 	}
 	h.writeJSON(writer, http.StatusOK, json.RawMessage(response))

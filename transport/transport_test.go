@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,21 @@ import (
 
 	"chess-go/protocol"
 )
+
+func TestDefaultTLSConfigRequiresTLS13(t *testing.T) {
+	config := DefaultTLSConfig()
+	if config.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("minimum TLS version = %d, want TLS 1.3", config.MinVersion)
+	}
+	client, err := NewClient("https://example.test", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport, ok := client.HTTPClient.Transport.(*http.Transport)
+	if !ok || transport.TLSClientConfig == nil || transport.TLSClientConfig.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("client TLS policy = %#v", transport)
+	}
+}
 
 func TestHTTPTransportEndpointsAndBearerAuth(t *testing.T) {
 	server := protocol.NewServer()
@@ -97,6 +113,25 @@ func TestHTTPClientTypedLifecycle(t *testing.T) {
 	}
 }
 
+func TestHTTPProtobufEnvelopeLifecycle(t *testing.T) {
+	authority := protocol.NewServer()
+	adapter := NewHTTPServer(authority, "secret")
+	client, err := NewClient("https://example.test", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Format = WireProtobuf
+	client.HTTPClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		adapter.ServeHTTP(recorder, request)
+		return &http.Response{StatusCode: recorder.Code, Header: recorder.Header(), Body: io.NopCloser(bytes.NewReader(recorder.Body.Bytes())), Request: request}, nil
+	})}
+	snapshot, err := client.Create(context.Background(), "binary-create", protocol.CreateMatchRequest{MatchID: "binary-match", PlayerID: "alice", Color: "white"})
+	if err != nil || snapshot.MatchID != "binary-match" {
+		t.Fatalf("protobuf create = %#v, %v", snapshot, err)
+	}
+}
+
 func TestWebSocketTransportUpgradeFramesAndDispatch(t *testing.T) {
 	server := protocol.NewServer()
 	httpServer := NewWebSocketServer(server, "secret")
@@ -146,6 +181,21 @@ func TestWebSocketTransportUpgradeFramesAndDispatch(t *testing.T) {
 	envelope, err := protocol.Decode(payload)
 	if err != nil || envelope.Type != protocol.Snapshot || envelope.RequestID != "ws-create" {
 		t.Fatalf("create envelope = %#v, %v", envelope, err)
+	}
+	binaryCreate, err := protocol.EncodeProto(protocol.CreateMatch, "ws-binary-create", protocol.CreateMatchRequest{MatchID: "ws-binary-match", PlayerID: "alice", Color: "white"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeClientFrame(clientConnection, 0x2, binaryCreate); err != nil {
+		t.Fatal(err)
+	}
+	opcode, payload, err = readServerFrame(reader)
+	if err != nil || opcode != 0x2 {
+		t.Fatalf("binary create frame = %d, %v", opcode, err)
+	}
+	envelope, err = protocol.DecodeProto(payload)
+	if err != nil || envelope.Type != protocol.Snapshot || envelope.RequestID != "ws-binary-create" {
+		t.Fatalf("binary create envelope = %#v, %v", envelope, err)
 	}
 
 	if err := writeClientFrame(clientConnection, 0x9, []byte("ping")); err != nil {

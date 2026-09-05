@@ -21,9 +21,9 @@ var (
 	errWebSocketUnsupported = errors.New("unsupported websocket frame")
 )
 
-// WebSocketServer upgrades HTTP requests and forwards text messages to a
-// protocol.Server. A player_id query parameter establishes a reconnectable
-// session for the lifetime of the connection.
+// WebSocketServer upgrades HTTP requests and forwards JSON text or protobuf
+// binary messages to a protocol.Server. A player_id query parameter establishes
+// a reconnectable session for the lifetime of the connection.
 type WebSocketServer struct {
 	MatchServer     *protocol.Server
 	Token           string
@@ -38,8 +38,8 @@ func NewWebSocketServer(server *protocol.Server, token string) *WebSocketServer 
 	return &WebSocketServer{MatchServer: server, Token: token, MaxMessageBytes: maxMessageBytes}
 }
 
-// ServeHTTP performs an RFC 6455 HTTP upgrade and serves text envelopes until
-// the peer closes or sends a protocol error.
+// ServeHTTP performs an RFC 6455 HTTP upgrade and serves envelopes until the
+// peer closes or sends a protocol error.
 func (s *WebSocketServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if !authorizeRequest(request, s.Token) {
 		http.Error(writer, "unauthorized", http.StatusUnauthorized)
@@ -116,6 +116,14 @@ func (s *WebSocketServer) ServeHTTP(writer http.ResponseWriter, request *http.Re
 			if err := peer.writeFrame(0x1, response); err != nil {
 				return
 			}
+		case 0x2:
+			response, err := s.MatchServer.HandleProto(payload)
+			if err != nil {
+				response, _ = protocol.EncodeProto(protocol.ProtocolError, "", protocol.ProtocolErrorBody{Code: "invalid_request", Message: err.Error()})
+			}
+			if err := peer.writeFrame(0x2, response); err != nil {
+				return
+			}
 		}
 	}
 }
@@ -147,7 +155,7 @@ func (p *websocketPeer) readFrame() (byte, []byte, error) {
 	if !fin {
 		return 0, nil, errWebSocketUnsupported
 	}
-	if opcode != 0x1 && opcode != 0x8 && opcode != 0x9 && opcode != 0xA {
+	if opcode != 0x1 && opcode != 0x2 && opcode != 0x8 && opcode != 0x9 && opcode != 0xA {
 		return 0, nil, errWebSocketUnsupported
 	}
 	masked := header[1]&0x80 != 0

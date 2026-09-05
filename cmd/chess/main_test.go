@@ -60,7 +60,7 @@ func TestSubcommandHelpListsAllFlags(t *testing.T) {
 	}{
 		{args: []string{"play", "local", "--help"}, want: []string{"--clock", "--increment", "--theme"}},
 		{args: []string{"play", "bot", "--help"}, want: []string{"--level", "--depth", "--personality", "--seed", "--random", "--color", "--theme"}},
-		{args: []string{"host", "--help"}, want: []string{"--addr", "--token", "--cert", "--key", "--store", "--lan", "--lan-instance"}},
+		{args: []string{"host", "--help"}, want: []string{"--addr", "--token", "--cert", "--key", "--insecure", "--store", "--lan", "--lan-instance"}},
 		{args: []string{"play", "remote", "--help"}, want: []string{"--match", "--player", "--color", "--token", "--create", "--clock-millis", "--increment-millis", "--theme"}},
 	} {
 		t.Run(strings.Join(test.args, "-"), func(t *testing.T) {
@@ -446,6 +446,26 @@ func TestScaledBoardRepeatsRanksWithoutFixedClockCoordinates(t *testing.T) {
 	}
 }
 
+func TestScaledUnicodePiecesAreCenteredAndEmphasized(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare}
+	position := game.Position()
+	files, ranks := boardOrientation(false)
+	lines := boardLines(position, files, ranks, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, boardScale{cellWidth: 10, cellHeight: 3})
+	var pieceRows []int
+	for index, line := range lines {
+		if strings.Contains(line, "♜") {
+			pieceRows = append(pieceRows, index)
+			if !strings.Contains(line, tuiBold) {
+				t.Fatalf("wide Unicode piece is not emphasized: %q", line)
+			}
+		}
+	}
+	if len(pieceRows) != 1 || pieceRows[0] != 2 {
+		t.Fatalf("wide Unicode pieces rendered on rows %v, want both on centered row 2", pieceRows)
+	}
+}
+
 func TestStripSGRPreservesTerminalControls(t *testing.T) {
 	got := stripSGR("\x1b[31mred\x1b[0m\x1b[2J")
 	if got != "red\x1b[2J" {
@@ -700,6 +720,9 @@ func TestHostTLSFlagsRequireCertificatePair(t *testing.T) {
 	if err := run(context.Background(), []string{"host", "--cert", "server.crt"}, strings.NewReader(""), &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "must be provided together") {
 		t.Fatalf("host TLS validation error = %v", err)
 	}
+	if err := run(context.Background(), []string{"host"}, strings.NewReader(""), &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "TLS is required") {
+		t.Fatalf("host secure-default error = %v", err)
+	}
 }
 
 func TestVersionCommand(t *testing.T) {
@@ -714,7 +737,7 @@ func TestVersionCommand(t *testing.T) {
 
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_BOT_RANDOM", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_BOT_RANDOM", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_NETWORK_INSECURE", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_TLS_CA", "CHESS_TLS_CLIENT_CERT", "CHESS_TLS_CLIENT_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
 		t.Setenv(name, "")
 	}
 }

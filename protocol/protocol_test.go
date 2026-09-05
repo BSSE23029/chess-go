@@ -38,6 +38,33 @@ func TestVersionedEnvelopeLifecycle(t *testing.T) {
 	}
 }
 
+func TestProtobufEnvelopeLifecycleAndAuthoritativeDispatch(t *testing.T) {
+	payload := CreateMatchRequest{MatchID: "binary-match", PlayerID: "alice", Color: "white"}
+	data, err := EncodeProto(CreateMatch, "binary-create", payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope, err := DecodeProto(data)
+	if err != nil || envelope.Type != CreateMatch || envelope.RequestID != "binary-create" {
+		t.Fatalf("decoded protobuf envelope = %#v, %v", envelope, err)
+	}
+	var decoded CreateMatchRequest
+	if err := envelope.UnmarshalPayload(&decoded); err != nil || decoded != payload {
+		t.Fatalf("decoded protobuf payload = %#v, %v", decoded, err)
+	}
+	response, err := NewServer().HandleProto(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decodedResponse, err := DecodeProto(response)
+	if err != nil || decodedResponse.Type != Snapshot || decodedResponse.RequestID != "binary-create" {
+		t.Fatalf("protobuf response = %#v, %v", decodedResponse, err)
+	}
+	if _, err := DecodeProto([]byte{0x08, 0x02}); err == nil {
+		t.Fatal("unsupported protobuf version accepted")
+	}
+}
+
 func TestAuthoritativeMatchSynchronizationAndValidation(t *testing.T) {
 	match := NewMatch("m1", chess.NewPosition())
 	if err := match.Join("alice", chess.White); err != nil {

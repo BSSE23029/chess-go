@@ -125,10 +125,10 @@ domain-qualified module path.
 |---|---|
 | Chess rules | Legal moves, check, checkmate, stalemate, castling, promotion, en passant, 50-move rule, repetition, insufficient material |
 | Notation | FEN parsing/serialization, SAN parsing/formatting, UCI coordinates, PGN tags/comments/variations/results |
-| Search | Material and positional evaluators, iterative alpha-beta, quiescence, transposition tables, aspiration windows, null-move pruning, late-move reductions |
+| Search | Material and positional evaluators, iterative alpha-beta, root principal-variation search, quiescence, transposition tables, aspiration windows, null-move pruning, late-move reductions |
 | Bot profiles | Learner, Beginner, Casual, Club, Advanced, Expert, Maximum plus deterministic personalities |
 | Terminal UI | Unicode/ASCII themes, responsive narrow layout, clocks, captures, move history, promotion picker, command palette, bot statistics |
-| Networking | Versioned JSON protocol, authoritative server, HTTP, WebSocket, reconnectable sessions, spectators, draw/resign, server clocks |
+| Networking | Versioned JSON protocol with opt-in protobuf framing, authoritative server, HTTP, WebSocket, reconnectable sessions, spectators, draw/resign, server clocks |
 | LAN | Dependency-free DNS-SD/mDNS advertisement and discovery |
 | Calibration | Deterministic round-robin tournaments, PGN/JSON reports, Elo-style estimates and confidence intervals |
 | Verification | Perft counts, race/vet gates, benchmark suite, CPU/allocation profiles, reproducible CGO-free builds |
@@ -144,12 +144,13 @@ Common commands:
 ```console
 chess play local [--clock 10m] [--increment 3s] [--theme unicode]
 chess play bot [--level Club | --depth 3] [--color white|black]
-chess play remote http://127.0.0.1:8080 --match game --player alice
-chess host --addr :8080 --token "$CHESS_NETWORK_TOKEN"
-chess join http://127.0.0.1:8080 --match game --player alice --color white
-chess spectate http://127.0.0.1:8080 --match game --player viewer
-chess matchmake http://127.0.0.1:8080 --player alice --color random
-chess list http://127.0.0.1:8080
+chess play remote https://127.0.0.1:8080 --match game --player alice
+CHESS_TLS_CERT=server.crt CHESS_TLS_KEY=server.key \
+  chess host --addr :8080 --token "$CHESS_NETWORK_TOKEN"
+chess join https://127.0.0.1:8080 --match game --player alice --color white
+chess spectate https://127.0.0.1:8080 --match game --player viewer
+chess matchmake https://127.0.0.1:8080 --player alice --color random
+chess list https://127.0.0.1:8080
 chess discover --seconds 2
 chess load game.pgn
 ```
@@ -190,22 +191,25 @@ Start a local host with optional persistence and LAN discovery:
 CHESS_NETWORK_ADDR=:8080 \
 CHESS_NETWORK_TOKEN=local \
 CHESS_MATCH_STORE=matches.json \
-chess host --lan
+CHESS_TLS_CERT=server.crt CHESS_TLS_KEY=server.key chess host --lan
 ```
 
 Then create/join a match from another terminal:
 
 ```console
-chess play remote http://127.0.0.1:8080 --create \
+chess play remote https://127.0.0.1:8080 --create \
   --match demo --player alice --color white --token local
-chess play remote http://127.0.0.1:8080 \
+chess play remote https://127.0.0.1:8080 \
   --match demo --player bob --color black --token local
 ```
 
 The versioned envelope and payload shapes are defined in
-[`docs/protocol.schema.json`](docs/protocol.schema.json). TLS is enabled by
-providing `CHESS_TLS_CERT` and `CHESS_TLS_KEY`; do not expose an unauthenticated
-development server to the public internet.
+[`docs/protocol.schema.json`](docs/protocol.schema.json). Hosts require TLS by
+default and use TLS 1.3 or newer. Use `--insecure` (or
+`CHESS_NETWORK_INSECURE=true`) only for an isolated local development server;
+never expose that mode publicly. Clients can trust a private CA with
+`CHESS_TLS_CA` and use mTLS with `CHESS_TLS_CLIENT_CERT` and
+`CHESS_TLS_CLIENT_KEY`.
 
 ## Performance and reproducible builds
 
@@ -268,6 +272,7 @@ GitHub account automatically.
 - [`docs/algos.md`](docs/algos.md) — algorithm notes and search trade-offs.
 - [`docs/architecture.md`](docs/architecture.md) — package boundaries and monorepo decision.
 - [`docs/protocol.schema.json`](docs/protocol.schema.json) — language-neutral protocol schema.
+- [`docs/security.md`](docs/security.md) — TLS, protobuf migration, TOTP, and authenticator threat model.
 - [`docs/contributing.md`](docs/contributing.md) — development gates and contribution rules.
 - [`docs/releasing.md`](docs/releasing.md) — candidate, archive, checksum, and tag workflow.
 

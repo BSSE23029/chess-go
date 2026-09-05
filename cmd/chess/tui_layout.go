@@ -125,8 +125,9 @@ func boardLines(position chess.Position, files, ranks []int, ui *boardUI, legal,
 		row.WriteString(border.vertical)
 		blankRow.WriteString(border.vertical)
 		rankRow := row.String()
+		pieceRow := (cellHeight - 1) / 2
 		for repeat := range cellHeight {
-			if repeat == 0 {
+			if repeat == pieceRow {
 				lines = append(lines, rankRow)
 				continue
 			}
@@ -168,9 +169,16 @@ func boardCellGlyph(piece chess.Piece, square chess.Square, index int, ui *board
 	if !piece.IsEmpty() && piece.Color == chess.White {
 		foreground = tuiWhitePiece
 	}
+	weight := ""
+	// Terminals do not expose a portable font-size control. On wider Unicode
+	// cells, bold presentation makes the fixed-size chess glyphs more legible;
+	// vertical centering keeps them visually scaled with the larger box.
+	if boardTheme.label() == "unicode" && !piece.IsEmpty() && cellWidth >= 6 {
+		weight = tuiBold
+	}
 	left := (cellWidth - 1) / 2
 	right := cellWidth - left - 1
-	return fmt.Sprintf("%s%s%s%s%c%s%s", background, state, foreground, strings.Repeat(" ", left), glyph, strings.Repeat(" ", right), tuiReset)
+	return fmt.Sprintf("%s%s%s%s%s%c%s%s", background, state, foreground, weight, strings.Repeat(" ", left), glyph, strings.Repeat(" ", right), tuiReset)
 }
 
 func coordinateLine(files []int, cellWidth int) string {

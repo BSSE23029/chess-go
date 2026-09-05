@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package chess.protocol.v1;
+
+option go_package = "chess-go/protocol/pb;pb";
+
+// Envelope is the binary transport wrapper. Payload remains a JSON message
+// during the compatibility migration; defining it as bytes lets old typed
+// payload validation remain authoritative while clients negotiate protobuf
+// framing independently.
+message Envelope {
+  uint32 version = 1;
+  string type = 2;
+  string request_id = 3;
+  bytes payload = 4;
+}

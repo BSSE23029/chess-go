@@ -126,7 +126,7 @@ clock fields.
 
 ```console
 chess host [--addr ADDRESS] [--token TOKEN]
-           [--cert FILE --key FILE] [--store FILE] [--lan] [--lan-instance NAME]
+           [--cert FILE --key FILE] [--insecure] [--store FILE] [--lan] [--lan-instance NAME]
 chess discover [--seconds N]
 ```
 
@@ -135,7 +135,11 @@ chess discover [--seconds N]
 `CHESS_MATCH_STORE`. `--lan` defaults to `CHESS_LAN_DISCOVERY`; its service
 name defaults to `CHESS_LAN_INSTANCE`/`chess-go`, and the advertised hostname
 can be set with `CHESS_LAN_HOST`. TLS certificate and key must be supplied
-together. A non-positive `--seconds` is rejected by `discover`.
+together. TLS is required unless `--insecure` (or
+`CHESS_NETWORK_INSECURE=true`) is explicitly selected for local development.
+The minimum TLS version is 1.3. `CHESS_TLS_CA` adds a private CA, while
+`CHESS_TLS_CLIENT_CERT` and `CHESS_TLS_CLIENT_KEY` configure a client
+certificate. A non-positive `--seconds` is rejected by `discover`.
 
 The server exposes `POST /v1/messages`, `GET /v1/matches`,
 `GET /v1/matches/{id}`, and WebSocket upgrades at `/ws`. Add a token and TLS
@@ -180,8 +184,12 @@ Commands that change a finished game are rejected. `fen`, `load`, `save`, and
 | `CHESS_CLOCK` / `CHESS_INCREMENT` | Local time control. |
 | `CHESS_NETWORK_ADDR` | Host server bind address. |
 | `CHESS_NETWORK_TOKEN` | HTTP/WebSocket bearer token. |
+| `CHESS_NETWORK_FORMAT` | Envelope framing for environment-backed clients: `json` (default) or `protobuf`. |
 | `CHESS_MATCH_ID` / `CHESS_PLAYER_ID` | Remote match/session defaults. |
 | `CHESS_TLS_CERT` / `CHESS_TLS_KEY` | Host TLS files. |
+| `CHESS_TLS_CA` | Additional CA certificate bundle for HTTPS clients. |
+| `CHESS_TLS_CLIENT_CERT` / `CHESS_TLS_CLIENT_KEY` | Optional mTLS client certificate and key. |
+| `CHESS_NETWORK_INSECURE` | Permit plaintext host mode for isolated local development (default `false`). |
 | `CHESS_MATCH_STORE` | Durable host state JSON path. |
 | `CHESS_LAN_DISCOVERY` / `CHESS_LAN_INSTANCE` / `CHESS_LAN_HOST` | LAN advertising. |
 | `NO_COLOR` | Disable ANSI SGR color on terminal output. |

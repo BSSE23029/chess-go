@@ -131,6 +131,11 @@ statistics include reduced late-move searches for profiling.
 Quiet cutoffs update per-ply killer and history tables for move ordering, while
 completed iterative scores seed a narrow aspiration window and automatically
 retry with a full window when the score falls outside it.
+Deterministic searches also use principal-variation search at the root: after
+the first ordered move, quiet candidates receive a null-window probe and only
+alpha-raising moves receive an exact re-search. Randomized profiles retain
+exact root scores so their bounded candidate sampling cannot be biased by
+search bounds.
 At depth three and deeper, late quiet moves use a reduced null-window search
 and are re-searched at full depth only when they raise alpha.
 Non-check positions with non-pawn material also use a validated null move
@@ -232,13 +237,14 @@ The normal `go test ./...` gate compiles this example with the public API.
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Unicode
 symbols are the default; select ASCII with `--theme ascii` or
 `CHESS_THEME=ascii`. An invalid value fails before the game starts. In an interactive terminal, the
-dashboard adapts to narrow windows, honors `NO_COLOR`, and refreshes only the
-clock rail when the position is unchanged. The `:` palette supports `theme`,
+dashboard adapts to narrow windows, honors `NO_COLOR`, and redraws the frame
+when position, clocks, or terminal geometry changes. The `:` palette supports `theme`,
 `flip`, `draw`, and `resign`; promotion choices use Left/Right and Enter.
 
 ## Network protocol foundation
 
-`chess-go/protocol` defines version-one JSON envelopes and an authoritative
+`chess-go/protocol` defines version-one JSON envelopes and an opt-in protobuf
+framing layer, plus an authoritative
 in-memory `Match`. Every move request includes the match ID, expected sequence,
 and expected Zobrist hash; the match validates the player seat and legal chess
 move before incrementing its sequence. Snapshots include the current turn,
@@ -258,32 +264,40 @@ only by the server's monotonic state checks, and is included in snapshots and
 move acknowledgements. A flagging clock produces a terminal result and a
 `timeout` protocol error for later actions.
 
-The wire envelope is documented in [`protocol.schema.json`](protocol.schema.json)
+The JSON wire envelope is documented in [`protocol.schema.json`](protocol.schema.json)
 and is transport-independent, so HTTP and WebSocket adapters can share the same
-messages.
+messages. Set `CHESS_NETWORK_FORMAT=protobuf` for clients created through
+`transport.NewClientFromEnv`; the binary envelope preserves the strict JSON
+payload during migration. HTTP uses `application/x-protobuf`, while WebSocket
+uses binary opcode `0x2`. See [`security.md`](security.md) for transport and
+authenticator deployment guidance.
 
 The `chess` command exposes the adapters without hard-coded deployment values:
 
 ```console
-CHESS_NETWORK_ADDR=:8080 CHESS_NETWORK_TOKEN=local CHESS_MATCH_STORE=matches.json chess host
-# Hosted mode: CHESS_TLS_CERT=server.crt CHESS_TLS_KEY=server.key chess host
-chess list http://127.0.0.1:8080
-chess matchmake http://127.0.0.1:8080 --player alice --color random
-chess join http://127.0.0.1:8080 --match game --player alice --color white
-chess play remote http://127.0.0.1:8080 --match game --player alice
+CHESS_NETWORK_ADDR=:8080 CHESS_NETWORK_TOKEN=local \
+CHESS_TLS_CERT=server.crt CHESS_TLS_KEY=server.key \
+CHESS_MATCH_STORE=matches.json chess host
+chess list https://127.0.0.1:8080
+chess matchmake https://127.0.0.1:8080 --player alice --color random
+chess join https://127.0.0.1:8080 --match game --player alice --color white
+chess play remote https://127.0.0.1:8080 --match game --player alice
 ```
 
 The library helper `transport.NewClientFromEnv` reads
-`CHESS_NETWORK_URL` and `CHESS_NETWORK_TOKEN`; the CLI forms above keep the
-server address explicit as a positional argument.
+`CHESS_NETWORK_URL`, `CHESS_NETWORK_TOKEN`, and optional `CHESS_TLS_*` client
+settings; the CLI forms above keep the server address explicit as a positional
+argument.
 
-`host` serves HTTP under `/v1/` and WebSocket clients under `/ws`; supplying
-both `CHESS_TLS_CERT` and `CHESS_TLS_KEY` enables TLS. `play remote` uses the
+`host` serves HTTP under `/v1/` and WebSocket clients under `/ws`; TLS is
+required by default and uses TLS 1.3 or newer. `--insecure` is intended only
+for isolated local development. `play remote` uses the
 same dashboard when attached to a terminal and falls back to line mode when
 output is redirected; use `refresh` to pull an opponent's latest authoritative
-snapshot. `CHESS_NETWORK_ADDR`, `CHESS_NETWORK_TOKEN`,
-`CHESS_TLS_CERT`, `CHESS_TLS_KEY`, `CHESS_MATCH_STORE`, `CHESS_MATCH_ID`, and
-`CHESS_PLAYER_ID` provide the corresponding defaults.
+snapshot. `CHESS_NETWORK_ADDR`, `CHESS_NETWORK_TOKEN`, `CHESS_TLS_CERT`,
+`CHESS_TLS_KEY`, `CHESS_TLS_CA`, `CHESS_TLS_CLIENT_CERT`,
+`CHESS_TLS_CLIENT_KEY`, `CHESS_NETWORK_INSECURE`, `CHESS_MATCH_STORE`,
+`CHESS_MATCH_ID`, and `CHESS_PLAYER_ID` provide the corresponding defaults.
 
 `matchmake` pairs a player with the first compatible open seat in stable match
 ID order, or creates a `match-N` waiting room when none exists. Repeating the
@@ -296,7 +310,8 @@ advertised hostname can be changed with `CHESS_LAN_INSTANCE` and
 Discover advertised hosts with:
 
 ```console
-CHESS_LAN_DISCOVERY=true chess host --addr :8080
+CHESS_LAN_DISCOVERY=true CHESS_TLS_CERT=server.crt CHESS_TLS_KEY=server.key \
+  chess host --addr :8080
 chess discover --seconds 2
 ```
 
