@@ -46,8 +46,8 @@ func main() {
 var version = "dev"
 
 func run(ctx context.Context, args []string, input io.Reader, output io.Writer) error {
-	if len(args) == 0 {
-		return errors.New("usage: chess version | chess play local|bot|remote [options] | chess host|join|connect|spectate|matchmake|list|discover ... | chess load FILE")
+	if handled, err := runLauncherCommand(ctx, args, input, output); handled {
+		return err
 	}
 	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		if len(args) != 1 {

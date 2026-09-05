@@ -49,6 +49,8 @@ The project is a good fit for:
 Run directly from a checkout:
 
 ```console
+go run ./cmd/chess                 # open the interactive launcher
+go run ./cmd/chess menu             # same launcher explicitly
 go run ./cmd/chess play local --theme unicode
 go run ./cmd/chess play bot --level Club --color black --theme unicode
 go run ./cmd/chess version
@@ -63,6 +65,9 @@ chess play bot --level Casual
 
 The terminal board uses real Unicode chess symbols by default. Use
 `--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII borders.
+On terminals with emoji-capable fonts, set `CHESS_PIECE_STYLE=emoji` to use
+the wider emoji presentation; use `CHESS_PIECE_STYLE=text` when text chess
+symbols are clearer.
 Set `NO_COLOR=1` when ANSI color is not desired. The TUI scales its board and
 sidebar to the current terminal size, clips safely at very small viewports,
 restores the terminal on exit, and redraws cleanly when state or clocks change.

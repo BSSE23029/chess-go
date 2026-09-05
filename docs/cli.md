@@ -26,6 +26,26 @@ All commands reject unknown positional arguments. Paths, player names, tokens,
 addresses, and external engine commands should come from flags or environment
 variables rather than being embedded in scripts.
 
+## Interactive launcher
+
+Run `chess` with no arguments, or run `chess menu`, from a terminal to open the
+keyboard-driven launcher. It is a menu equivalent of the command-line surface:
+
+| Menu | Covers |
+|---|---|
+| Local game | `play local`: clock, increment, and theme. |
+| Play against bot | `play bot`: level/depth, color, personality, seed, random variation, clock, increment, and theme. |
+| Remote game | `play remote`: address, match, player, color, token, create, clocks, and theme. |
+| Network tools | `host`, `join`, `connect`, `spectate`, `matchmake`, `list`, and `discover`, including their flags. |
+| Load PGN | `load FILE`. |
+| Help | The top-level command reference. |
+| Version | `version`. |
+
+Use Arrow keys or `j`/`k` to move, Enter or Space to select, and `q` or Esc to
+go back. Press `-` or type `none` for optional values such as a seed, token,
+or TLS path. Environment variables remain the defaults, so the launcher is
+convenient without hard-coding identity, paths, or network settings.
+
 ## Local play
 
 ```console

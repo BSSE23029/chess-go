@@ -47,8 +47,37 @@ func TestTopLevelHelp(t *testing.T) {
 	if err := run(context.Background(), []string{"help"}, strings.NewReader(""), &output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "Usage: chess") || !strings.Contains(output.String(), "docs/cli.md") {
+	if !strings.Contains(output.String(), "Usage: chess") || !strings.Contains(output.String(), "chess menu") || !strings.Contains(output.String(), "docs/cli.md") {
 		t.Fatalf("top-level help = %q", output.String())
+	}
+}
+
+func TestLauncherFormsBuildCLIArguments(t *testing.T) {
+	clearChessEnv(t)
+	t.Setenv("USER", "tester")
+	var output bytes.Buffer
+	bot, err := launcherBot(bufio.NewReader(strings.NewReader("\n2\nblack\n\n42\nno\n\n\nascii\n")), &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"play", "bot", "--depth", "2", "--color", "black", "--seed", "42", "--random=false", "--theme", "ascii"}
+	if strings.Join(bot, " ") != strings.Join(want, " ") {
+		t.Fatalf("bot launcher args = %#v, want %#v", bot, want)
+	}
+	remote, err := launcherSeat(bufio.NewReader(strings.NewReader("https://example.invalid\ngame\nviewer\nwhite\n\n")), &output, "join")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = []string{"join", "https://example.invalid", "--match", "game", "--player", "viewer", "--color", "white"}
+	if strings.Join(remote, " ") != strings.Join(want, " ") {
+		t.Fatalf("seat launcher args = %#v, want %#v", remote, want)
+	}
+}
+
+func TestLauncherRequiresInteractiveTerminalForMenu(t *testing.T) {
+	var output bytes.Buffer
+	if err := run(context.Background(), []string{"menu"}, strings.NewReader(""), &output); err == nil || !strings.Contains(err.Error(), "interactive terminal") {
+		t.Fatalf("menu error = %v", err)
 	}
 }
 
