@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size bench profile coverage coverage-integration coverage-gate verify build release release-all
+.PHONY: test race vet fmt perft file-size bench profile pgo coverage coverage-integration coverage-gate verify build release release-all
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -33,6 +33,12 @@ profile:
 	@mkdir -p "$(DIST)/profiles"
 	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench '^BenchmarkSearchSuiteDepth3$$' -benchtime=5s -cpuprofile "$(DIST)/profiles/engine.cpu.pprof" -memprofile "$(DIST)/profiles/engine.mem.pprof" ./engine
 	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench '^BenchmarkInteractiveRender$$' -benchtime=5s -cpuprofile "$(DIST)/profiles/tui.cpu.pprof" -memprofile "$(DIST)/profiles/tui.mem.pprof" ./cmd/chess
+
+pgo:
+	@$(MAKE) profile
+	@cp "$(DIST)/profiles/engine.cpu.pprof" "$(DIST)/profiles/default.pgo"
+	@mkdir -p "$(DIST)"
+	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} CGO_ENABLED=0 $(GO) build $(BUILD_FLAGS) -pgo "$(DIST)/profiles/default.pgo" -ldflags "$(LDFLAGS)" -o "$(DIST)/chess-pgo" ./cmd/chess
 
 coverage:
 	@mkdir -p "$(DIST)"
