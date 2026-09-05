@@ -73,9 +73,13 @@ func boardScaleForTerminal(width, height int) (boardScale, bool) {
 	}
 	cellWidth := 4
 	switch {
-	case width >= 190:
-		cellWidth = 10
+	case width >= 210:
+		cellWidth = 16
+	case width >= 180:
+		cellWidth = 14
 	case width >= 150:
+		cellWidth = 11
+	case width >= 125:
 		cellWidth = 8
 	case width >= 115:
 		cellWidth = 6
@@ -87,11 +91,14 @@ func boardScaleForTerminal(width, height int) (boardScale, bool) {
 	boardWidth := 12 + cellWidth*8
 	compact := width < boardWidth+48
 	cellHeight := 1
-	if height >= 44 {
+	if height >= 44 && !compact {
 		cellHeight = 2
 	}
-	if height >= 58 && !compact {
+	if height >= 54 && !compact {
 		cellHeight = 3
+	}
+	if height >= 58 && !compact {
+		cellHeight = 4
 	}
 	return boardScale{cellWidth: cellWidth, cellHeight: cellHeight}, compact
 }

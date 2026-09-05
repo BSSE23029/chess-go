@@ -402,7 +402,7 @@ func TestInteractiveRendererStacksTheRailWhenNarrow(t *testing.T) {
 
 func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 	wide, compact := boardScaleForTerminal(213, 60)
-	if compact || wide.cellWidth != 10 || wide.cellHeight != 3 {
+	if compact || wide.cellWidth != 16 || wide.cellHeight != 4 {
 		t.Fatalf("wide scale = %#v, compact %v", wide, compact)
 	}
 	narrow, compact := boardScaleForTerminal(60, 30)
