@@ -67,6 +67,45 @@ func TestTopLevelHelp(t *testing.T) {
 	}
 }
 
+func TestCommandRegistryDrivesLauncherAndHelp(t *testing.T) {
+	wantCommands := []string{"play local", "play bot", "play remote", "host", "join", "connect", "spectate", "matchmake", "list", "discover", "load", "help", "version"}
+	got := make(map[string]bool, len(commandRegistry))
+	for _, spec := range commandRegistry {
+		if got[spec.Name] {
+			t.Fatalf("duplicate command registry entry %q", spec.Name)
+		}
+		got[spec.Name] = true
+		if spec.Usage == "" || spec.MenuAction == "" {
+			t.Fatalf("incomplete command registry entry: %#v", spec)
+		}
+	}
+	for _, name := range wantCommands {
+		if !got[name] {
+			t.Errorf("command %q missing from registry", name)
+		}
+	}
+	for _, item := range launcherItems {
+		if item.label == "Settings" || item.label == "Quit" {
+			continue
+		}
+		if item.action == "network" {
+			continue
+		}
+		if _, ok := got[map[string]string{"Local game": "play local", "Play against bot": "play bot", "Remote game": "play remote", "Load PGN": "load", "Help": "help", "Version": "version"}[item.label]]; !ok {
+			t.Errorf("launcher item %q is not backed by the command registry", item.label)
+		}
+	}
+	summary := commandUsageSummary()
+	for _, name := range wantCommands {
+		if !strings.Contains(summary, name) {
+			t.Errorf("top-level summary lacks %q: %s", name, summary)
+		}
+	}
+	if network := networkLauncherItems(); len(network) != 8 || network[len(network)-1].action != "back" {
+		t.Fatalf("network launcher registry = %#v", network)
+	}
+}
+
 func TestLauncherFormsBuildCLIArguments(t *testing.T) {
 	clearChessEnv(t)
 	t.Setenv("USER", "tester")

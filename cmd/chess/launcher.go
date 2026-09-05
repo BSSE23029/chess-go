@@ -12,23 +12,6 @@ import (
 	"golang.org/x/term"
 )
 
-type launcherItem struct {
-	label string
-	hint  string
-}
-
-var launcherItems = []launcherItem{
-	{label: "Local game", hint: "play standard chess locally"},
-	{label: "Play against bot", hint: "choose strength, personality, and variation"},
-	{label: "Remote game", hint: "create or join an online match"},
-	{label: "Network tools", hint: "host, join, spectate, matchmake, list, discover"},
-	{label: "Load PGN", hint: "open a saved game"},
-	{label: "Settings", hint: "theme, pieces, bot variation, and network security"},
-	{label: "Help", hint: "keyboard and command reference"},
-	{label: "Version", hint: "show the installed chess-go version"},
-	{label: "Quit", hint: "leave the launcher"},
-}
-
 func runLauncherCommand(ctx context.Context, args []string, input io.Reader, output io.Writer) (bool, error) {
 	if len(args) != 0 && args[0] != "menu" {
 		return false, nil
@@ -38,7 +21,7 @@ func runLauncherCommand(ctx context.Context, args []string, input io.Reader, out
 	}
 	if !isInteractiveTerminal(input, output) {
 		if len(args) == 0 {
-			return true, errors.New("usage: chess version | chess play local|bot|remote [options] | chess host|join|connect|spectate|matchmake|list|discover ... | chess load FILE")
+			return true, errors.New(commandUsageSummary())
 		}
 		return true, errors.New("chess menu requires an interactive terminal")
 	}
@@ -86,7 +69,7 @@ func runLauncher(ctx context.Context, input io.Reader, output io.Writer) ([]stri
 		case keyHelp:
 			message = "Use ↑/↓ or j/k, Enter to choose, q or Esc to quit"
 		case keySelect:
-			args, err := launcherAction(reader, output, selected)
+			args, err := launcherAction(reader, output, launcherItems[selected].action)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					return nil, nil
@@ -106,17 +89,17 @@ func runLauncher(ctx context.Context, input io.Reader, output io.Writer) ([]stri
 	}
 }
 
-func launcherAction(reader *bufio.Reader, output io.Writer, selected int) ([]string, error) {
-	switch selected {
-	case 0:
+func launcherAction(reader *bufio.Reader, output io.Writer, action string) ([]string, error) {
+	switch action {
+	case "local":
 		return launcherLocal(reader, output)
-	case 1:
+	case "bot":
 		return launcherBot(reader, output)
-	case 2:
+	case "remote":
 		return launcherRemote(reader, output)
-	case 3:
+	case "network":
 		return launcherNetwork(reader, output)
-	case 4:
+	case "load":
 		path, err := launcherPrompt(reader, output, "PGN file", "")
 		if err != nil {
 			return nil, err
@@ -125,19 +108,19 @@ func launcherAction(reader *bufio.Reader, output io.Writer, selected int) ([]str
 			return nil, errors.New("a PGN file is required")
 		}
 		return []string{"load", path}, nil
-	case 5:
+	case "settings":
 		return nil, launcherSettings(reader, output)
-	case 6:
+	case "help":
 		fmt.Fprint(output, "\r\n")
 		printTopLevelHelp(output)
 		fmt.Fprint(output, "\r\nPress any key to return")
 		_, err := readKey(reader)
 		return nil, err
-	case 7:
+	case "version":
 		fmt.Fprintf(output, "\r\nchess-go %s\r\n\r\nPress any key to return", version)
 		_, err := readKey(reader)
 		return nil, err
-	case 8:
+	case "quit":
 		return nil, nil
 	default:
 		return nil, errors.New("unknown launcher selection")
@@ -230,16 +213,7 @@ func readMaskedLine(reader *bufio.Reader, output io.Writer) (string, error) {
 }
 
 func launcherNetwork(reader *bufio.Reader, output io.Writer) ([]string, error) {
-	items := []launcherItem{
-		{label: "Host server", hint: "serve an encrypted match endpoint"},
-		{label: "Join match", hint: "claim a player seat"},
-		{label: "Connect", hint: "join alias"},
-		{label: "Spectate match", hint: "watch without a seat"},
-		{label: "Matchmake", hint: "find or create an open match"},
-		{label: "List matches", hint: "show available matches"},
-		{label: "Discover LAN", hint: "find advertised hosts"},
-		{label: "Back", hint: "return to the launcher"},
-	}
+	items := networkLauncherItems()
 	selected := 0
 	for {
 		renderLauncher(output, items, selected, "Network tools")
@@ -257,18 +231,18 @@ func launcherNetwork(reader *bufio.Reader, output io.Writer) ([]string, error) {
 		case keyQuit:
 			return nil, io.EOF
 		case keySelect:
-			switch selected {
-			case 0:
+			switch items[selected].action {
+			case "host":
 				return launcherHost(reader, output)
-			case 1, 2, 3:
-				return launcherSeat(reader, output, []string{"join", "connect", "spectate"}[selected-1])
-			case 4:
+			case "join", "connect", "spectate":
+				return launcherSeat(reader, output, items[selected].action)
+			case "matchmake":
 				return launcherMatchmake(reader, output)
-			case 5:
+			case "list":
 				return launcherList(reader, output)
-			case 6:
+			case "discover":
 				return launcherDiscover(reader, output)
-			case 7:
+			case "back":
 				return nil, nil
 			}
 		}

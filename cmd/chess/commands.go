@@ -12,7 +12,7 @@ import (
 )
 
 func printTopLevelHelp(output io.Writer) {
-	fmt.Fprintln(output, "Usage: chess [menu] | chess version | chess play local|bot|remote [options] | chess host|join|connect|spectate|matchmake|list|discover ... | chess load FILE")
+	fmt.Fprintln(output, commandUsageSummary())
 	fmt.Fprintln(output, "Run chess or chess menu in a terminal for the interactive launcher.")
 	fmt.Fprintln(output, "Run any subcommand with --help for its flags. Full reference: docs/cli.md")
 }

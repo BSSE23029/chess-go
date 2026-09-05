@@ -26,6 +26,10 @@ All commands reject unknown positional arguments. Paths, player names, tokens,
 addresses, and external engine commands should come from flags or environment
 variables rather than being embedded in scripts.
 
+The top-level help text and interactive launcher are driven by the same command
+registry as this list, so adding a supported command requires updating one
+user-facing definition rather than maintaining a separate menu-only name.
+
 ## Interactive launcher
 
 Run `chess` with no arguments, or run `chess menu`, from a terminal to open the
