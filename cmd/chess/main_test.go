@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -469,6 +470,67 @@ func TestInteractiveSelectionPlaysLegalMove(t *testing.T) {
 	s.handleKey(&ui, keyNew)
 	if s.game.Position().FEN() != chess.InitialFEN || len(s.game.Moves()) != 0 {
 		t.Fatal("interactive new game did not reset the session")
+	}
+}
+
+func TestInteractiveKeyboardStateMachineCoversGuidesAndConfirmation(t *testing.T) {
+	e2, _ := chess.ParseSquare("e2")
+	e3, _ := chess.ParseSquare("e3")
+	e7, _ := chess.ParseSquare("e7")
+	a3, _ := chess.ParseSquare("a3")
+	s := session{game: chess.NewGame(), human: chess.White}
+	ui := boardUI{cursor: e2, selected: chess.NoSquare}
+	if s.handleKey(&ui, keyUnknown) || !strings.Contains(ui.message, "Unknown key") {
+		t.Fatalf("unknown key state = %#v", ui)
+	}
+	s.handleKey(&ui, keyHelp)
+	if !ui.showHelp {
+		t.Fatal("help key did not open the guide")
+	}
+	s.handleKey(&ui, keyHelp)
+	if ui.showHelp {
+		t.Fatal("help key did not close the guide")
+	}
+	s.handleKey(&ui, keyEscape)
+	if ui.message != "Keyboard guide closed" {
+		t.Fatalf("empty escape state = %#v", ui)
+	}
+	ui.cursor = e7
+	s.handleKey(&ui, keySelect)
+	if !strings.Contains(ui.message, "belonging") {
+		t.Fatalf("wrong-color selection state = %#v", ui)
+	}
+	ui.cursor = a3
+	s.handleKey(&ui, keySelect)
+	if !strings.Contains(ui.message, "belonging") {
+		t.Fatalf("empty-square selection state = %#v", ui)
+	}
+	ui.cursor = e2
+	s.handleKey(&ui, keySelect)
+	ui.cursor = e3
+	s.handleKey(&ui, keySelect)
+	if s.game.MoveCount() != 1 {
+		t.Fatalf("keyboard move count = %d", s.game.MoveCount())
+	}
+	s.handleKey(&ui, keyNew)
+	if !ui.confirmNew {
+		t.Fatal("new game did not request confirmation")
+	}
+	s.handleKey(&ui, keyUnknown)
+	if !strings.Contains(ui.message, "Press n again") {
+		t.Fatalf("confirmation guidance = %#v", ui)
+	}
+	s.handleKey(&ui, keyEscape)
+	if ui.confirmNew || s.game.MoveCount() != 1 {
+		t.Fatal("escape did not cancel new game")
+	}
+	s.handleKey(&ui, keyNew)
+	s.handleKey(&ui, keyNew)
+	if ui.confirmNew || s.game.MoveCount() != 0 || s.game.Position().FEN() != chess.InitialFEN {
+		t.Fatalf("confirmed new game state = %#v", ui)
+	}
+	if !s.handleKey(&ui, keyQuit) {
+		t.Fatal("quit key did not request exit")
 	}
 }
 
@@ -972,6 +1034,37 @@ func TestCommandPaletteControlsPresentationAndGameEnd(t *testing.T) {
 	}
 	if err := s.command("resign", &output); err == nil {
 		t.Fatal("resign command accepted an already finished game")
+	}
+}
+
+func TestCommandPaletteCoversDocumentedOperations(t *testing.T) {
+	s := session{game: chess.NewGame(), theme: unicodeTheme}
+	var output bytes.Buffer
+	for _, line := range []string{"help", "moves", "theme", "theme ascii", "flip", "e4", "e5", "undo", "redo", "fen " + chess.InitialFEN} {
+		if err := s.command(line, &output); err != nil {
+			t.Fatalf("command %q failed: %v", line, err)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "command.pgn")
+	if err := s.command("save "+path, &output); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.command("load "+path, &output); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{"claim", "claim nope", "save", "fen invalid", "load missing.pgn", "unknown"} {
+		if err := s.command(line, &output); err == nil {
+			t.Fatalf("invalid command %q unexpectedly succeeded", line)
+		}
+	}
+	if err := s.command("quit", &output); !errors.Is(err, io.EOF) {
+		t.Fatalf("quit error = %v", err)
+	}
+	if err := s.command("draw", &output); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.command("claim draw", &output); err == nil {
+		t.Fatal("claim draw accepted a completed casual draw")
 	}
 }
 
