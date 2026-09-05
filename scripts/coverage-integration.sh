@@ -59,4 +59,6 @@ if [ -n "$output_dir" ]; then
 	mkdir -p "$output_dir"
 	go tool covdata textfmt -i="$cover_dir" -o="$output_dir/coverage.out"
 fi
-go tool covdata percent -i="$cover_dir"
+summary=$(go tool covdata percent -i="$cover_dir")
+printf '%s\n' "$summary"
+printf '%s\n' "$summary" | grep -q 'chess-go/cmd/chess'
