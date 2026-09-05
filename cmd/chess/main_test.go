@@ -425,6 +425,25 @@ func TestScaledBoardRepeatsRanksWithoutFixedClockCoordinates(t *testing.T) {
 	if strings.Contains(text, "\x1b[10;50H") || strings.Count(text, "──────────") < 8 || strings.Count(text, "♜") != 2 || !strings.Contains(text, "    │") {
 		t.Fatalf("scaled frame retained fixed coordinates or rank height:\n%s", text)
 	}
+	lines := strings.Split(text, "\n")
+	var top, rank, coordinates string
+	for _, line := range lines {
+		clean := stripSGR(line)
+		switch {
+		case strings.Contains(clean, "┌──────────"):
+			top = clean
+		case strings.Contains(clean, "8 │"):
+			rank = clean
+		case strings.Contains(clean, "a         b"):
+			coordinates = clean
+		}
+	}
+	firstVisible := func(line string) int {
+		return strings.IndexFunc(line, func(r rune) bool { return r != ' ' })
+	}
+	if top == "" || rank == "" || coordinates == "" || firstVisible(top) != firstVisible(rank)+2 || firstVisible(coordinates) != firstVisible(rank)+6 {
+		t.Fatalf("board geometry is not aligned: top=%q rank=%q coordinates=%q", top, rank, coordinates)
+	}
 }
 
 func TestStripSGRPreservesTerminalControls(t *testing.T) {

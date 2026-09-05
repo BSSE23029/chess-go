@@ -163,7 +163,7 @@ func stripSGR(value string) string {
 }
 
 func boardPadding(line string) string {
-	if strings.HasPrefix(line, "   ") {
+	if strings.HasPrefix(line, "  +") || strings.HasPrefix(line, "  ┌") || strings.HasPrefix(line, "  └") {
 		return ""
 	}
 	return "  "

@@ -107,7 +107,7 @@ func boardLines(position chess.Position, files, ranks []int, ui *boardUI, legal,
 	border := borderForTheme(boardTheme)
 	cellWidth := maxInt(scale.cellWidth, 1)
 	cellHeight := maxInt(scale.cellHeight, 1)
-	lines := []string{strings.Repeat(" ", 3) + border.leftTop + strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.topJoin, 7) + strings.Repeat(border.horizontal, cellWidth) + border.rightTop}
+	lines := []string{strings.Repeat(" ", 2) + border.leftTop + strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.topJoin, 7) + strings.Repeat(border.horizontal, cellWidth) + border.rightTop}
 	for _, rank := range ranks {
 		var row strings.Builder
 		var blankRow strings.Builder
@@ -133,7 +133,7 @@ func boardLines(position chess.Position, files, ranks []int, ui *boardUI, legal,
 			lines = append(lines, blankRow.String())
 		}
 	}
-	lines = append(lines, strings.Repeat(" ", 3)+border.leftBottom+strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.bottomJoin, 7)+strings.Repeat(border.horizontal, cellWidth)+border.rightBottom)
+	lines = append(lines, strings.Repeat(" ", 2)+border.leftBottom+strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.bottomJoin, 7)+strings.Repeat(border.horizontal, cellWidth)+border.rightBottom)
 	return lines
 }
 
@@ -175,7 +175,7 @@ func boardCellGlyph(piece chess.Piece, square chess.Square, index int, ui *board
 
 func coordinateLine(files []int, cellWidth int) string {
 	var line strings.Builder
-	line.WriteString(strings.Repeat(" ", 3))
+	line.WriteString(strings.Repeat(" ", 2))
 	cellWidth = maxInt(cellWidth, 1)
 	for _, file := range files {
 		left := (cellWidth - 1) / 2
