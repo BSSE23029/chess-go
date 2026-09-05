@@ -43,6 +43,20 @@ func TestLocalGameLifecycleAndSave(t *testing.T) {
 	}
 }
 
+func TestClaimDrawCommandUsesFIDERules(t *testing.T) {
+	position, err := chess.ParseFEN("7k/8/8/8/8/8/8/R5K1 w - - 100 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := session{game: chess.NewGameFromPosition(position)}
+	if err := s.command("claim draw", io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if s.timeout != "Draw claimed under FIDE rules" || s.game.ResultFIDE() != "1/2-1/2" {
+		t.Fatalf("claim state = %q, result = %q", s.timeout, s.game.ResultFIDE())
+	}
+}
+
 func TestTopLevelHelp(t *testing.T) {
 	var output bytes.Buffer
 	if err := run(context.Background(), []string{"help"}, strings.NewReader(""), &output); err != nil {

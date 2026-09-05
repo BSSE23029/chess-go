@@ -2,6 +2,7 @@ package chess
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -29,6 +30,22 @@ const (
 	DrawThreefoldRepetition
 	// DrawInsufficientMaterial is a draw because mate is impossible.
 	DrawInsufficientMaterial
+	// DrawSeventyFiveMove is an automatic FIDE draw after 75 moves each.
+	DrawSeventyFiveMove
+	// DrawFivefoldRepetition is an automatic FIDE draw after five occurrences.
+	DrawFivefoldRepetition
+)
+
+// RuleSet selects the draw semantics used by a game operation.
+type RuleSet uint8
+
+const (
+	// CasualRules preserves the historical automatic 50-move and threefold
+	// behavior used by Status and Play.
+	CasualRules RuleSet = iota
+	// FIDERules makes 50-move and threefold outcomes claimable, while
+	// 75-move and fivefold outcomes are automatic.
+	FIDERules
 )
 
 // Game tracks a main line, navigation cursor, result, and PGN metadata.
@@ -83,7 +100,17 @@ func (g *Game) Captured() []Piece {
 
 // Play validates and appends move, discarding any redo branch.
 func (g *Game) Play(move Move) error {
-	if g.result != "" || g.Status() != Ongoing {
+	return g.playWithRules(move, CasualRules)
+}
+
+// PlayFIDE validates and appends a move using tournament-accurate draw rules.
+// Claimable draws do not stop play until ClaimDraw is called.
+func (g *Game) PlayFIDE(move Move) error {
+	return g.playWithRules(move, FIDERules)
+}
+
+func (g *Game) playWithRules(move Move, rules RuleSet) error {
+	if g.result != "" || g.StatusWithRules(rules) != Ongoing {
 		return fmt.Errorf("game is over")
 	}
 	position := g.Position()
@@ -105,6 +132,15 @@ func (g *Game) PlayUCI(value string) error {
 		return err
 	}
 	return g.Play(move)
+}
+
+// PlayUCIFIDE parses and plays a move using FIDE draw semantics.
+func (g *Game) PlayUCIFIDE(value string) error {
+	move, err := ParseUCI(value)
+	if err != nil {
+		return err
+	}
+	return g.PlayFIDE(move)
 }
 
 // CanUndo reports whether Undo can move backward.
@@ -134,6 +170,12 @@ func (g *Game) Redo() bool {
 
 // Status returns the current automatic game status.
 func (g *Game) Status() Status {
+	return g.StatusWithRules(CasualRules)
+}
+
+// StatusWithRules returns the automatic status under rules. Checkmate and
+// stalemate are evaluated before automatic draw thresholds as required by FIDE.
+func (g *Game) StatusWithRules(rules RuleSet) Status {
 	position := g.Position()
 	if len(position.LegalMoves()) == 0 {
 		if position.inCheck(position.turn) {
@@ -144,16 +186,53 @@ func (g *Game) Status() Status {
 		}
 		return Stalemate
 	}
+	if position.insufficientMaterial() {
+		return DrawInsufficientMaterial
+	}
+	if rules == FIDERules {
+		if position.halfmoveClock >= 150 {
+			return DrawSeventyFiveMove
+		}
+		if g.repetitions(position) >= 5 {
+			return DrawFivefoldRepetition
+		}
+		return Ongoing
+	}
 	if position.halfmoveClock >= 100 {
 		return DrawFiftyMove
 	}
 	if g.repetitions(position) >= 3 {
 		return DrawThreefoldRepetition
 	}
-	if position.insufficientMaterial() {
-		return DrawInsufficientMaterial
+	return Ongoing
+}
+
+// ClaimableDraw reports a draw a player may claim under FIDE rules at the
+// current position, or Ongoing when no claim is available.
+func (g *Game) ClaimableDraw() Status {
+	if g.StatusWithRules(FIDERules) != Ongoing {
+		return Ongoing
+	}
+	position := g.Position()
+	if position.halfmoveClock >= 100 {
+		return DrawFiftyMove
+	}
+	if g.repetitions(position) >= 3 {
+		return DrawThreefoldRepetition
 	}
 	return Ongoing
+}
+
+// CanClaimDraw reports whether the current position has a FIDE draw claim.
+func (g *Game) CanClaimDraw() bool { return g.ClaimableDraw() != Ongoing }
+
+// ClaimDraw records a draw when a FIDE claim is currently available.
+func (g *Game) ClaimDraw() error {
+	if !g.CanClaimDraw() {
+		return errors.New("no claimable draw")
+	}
+	g.result = "1/2-1/2"
+	return nil
 }
 
 func (g *Game) repetitions(position Position) int {
@@ -318,15 +397,24 @@ func FromSAN(values []string) (*Game, error) {
 
 // Result returns the PGN result marker for the current game state.
 func (g *Game) Result() string {
+	return g.ResultWithRules(CasualRules)
+}
+
+// ResultFIDE returns the PGN result marker under tournament-accurate draw
+// semantics. Explicit results set by SetResult or ClaimDraw take precedence.
+func (g *Game) ResultFIDE() string { return g.ResultWithRules(FIDERules) }
+
+// ResultWithRules returns the PGN result marker under rules.
+func (g *Game) ResultWithRules(rules RuleSet) string {
 	if g.result != "" {
 		return g.result
 	}
-	switch g.Status() {
+	switch g.StatusWithRules(rules) {
 	case WhiteCheckmates:
 		return "1-0"
 	case BlackCheckmates:
 		return "0-1"
-	case Stalemate, DrawFiftyMove, DrawThreefoldRepetition, DrawInsufficientMaterial:
+	case Stalemate, DrawFiftyMove, DrawThreefoldRepetition, DrawInsufficientMaterial, DrawSeventyFiveMove, DrawFivefoldRepetition:
 		return "1/2-1/2"
 	default:
 		return "*"

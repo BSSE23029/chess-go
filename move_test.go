@@ -331,6 +331,53 @@ func TestGameDrawRules(t *testing.T) {
 	}
 }
 
+func TestFIDERulesSeparateClaimsFromAutomaticDraws(t *testing.T) {
+	claimPosition, err := ParseFEN("7k/8/8/8/8/8/8/R5K1 w - - 100 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed := NewGameFromPosition(claimPosition)
+	if claimed.ClaimableDraw() != DrawFiftyMove || !claimed.CanClaimDraw() {
+		t.Fatalf("claimable status = %v", claimed.ClaimableDraw())
+	}
+	if err := claimed.ClaimDraw(); err != nil || claimed.ResultFIDE() != "1/2-1/2" {
+		t.Fatalf("claim draw = %v, %q", err, claimed.ResultFIDE())
+	}
+
+	automaticPosition, err := ParseFEN("7k/8/8/8/8/8/8/R5K1 w - - 149 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	automatic := NewGameFromPosition(automaticPosition)
+	if err := automatic.PlayFIDE(Move{From: 0, To: 8}); err != nil {
+		t.Fatal(err)
+	}
+	if got := automatic.StatusWithRules(FIDERules); got != DrawSeventyFiveMove || automatic.ResultFIDE() != "1/2-1/2" {
+		t.Fatalf("75-move status = %v, result %q", got, automatic.ResultFIDE())
+	}
+
+	repeated := NewGame()
+	cycle := []string{"g1f3", "g8f6", "f3g1", "f6g8"}
+	for index := 0; index < 4; index++ {
+		for _, move := range cycle {
+			if err := repeated.PlayUCIFIDE(move); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if got := repeated.StatusWithRules(FIDERules); got != DrawFivefoldRepetition {
+		t.Fatalf("fivefold status = %v", got)
+	}
+
+	checkmate, err := ParseFEN("7k/6Q1/6K1/8/8/8/8/8 b - - 150 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := NewGameFromPosition(checkmate).StatusWithRules(FIDERules); got != WhiteCheckmates {
+		t.Fatalf("checkmate did not take precedence over 75-move draw: %v", got)
+	}
+}
+
 func TestInsufficientMaterial(t *testing.T) {
 	tests := []struct {
 		fen  string

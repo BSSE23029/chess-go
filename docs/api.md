@@ -55,6 +55,13 @@ game.Redo()
 `Position.SAN` formats a legal move. `Position.ParseSAN` resolves SAN against
 the position's legal moves, so ambiguous or illegal notation returns an error.
 
+`Status()` and `Play()` retain the library's historical casual draw behavior
+(automatic 50-move and threefold outcomes). Tournament callers can use
+`FIDERules`, `StatusWithRules`, `PlayFIDE`/`PlayUCIFIDE`, `ClaimableDraw`, and
+`ClaimDraw` for FIDE semantics: 50-move and threefold draws are claimable,
+75-move and fivefold draws are automatic, and checkmate takes precedence.
+`ResultFIDE()` returns the corresponding PGN result marker.
+
 ## PGN metadata and round-trips
 
 `ParsePGN` reads ordered tag pairs, the main-line SAN moves, comments,

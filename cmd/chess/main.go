@@ -233,7 +233,7 @@ func (s *session) play(ctx context.Context, input io.Reader, output io.Writer) e
 		}
 		scanDone <- scanner.Err()
 	}()
-	fmt.Fprintln(output, "Commands: SAN or UCI move, moves, undo, redo, fen FEN, load FILE, save FILE, help, quit")
+	fmt.Fprintln(output, "Commands: SAN or UCI move, moves, undo, redo, fen FEN, load FILE, save FILE, claim draw, help, quit")
 	for {
 		render(output, s.game, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
 		if s.timeout != "" {

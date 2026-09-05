@@ -43,7 +43,7 @@ func (s *session) command(line string, output io.Writer) error {
 	case "quit", "exit", "q":
 		return io.EOF
 	case "help":
-		fmt.Fprintln(output, "Moves: SAN (Nf3, O-O) or UCI (g1f3). Commands: moves, undo, redo, fen, load, save, theme, flip, resign, draw, quit.")
+		fmt.Fprintln(output, "Moves: SAN (Nf3, O-O) or UCI (g1f3). Commands: moves, undo, redo, fen, load, save, theme, flip, resign, draw, claim draw, quit.")
 		return nil
 	case "moves":
 		return printLegalMoves(output, s.game.Position())
@@ -78,6 +78,18 @@ func (s *session) command(line string, output io.Writer) error {
 			return errors.New("game is already over")
 		}
 		s.timeout = "Draw by agreement"
+		return nil
+	case "claim":
+		if !strings.EqualFold(argument, "draw") {
+			return errors.New("usage: claim draw")
+		}
+		if s.timeout != "" || s.game.ResultFIDE() != "*" {
+			return errors.New("game is already over")
+		}
+		if err := s.game.ClaimDraw(); err != nil {
+			return err
+		}
+		s.timeout = "Draw claimed under FIDE rules"
 		return nil
 	case "fen":
 		position, err := chess.ParseFEN(argument)

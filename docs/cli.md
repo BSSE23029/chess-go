@@ -183,6 +183,7 @@ UCI (`g1f3`) moves and the following commands:
 | `theme ascii` / `theme unicode` | Change board rendering. `theme` alone reports the current theme. |
 | `flip` | Toggle board orientation. |
 | `draw` | End the local game by agreement. |
+| `claim draw` | Claim a FIDE 50-move or threefold draw when eligible. |
 | `resign` | End the local game for the side to move. |
 | `help` | Print the move and command summary. |
 | `quit`, `exit`, `q` | End the session. |
