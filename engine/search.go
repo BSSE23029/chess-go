@@ -43,6 +43,7 @@ type searchControl struct {
 	limit       uint64
 	tt          *transpositionTable
 	table       map[uint64]ttEntry
+	moveStorage [32][64]chess.Move
 	killers     [64][2]chess.Move
 	history     map[chess.Move]int
 	reductions  uint64
@@ -56,7 +57,7 @@ const (
 	ttExact ttBound = iota
 	ttLower
 	ttUpper
-	searchTableSize = 1 << 9
+	searchTableSize = 1 << 12
 )
 
 func (c *searchControl) visit(ctx context.Context) error {
@@ -377,12 +378,24 @@ func prioritizeMove(moves []chess.Move, preferred chess.Move) []chess.Move {
 }
 
 func orderedSearchMoves(position *chess.Position, ply int, control *searchControl) []chess.Move {
-	moves := orderedMoves(position)
+	var buffer []chess.Move
+	if control != nil && ply >= 0 && ply < len(control.moveStorage) {
+		buffer = control.moveStorage[ply][:0]
+	}
+	moves := orderedMovesInto(position, buffer)
 	if control == nil {
 		return moves
 	}
 	slices.SortStableFunc(moves, func(a, b chess.Move) int {
 		return searchMovePriority(position, a, ply, control) - searchMovePriority(position, b, ply, control)
+	})
+	return moves
+}
+
+func orderedMovesInto(position *chess.Position, buffer []chess.Move) []chess.Move {
+	moves := position.LegalMovesInto(buffer)
+	slices.SortStableFunc(moves, func(a, b chess.Move) int {
+		return movePriority(position, b) - movePriority(position, a)
 	})
 	return moves
 }

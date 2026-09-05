@@ -62,6 +62,33 @@ func TestApplyDoesNotMutatePosition(t *testing.T) {
 	}
 }
 
+func TestLegalMovesIntoMatchesPublicMoveGeneration(t *testing.T) {
+	positions := []Position{NewPosition()}
+	for _, fen := range []string{
+		"r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+		"7k/P7/8/8/8/8/8/7K w - - 0 1",
+	} {
+		position, err := ParseFEN(fen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		positions = append(positions, position)
+	}
+	for _, position := range positions {
+		want := position.LegalMoves()
+		buffer := make([]Move, 0, 256)
+		got := position.LegalMovesInto(buffer)
+		if len(got) != len(want) {
+			t.Fatalf("LegalMovesInto() returned %d moves, want %d", len(got), len(want))
+		}
+		for index := range want {
+			if got[index] != want[index] {
+				t.Fatalf("LegalMovesInto()[%d] = %s, want %s", index, got[index].UCI(), want[index].UCI())
+			}
+		}
+	}
+}
+
 func TestMakeUnmakeMoveLifecycle(t *testing.T) {
 	tests := []struct {
 		name, fen, move string

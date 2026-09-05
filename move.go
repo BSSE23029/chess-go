@@ -22,6 +22,21 @@ func (p Position) LegalMoves() []Move {
 	return legal
 }
 
+// LegalMovesInto writes every legal move into buffer and returns the resulting
+// slice. Callers can reuse storage across positions to avoid search-time
+// allocations. The returned slice aliases buffer and starts at its beginning.
+func (p Position) LegalMovesInto(buffer []Move) []Move {
+	moves := p.pseudoMovesInto(buffer[:0])
+	legal := moves[:0]
+	for _, move := range moves {
+		next := p.applyUnchecked(move)
+		if !next.inCheck(p.turn) {
+			legal = append(legal, move)
+		}
+	}
+	return legal
+}
+
 // Apply validates move and returns the resulting position without changing p.
 func (p Position) Apply(move Move) (Position, error) {
 	next := p
@@ -133,6 +148,31 @@ func (p Position) ApplyUCI(value string) (Position, error) {
 
 func (p Position) pseudoMoves() []Move {
 	moves := make([]Move, 0, 40)
+	for from, piece := range p.board {
+		if piece.IsEmpty() || piece.Color != p.turn {
+			continue
+		}
+		square := Square(from)
+		switch piece.Type {
+		case Pawn:
+			moves = p.pawnMoves(moves, square, piece.Color)
+		case Knight:
+			moves = p.stepMoves(moves, square, knightSteps)
+		case Bishop:
+			moves = p.slideMoves(moves, square, bishopSteps)
+		case Rook:
+			moves = p.slideMoves(moves, square, rookSteps)
+		case Queen:
+			moves = p.slideMoves(moves, square, append(bishopSteps, rookSteps...))
+		case King:
+			moves = p.stepMoves(moves, square, kingSteps)
+			moves = p.castleMoves(moves, square, piece.Color)
+		}
+	}
+	return moves
+}
+
+func (p Position) pseudoMovesInto(moves []Move) []Move {
 	for from, piece := range p.board {
 		if piece.IsEmpty() || piece.Color != p.turn {
 			continue
