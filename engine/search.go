@@ -47,6 +47,7 @@ type searchControl struct {
 	table       map[uint64]ttEntry
 	moveStorage [32][64]chess.Move
 	pvMove      chess.Move
+	evalCache   [1 << 8]evaluationEntry
 	killers     [64][2]chess.Move
 	history     map[chess.Move]int
 	reductions  uint64
@@ -436,7 +437,7 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 	inCheck := position.InCheck()
 	standPat := Score(0)
 	if !inCheck {
-		standPat = evaluator.Evaluate(*position)
+		standPat = control.evaluate(evaluator, *position)
 		if position.Turn() == chess.Black {
 			standPat = -standPat
 		}

@@ -128,7 +128,8 @@ Each search owns a Zobrist-keyed transposition table with exact, lower-bound,
 upper-bound, and preferred-move entries; callers can therefore reuse a single
 `Search` call safely without sharing mutable engine state across games. Its
 statistics include reduced late-move searches, null-move cutoffs, and safe
-quiescence delta-prunes for profiling.
+quiescence delta-prunes for profiling. Built-in evaluator scores are also
+cached per search by position hash; custom evaluators remain uncached.
 Quiet cutoffs update per-ply killer and history tables for move ordering, while
 completed iterative scores seed a narrow aspiration window and automatically
 retry with a full window when the score falls outside it.

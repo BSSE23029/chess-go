@@ -2,6 +2,12 @@ package engine
 
 import "chess-go"
 
+type evaluationEntry struct {
+	key   uint64
+	score Score
+	valid bool
+}
+
 type ttEntry struct {
 	key   uint64
 	depth int
@@ -63,4 +69,27 @@ func (c *searchControl) lookup(key uint64) (ttEntry, bool) {
 	}
 	entry, ok := c.table[key]
 	return entry, ok
+}
+
+func (c *searchControl) evaluate(evaluator Evaluator, position chess.Position) Score {
+	if !cacheableEvaluator(evaluator) {
+		return evaluator.Evaluate(position)
+	}
+	key := position.Hash()
+	entry := &c.evalCache[key&(uint64(len(c.evalCache))-1)]
+	if entry.valid && entry.key == key {
+		return entry.score
+	}
+	score := evaluator.Evaluate(position)
+	*entry = evaluationEntry{key: key, score: score, valid: true}
+	return score
+}
+
+func cacheableEvaluator(evaluator Evaluator) bool {
+	switch evaluator.(type) {
+	case MaterialEvaluator, *MaterialEvaluator, PositionalEvaluator, *PositionalEvaluator, EndgameEvaluator, *EndgameEvaluator:
+		return true
+	default:
+		return false
+	}
 }

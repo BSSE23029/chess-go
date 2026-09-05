@@ -167,6 +167,20 @@ func TestQuiescenceDeltaPruningCountsSafeCaptureRejections(t *testing.T) {
 	}
 }
 
+func TestBuiltInEvaluationCacheReusesPositionScore(t *testing.T) {
+	position := chess.NewPosition()
+	control := &searchControl{}
+	first := control.evaluate(PositionalEvaluator{}, position)
+	second := control.evaluate(PositionalEvaluator{}, position)
+	if first != second {
+		t.Fatalf("cached evaluation changed score: %d then %d", first, second)
+	}
+	entry := control.evalCache[position.Hash()&(uint64(len(control.evalCache))-1)]
+	if !entry.valid || entry.score != first {
+		t.Fatalf("evaluation cache entry = %#v", entry)
+	}
+}
+
 func TestStrengthProfiles(t *testing.T) {
 	want := []struct {
 		name  string
