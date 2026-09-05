@@ -178,6 +178,12 @@ func TestSubcommandHelpListsAllFlags(t *testing.T) {
 		{args: []string{"play", "bot", "--help"}, want: []string{"--level", "--depth", "--personality", "--seed", "--random", "--color", "--theme"}},
 		{args: []string{"host", "--help"}, want: []string{"--addr", "--token", "--cert", "--key", "--insecure", "--store", "--lan", "--lan-instance"}},
 		{args: []string{"play", "remote", "--help"}, want: []string{"--match", "--player", "--color", "--token", "--create", "--clock-millis", "--increment-millis", "--theme"}},
+		{args: []string{"join", "--help"}, want: []string{"--match", "--player", "--color", "--token"}},
+		{args: []string{"connect", "--help"}, want: []string{"--match", "--player", "--color", "--token"}},
+		{args: []string{"spectate", "--help"}, want: []string{"--match", "--player", "--color", "--token"}},
+		{args: []string{"matchmake", "--help"}, want: []string{"--player", "--color", "--token", "--clock-millis", "--increment-millis"}},
+		{args: []string{"list", "--help"}, want: []string{"--token"}},
+		{args: []string{"discover", "--help"}, want: []string{"--seconds"}},
 	} {
 		t.Run(strings.Join(test.args, "-"), func(t *testing.T) {
 			var output bytes.Buffer
