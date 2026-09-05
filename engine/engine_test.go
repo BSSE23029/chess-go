@@ -167,6 +167,32 @@ func TestQuiescenceDeltaPruningCountsSafeCaptureRejections(t *testing.T) {
 	}
 }
 
+func TestStaticExchangeEvaluatesRecaptureSequences(t *testing.T) {
+	winning, err := chess.ParseFEN("4k3/8/8/8/8/3q4/3R4/4K3 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	losing, err := chess.ParseFEN("3rk3/8/8/8/8/3p4/3R4/4K3 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	find := func(position chess.Position, uci string) chess.Move {
+		for _, move := range position.LegalMoves() {
+			if move.UCI() == uci {
+				return move
+			}
+		}
+		t.Fatalf("move %s not legal in %s", uci, position.FEN())
+		return chess.Move{}
+	}
+	if got := staticExchange(winning, find(winning, "d2d3")); got <= 0 {
+		t.Fatalf("winning exchange score = %d", got)
+	}
+	if got := staticExchange(losing, find(losing, "d2d3")); got >= 0 {
+		t.Fatalf("losing exchange score = %d", got)
+	}
+}
+
 func TestQuiescenceReusesPerPlyMoveStorage(t *testing.T) {
 	position := chess.NewPosition()
 	control := &searchControl{}

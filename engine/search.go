@@ -458,7 +458,8 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 			gain = captureGain(*position, move)
 		}
 		undo := position.MakeLegalMove(move)
-		if canDeltaPrune && !position.InCheck() {
+		givesCheck := position.InCheck()
+		if canDeltaPrune && !givesCheck {
 			if standPat+gain+deltaMargin < alpha {
 				control.deltaPrunes++
 				position.UnmakeMove(undo)
@@ -482,9 +483,5 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 }
 
 func captureGain(position chess.Position, move chess.Move) Score {
-	if move.Flags&chess.EnPassant != 0 {
-		return 100
-	}
-	values := [...]Score{0, 100, 320, 330, 500, 900, 0}
-	return values[position.PieceAt(move.To).Type]
+	return capturedPieceValue(position, move) + promotionGain(move)
 }
