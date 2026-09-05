@@ -710,6 +710,21 @@ func TestStripSGRPreservesTerminalControls(t *testing.T) {
 	}
 }
 
+func TestCompactFrameFitsTerminalViewport(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Black", mode: "LOCAL MATCH"}
+	model := ui.model(game, game.Position(), unicodeTheme)
+	var output bytes.Buffer
+	renderFullInteractive(&output, game, &ui, model, false, "", unicodeTheme, boardScale{cellWidth: 5, cellHeight: 1}, true, 106, 30)
+	frame := formatInteractiveFrame(output.String(), 106, 30)
+	body := strings.TrimPrefix(frame, tuiFrameStart)
+	for index, line := range strings.Split(body, "\n") {
+		if got := len([]rune(stripSGR(line))); got > 106 {
+			t.Fatalf("compact frame line %d is %d columns wide: %q", index, got, line)
+		}
+	}
+}
+
 func TestInteractiveFrameFitsViewport(t *testing.T) {
 	frame := "\x1b[H\x1b[2Jone\ntwo\nthree\n"
 	got := formatInteractiveFrame(frame, 20, 2)
