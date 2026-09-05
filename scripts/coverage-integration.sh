@@ -10,6 +10,14 @@ cover_dir="$work/cover"
 mkdir -p "$cover_dir"
 
 cd "$root"
+# The matrix is a deterministic release check. Runtime overrides remain
+# supported by the application, but a developer's shell must not change which
+# documented paths are exercised here.
+unset CHESS_BOT_DEPTH CHESS_BOT_LEVEL CHESS_BOT_PERSONALITY CHESS_BOT_SEED CHESS_BOT_RANDOM
+unset CHESS_PLAYER_COLOR CHESS_PLAYER_NAME CHESS_BOT_NAME CHESS_CLOCK CHESS_INCREMENT CHESS_THEME CHESS_PIECE_STYLE
+unset CHESS_NETWORK_ADDR CHESS_NETWORK_URL CHESS_NETWORK_TOKEN CHESS_NETWORK_FORMAT CHESS_NETWORK_INSECURE CHESS_MATCH_ID CHESS_PLAYER_ID
+unset CHESS_TLS_CERT CHESS_TLS_KEY CHESS_TLS_CA CHESS_TLS_CLIENT_CERT CHESS_TLS_CLIENT_KEY CHESS_MATCH_STORE
+unset CHESS_LAN_DISCOVERY CHESS_LAN_INSTANCE CHESS_LAN_HOST
 go build -cover -trimpath -buildvcs=false -o "$binary" ./cmd/chess
 
 run_case() {
