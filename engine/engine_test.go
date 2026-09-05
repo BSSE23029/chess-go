@@ -153,6 +153,20 @@ func TestTranspositionTablePrefersDeeperCollidingEntries(t *testing.T) {
 	}
 }
 
+func TestQuiescenceDeltaPruningCountsSafeCaptureRejections(t *testing.T) {
+	position, err := chess.ParseFEN("4k3/8/8/8/8/3p4/2P5/4K3 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	control := &searchControl{}
+	if _, err := New(1).quiescence(context.Background(), MaterialEvaluator{}, &position, 0, 500, infinity, control); err != nil {
+		t.Fatal(err)
+	}
+	if control.deltaPrunes == 0 {
+		t.Fatal("quiescence did not record a safe delta prune")
+	}
+}
+
 func TestStrengthProfiles(t *testing.T) {
 	want := []struct {
 		name  string

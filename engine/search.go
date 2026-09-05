@@ -36,6 +36,8 @@ type SearchStats struct {
 	ReducedNodes uint64
 	// NullCutoffs is the number of branches cut by null-move pruning.
 	NullCutoffs uint64
+	// DeltaPrunes is the number of quiescence captures rejected by delta pruning.
+	DeltaPrunes uint64
 }
 
 type searchControl struct {
@@ -49,6 +51,7 @@ type searchControl struct {
 	history     map[chess.Move]int
 	reductions  uint64
 	nullCutoffs uint64
+	deltaPrunes uint64
 	random      uint64
 }
 
@@ -59,6 +62,7 @@ const (
 	ttLower
 	ttUpper
 	searchTableSize = 1 << 12
+	deltaMargin     = Score(120)
 )
 
 func (c *searchControl) visit(ctx context.Context) error {
@@ -123,7 +127,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		for {
 			candidate, score, failLow, failHigh, err := b.iteration(searchCtx, evaluator, &position, moves, depth, alpha, beta, control)
 			if err != nil {
-				stats.Nodes, stats.ReducedNodes, stats.NullCutoffs = control.nodes, control.reductions, control.nullCutoffs
+				stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					return best, stats, err
 				}
@@ -138,7 +142,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 			}
 			best, stats.Depth, stats.Score = candidate, depth, score
 			control.pvMove = candidate
-			stats.Nodes, stats.ReducedNodes, stats.NullCutoffs = control.nodes, control.reductions, control.nullCutoffs
+			stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes
 			break
 		}
 	}
@@ -430,8 +434,9 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 		return 0, nil
 	}
 	inCheck := position.InCheck()
+	standPat := Score(0)
 	if !inCheck {
-		standPat := evaluator.Evaluate(*position)
+		standPat = evaluator.Evaluate(*position)
 		if position.Turn() == chess.Black {
 			standPat = -standPat
 		}
@@ -446,7 +451,19 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 		if !inCheck && move.Flags&chess.Capture == 0 && move.Promotion == chess.NoPiece {
 			continue
 		}
+		gain := Score(0)
+		canDeltaPrune := !inCheck && move.Flags&chess.Capture != 0 && move.Promotion == chess.NoPiece
+		if canDeltaPrune {
+			gain = captureGain(*position, move)
+		}
 		undo := position.MakeLegalMove(move)
+		if canDeltaPrune && !position.InCheck() {
+			if standPat+gain+deltaMargin < alpha {
+				control.deltaPrunes++
+				position.UnmakeMove(undo)
+				continue
+			}
+		}
 		score, err := b.quiescence(ctx, evaluator, position, ply+1, -beta, -alpha, control)
 		position.UnmakeMove(undo)
 		if err != nil {
@@ -461,4 +478,12 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 		}
 	}
 	return alpha, nil
+}
+
+func captureGain(position chess.Position, move chess.Move) Score {
+	if move.Flags&chess.EnPassant != 0 {
+		return 100
+	}
+	values := [...]Score{0, 100, 320, 330, 500, 900, 0}
+	return values[position.PieceAt(move.To).Type]
 }
