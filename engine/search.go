@@ -44,6 +44,7 @@ type searchControl struct {
 	tt          *transpositionTable
 	table       map[uint64]ttEntry
 	moveStorage [32][64]chess.Move
+	pvMove      chess.Move
 	killers     [64][2]chess.Move
 	history     map[chess.Move]int
 	reductions  uint64
@@ -136,6 +137,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 				continue
 			}
 			best, stats.Depth, stats.Score = candidate, depth, score
+			control.pvMove = candidate
 			stats.Nodes, stats.ReducedNodes, stats.NullCutoffs = control.nodes, control.reductions, control.nullCutoffs
 			break
 		}
@@ -161,6 +163,9 @@ func (b *Bot) bookMove(position chess.Position, legal []chess.Move) (chess.Move,
 
 func (b *Bot) iteration(ctx context.Context, evaluator Evaluator, position *chess.Position, moves []chess.Move, depth int, alpha, beta Score, control *searchControl) (chess.Move, Score, bool, bool, error) {
 	moves = orderedSearchMoves(position, 0, control)
+	if control.pvMove != (chess.Move{}) {
+		moves = prioritizeMove(moves, control.pvMove)
+	}
 	originalAlpha := alpha
 	best, bestScore := moves[0], -infinity
 	candidates := make([]scoredMove, 0, len(moves))
