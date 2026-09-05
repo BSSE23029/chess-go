@@ -128,9 +128,14 @@ func launcherAction(reader *bufio.Reader, output io.Writer, action string) ([]st
 }
 
 func renderLauncher(output io.Writer, items []launcherItem, selected int, message string) {
+	renderLauncherAtSize(output, items, selected, message, terminalWidth(output), terminalHeight(output))
+}
+
+func renderLauncherAtSize(output io.Writer, items []launcherItem, selected int, message string, width, height int) {
 	var frame strings.Builder
 	fmt.Fprintf(&frame, "%s%s  CHESS-GO%s\n", tuiTitle, tuiBold, tuiReset)
 	fmt.Fprintf(&frame, "%s  Interactive launcher%s\n\n", tuiDim, tuiReset)
+	compact := width > 0 && width < 72
 	for index, item := range items {
 		marker := "  "
 		style := tuiDim
@@ -138,13 +143,21 @@ func renderLauncher(output io.Writer, items []launcherItem, selected int, messag
 			marker = "▶ "
 			style = tuiAccent + tuiBold
 		}
-		fmt.Fprintf(&frame, "%s%s%-22s%s  %s\n", style, marker, item.label, tuiReset, item.hint)
+		if compact {
+			fmt.Fprintf(&frame, "%s%s%s%s\n", style, marker, item.label, tuiReset)
+		} else {
+			fmt.Fprintf(&frame, "%s%s%-22s%s  %s\n", style, marker, item.label, tuiReset, item.hint)
+		}
 	}
-	fmt.Fprintf(&frame, "\n%s  ↑/↓ or j/k move · Enter select · ? help · q quit%s\n", tuiDim, tuiReset)
+	footer := "↑/↓ or j/k move · Enter select · ? help · q quit"
+	if compact {
+		footer = "↑/↓ or j/k · Enter choose · ? help · q quit"
+	}
+	fmt.Fprintf(&frame, "\n%s  %s%s\n", tuiDim, footer, tuiReset)
 	if message != "" {
 		fmt.Fprintf(&frame, "%s%s  %s%s\n", tuiBold, tuiAccent, message, tuiReset)
 	}
-	writeFrame(output, strings.ReplaceAll(formatInteractiveFrame(tuiFrameStart+frame.String(), terminalWidth(output), terminalHeight(output)), "\n", "\r\n"))
+	writeFrame(output, strings.ReplaceAll(formatInteractiveFrame(tuiFrameStart+frame.String(), width, height), "\n", "\r\n"))
 }
 
 func terminalWidth(output io.Writer) int {

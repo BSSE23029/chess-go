@@ -106,6 +106,22 @@ func TestCommandRegistryDrivesLauncherAndHelp(t *testing.T) {
 	}
 }
 
+func TestLauncherCompactsBeforeHintsCanClip(t *testing.T) {
+	var output bytes.Buffer
+	renderLauncherAtSize(&output, launcherItems, 0, "", 60, 24)
+	text := stripSGR(output.String())
+	for _, label := range []string{"Local game", "Play against bot", "Remote game", "Network tools", "Load PGN", "Settings", "Help", "Version", "Quit"} {
+		if !strings.Contains(text, label) {
+			t.Errorf("compact launcher lost %q:\n%s", label, text)
+		}
+	}
+	for index, line := range strings.Split(strings.TrimPrefix(text, tuiFrameStart), "\r\n") {
+		if got := len([]rune(line)); got > 60 {
+			t.Fatalf("compact launcher line %d is %d columns wide: %q", index, got, line)
+		}
+	}
+}
+
 func TestLauncherFormsBuildCLIArguments(t *testing.T) {
 	clearChessEnv(t)
 	t.Setenv("USER", "tester")
