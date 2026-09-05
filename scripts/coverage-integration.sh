@@ -13,7 +13,7 @@ cd "$root"
 go build -cover -trimpath -buildvcs=false -o "$binary" ./cmd/chess
 
 run_case() {
-	GOCOVERDIR="$cover_dir" "$binary" "$@" >/dev/null 2>&1 || true
+	GOCOVERDIR="$cover_dir" "$binary" "$@" >/dev/null 2>&1
 }
 
 run_case version
@@ -35,7 +35,7 @@ printf 'quit\n' | GOCOVERDIR="$cover_dir" "$binary" play bot --depth 1 --random=
 
 pgn="$work/sample.pgn"
 printf '[Event "coverage"]\n\n1. e4 *\n' >"$pgn"
-run_case load "$pgn"
+printf 'quit\n' | GOCOVERDIR="$cover_dir" "$binary" load "$pgn" >/dev/null 2>&1
 
 # Exercise the real raw-terminal launcher/game path when the host provides the
 # standard BSD/macOS script form. Unit tests still cover rendering on systems
@@ -43,6 +43,8 @@ run_case load "$pgn"
 if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	printf 'q' | script -q "$work/menu.raw" sh -c "stty cols 60 rows 30; GOCOVERDIR='$cover_dir' '$binary' menu" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game.raw" sh -c "stty cols 106 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
+	test -s "$work/menu.raw"
+	test -s "$work/game.raw"
 fi
 
 if [ -n "$output_dir" ]; then

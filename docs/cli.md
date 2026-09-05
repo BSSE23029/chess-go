@@ -31,9 +31,12 @@ registry as this list, so adding a supported command requires updating one
 user-facing definition rather than maintaining a separate menu-only name.
 
 `make coverage` reports package tests. `make coverage-integration` builds an
-instrumented `chess` binary, exercises the documented command paths, and uses
-`GOCOVERDIR` to collect coverage from the actual process; on hosts with the
-standard `script` PTY helper it also drives the raw launcher and game screens.
+instrumented `chess` binary, exercises every documented command help path and
+the non-interactive local, bot, and PGN flows, and uses `GOCOVERDIR` to collect
+coverage from the actual process; on hosts with the standard `script` PTY
+helper it also drives the raw launcher and game screens. `make coverage-gate`
+runs both checks, and `make verify` includes that gate before a release can
+pass.
 
 ## Interactive launcher
 

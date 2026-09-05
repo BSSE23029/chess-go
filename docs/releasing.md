@@ -5,7 +5,7 @@ Release binaries are built with the Go toolchain from `go.mod`, disabled CGO,
 string. These settings make repeated binaries from the same source and
 toolchain byte-for-byte comparable.
 
-Run the full gate and build a candidate:
+Run the full test, command-coverage, and PTY gate before building a candidate:
 
 ```console
 VERSION=v0.1.0 make release
