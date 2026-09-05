@@ -167,6 +167,16 @@ func TestQuiescenceDeltaPruningCountsSafeCaptureRejections(t *testing.T) {
 	}
 }
 
+func TestQuiescenceReusesPerPlyMoveStorage(t *testing.T) {
+	position := chess.NewPosition()
+	control := &searchControl{}
+	first := quiescenceMoves(&position, 0, control)
+	second := quiescenceMoves(&position, 0, control)
+	if len(first) == 0 || len(second) == 0 || &first[0] != &second[0] {
+		t.Fatalf("quiescence move buffers were not reused: first %p second %p", &first[0], &second[0])
+	}
+}
+
 func TestBuiltInEvaluationCacheReusesPositionScore(t *testing.T) {
 	position := chess.NewPosition()
 	control := &searchControl{}

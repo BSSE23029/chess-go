@@ -427,7 +427,7 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 	if err := control.visit(ctx); err != nil {
 		return 0, err
 	}
-	moves := orderedMoves(position)
+	moves := quiescenceMoves(position, ply, control)
 	if len(moves) == 0 {
 		if position.InCheck() {
 			return -MateScore + Score(ply), nil
