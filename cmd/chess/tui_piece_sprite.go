@@ -72,7 +72,11 @@ func pieceSpriteRowScaled(piece chess.Piece, cellWidth, cellHeight, cellRow int)
 			rendered.WriteByte(' ')
 		}
 	}
-	return rendered.String()
+	// Resampling a narrow bitmap can otherwise leave one extra column on the
+	// right (for example on the knight's head). Center the final terminal row,
+	// not just the source bitmap, so every visible half-block stays aligned to
+	// the cell center at every supported width.
+	return centerRenderedSpriteRow(rendered.String())
 }
 
 func spritePixelRow(bitmap []string, pixelRow, width int) string {
@@ -130,6 +134,25 @@ func centerSpriteRow(row string) string {
 	}
 	shape := row[left : right+1]
 	padding := len(row) - len(shape)
+	leftPadding := padding / 2
+	return strings.Repeat(" ", leftPadding) + shape + strings.Repeat(" ", padding-leftPadding)
+}
+
+func centerRenderedSpriteRow(row string) string {
+	left := strings.IndexFunc(row, func(r rune) bool { return r != ' ' })
+	runes := []rune(row)
+	if left < 0 {
+		return row
+	}
+	right := len(runes) - 1
+	for right >= left && runes[right] == ' ' {
+		right--
+	}
+	if right < left {
+		return row
+	}
+	shape := string(runes[left : right+1])
+	padding := len(runes) - len([]rune(shape))
 	leftPadding := padding / 2
 	return strings.Repeat(" ", leftPadding) + shape + strings.Repeat(" ", padding-leftPadding)
 }

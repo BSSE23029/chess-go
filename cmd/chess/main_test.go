@@ -720,6 +720,29 @@ func TestSpriteSilhouettesStayHorizontallyCentered(t *testing.T) {
 	}
 }
 
+func TestRenderedSpriteRowsStayHorizontallyCentered(t *testing.T) {
+	for _, pieceType := range []chess.PieceType{chess.Pawn, chess.Knight, chess.Bishop, chess.Rook, chess.Queen, chess.King} {
+		piece := chess.Piece{Color: chess.Black, Type: pieceType}
+		for _, width := range []int{5, 8, 11, 16} {
+			for rowIndex := 0; rowIndex < 4; rowIndex++ {
+				rendered := pieceSpriteRowScaled(piece, width, 4, rowIndex)
+				runes := []rune(rendered)
+				left := strings.IndexFunc(rendered, func(r rune) bool { return r != ' ' })
+				if left < 0 {
+					continue
+				}
+				right := len(runes) - 1
+				for right >= left && runes[right] == ' ' {
+					right--
+				}
+				if left > len(runes)-right-1+1 || len(runes)-right-1 > left+1 {
+					t.Fatalf("piece %v row %d width %d is not centered: %q", pieceType, rowIndex, width, rendered)
+				}
+			}
+		}
+	}
+}
+
 func TestAutoPieceStyleUsesSpritesOnlyWhenTheyCanScale(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
 	piece := chess.Piece{Color: chess.Black, Type: chess.Queen}
