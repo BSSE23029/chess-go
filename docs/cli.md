@@ -30,6 +30,11 @@ The top-level help text and interactive launcher are driven by the same command
 registry as this list, so adding a supported command requires updating one
 user-facing definition rather than maintaining a separate menu-only name.
 
+`make coverage` reports package tests. `make coverage-integration` builds an
+instrumented `chess` binary, exercises the documented command paths, and uses
+`GOCOVERDIR` to collect coverage from the actual process; on hosts with the
+standard `script` PTY helper it also drives the raw launcher and game screens.
+
 ## Interactive launcher
 
 Run `chess` with no arguments, or run `chess menu`, from a terminal to open the

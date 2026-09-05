@@ -1,0 +1,52 @@
+#!/bin/sh
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+output_dir=${1:-}
+work=$(mktemp -d "${TMPDIR:-/tmp}/chess-go-cover.XXXXXX")
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+binary="$work/chess"
+cover_dir="$work/cover"
+mkdir -p "$cover_dir"
+
+cd "$root"
+go build -cover -trimpath -buildvcs=false -o "$binary" ./cmd/chess
+
+run_case() {
+	GOCOVERDIR="$cover_dir" "$binary" "$@" >/dev/null 2>&1 || true
+}
+
+run_case version
+run_case help
+run_case play local --help
+run_case play bot --help
+run_case play remote --help
+run_case host --help
+run_case join --help
+run_case connect --help
+run_case spectate --help
+run_case matchmake --help
+run_case list --help
+run_case discover --help
+run_case load --help
+
+printf 'quit\n' | GOCOVERDIR="$cover_dir" "$binary" play local >/dev/null 2>&1 || true
+printf 'quit\n' | GOCOVERDIR="$cover_dir" "$binary" play bot --depth 1 --random=false >/dev/null 2>&1 || true
+
+pgn="$work/sample.pgn"
+printf '[Event "coverage"]\n\n1. e4 *\n' >"$pgn"
+run_case load "$pgn"
+
+# Exercise the real raw-terminal launcher/game path when the host provides the
+# standard BSD/macOS script form. Unit tests still cover rendering on systems
+# without a PTY helper.
+if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
+	printf 'q' | script -q "$work/menu.raw" sh -c "stty cols 60 rows 30; GOCOVERDIR='$cover_dir' '$binary' menu" >/dev/null 2>&1 || true
+	printf 'q' | script -q "$work/game.raw" sh -c "stty cols 106 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
+fi
+
+if [ -n "$output_dir" ]; then
+	mkdir -p "$output_dir"
+	go tool covdata textfmt -i="$cover_dir" -o="$output_dir/coverage.out"
+fi
+go tool covdata percent -i="$cover_dir"

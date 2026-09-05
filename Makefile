@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size bench profile coverage verify build release release-all
+.PHONY: test race vet fmt perft file-size bench profile coverage coverage-integration verify build release release-all
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -38,6 +38,10 @@ coverage:
 	@mkdir -p "$(DIST)"
 	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -coverprofile "$(DIST)/coverage.out" ./...
 	@$(GO) tool cover -func "$(DIST)/coverage.out" | tail -1
+
+coverage-integration:
+	@mkdir -p "$(DIST)/integration-coverage"
+	@sh scripts/coverage-integration.sh "$(DIST)/integration-coverage"
 
 verify:
 	@sh scripts/verify.sh
