@@ -278,6 +278,7 @@ GitHub account automatically.
 ## Documentation
 
 - [`docs/api.md`](docs/api.md) — library, engine, protocol, LAN, and tournament API.
+- [`docs/performance.md`](docs/performance.md) — repeatable search benchmarks and profiling workflow.
 - [`docs/cli.md`](docs/cli.md) — exhaustive command and environment reference.
 - [`docs/core.md`](docs/core.md) — rules, notation, PGN, hashing, and engine design.
 - [`docs/algos.md`](docs/algos.md) — algorithm notes and search trade-offs.
