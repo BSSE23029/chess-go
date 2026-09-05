@@ -235,15 +235,19 @@ go run ./examples/basic
 The normal `go test ./...` gate compiles this example with the public API.
 
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Unicode
-symbols are the default; select ASCII with `--theme ascii` or
+rendering is the default; large cells use scalable block-art icons so pieces
+remain readable even though terminals cannot change an individual glyph's font
+size. Select ASCII with `--theme ascii` or
 `CHESS_THEME=ascii`. An invalid value fails before the game starts. In an interactive terminal, the
 dashboard adapts to narrow windows, honors `NO_COLOR`, and redraws the frame
 when position, clocks, or terminal geometry changes. The `:` palette supports `theme`,
 `flip`, `draw`, and `resign`; promotion choices use Left/Right and Enter.
-Wide Unicode cells use larger emoji presentation automatically on terminals
-that advertise iTerm2, WezTerm, Ghostty, or Kitty support. Set
-`CHESS_PIECE_STYLE=text` for strict portable text glyphs or
-`CHESS_PIECE_STYLE=emoji` to force the larger presentation.
+Wide Unicode cells use scalable block-art icons automatically; this avoids
+depending on a terminal-specific font-size control. Set
+`CHESS_PIECE_STYLE=text` for literal chess glyphs,
+`CHESS_PIECE_STYLE=sprite` to force the scalable icons, or
+`CHESS_PIECE_STYLE=emoji` to request emoji presentation on terminals that
+support it. Apple Terminal falls back to stable text glyphs for emoji mode.
 
 ## Network protocol foundation
 

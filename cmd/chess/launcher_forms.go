@@ -5,109 +5,103 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 )
 
 func launcherLocal(reader *bufio.Reader, output io.Writer) ([]string, error) {
-	clock, err := launcherPrompt(reader, output, "Clock (blank disables)", os.Getenv("CHESS_CLOCK"))
+	config := localConfigFromEnv()
+	var err error
+	config.Clock, err = launcherPrompt(reader, output, "Clock (blank disables)", config.Clock)
 	if err != nil {
 		return nil, err
 	}
-	increment, err := launcherPrompt(reader, output, "Increment", os.Getenv("CHESS_INCREMENT"))
+	config.Increment, err = launcherPrompt(reader, output, "Increment", config.Increment)
 	if err != nil {
 		return nil, err
 	}
-	theme, err := launcherPromptChoice(reader, output, "Theme", firstSet(os.Getenv("CHESS_THEME"), "unicode"), "ascii", "unicode")
+	config.Theme, err = launcherPromptChoice(reader, output, "Theme", config.Theme, "ascii", "unicode")
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"play", "local"}
-	args = launcherAppend(args, "--clock", clock)
-	args = launcherAppend(args, "--increment", increment)
-	args = launcherAppend(args, "--theme", theme)
-	return args, nil
+	return config.args(), nil
 }
 
 func launcherBot(reader *bufio.Reader, output io.Writer) ([]string, error) {
-	level, err := launcherPromptOptional(reader, output, "Strength level (or - for depth)", os.Getenv("CHESS_BOT_LEVEL"))
+	config, err := botConfigFromEnv()
 	if err != nil {
 		return nil, err
 	}
-	depth, err := launcherPromptInt(reader, output, "Search depth", firstSet(os.Getenv("CHESS_BOT_DEPTH"), "3"), 1)
+	config.Level, err = launcherPromptOptional(reader, output, "Strength level (or - for depth)", config.Level)
 	if err != nil {
 		return nil, err
 	}
-	color, err := launcherPromptChoice(reader, output, "Human color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "white", "black")
+	depth, err := launcherPromptInt(reader, output, "Search depth", strconv.Itoa(config.Depth), 1)
 	if err != nil {
 		return nil, err
 	}
-	personality, err := launcherPromptOptional(reader, output, "Personality (optional)", os.Getenv("CHESS_BOT_PERSONALITY"))
+	config.Depth, err = strconv.Atoi(depth)
 	if err != nil {
 		return nil, err
 	}
-	seed, err := launcherPromptOptional(reader, output, "Seed (optional)", os.Getenv("CHESS_BOT_SEED"))
+	config.Color, err = launcherPromptChoice(reader, output, "Human color", config.Color, "white", "black")
 	if err != nil {
 		return nil, err
 	}
-	randomize, err := launcherPromptBool(reader, output, "Vary near-best moves", envBool("CHESS_BOT_RANDOM", true))
+	config.Personality, err = launcherPromptOptional(reader, output, "Personality (optional)", config.Personality)
 	if err != nil {
 		return nil, err
 	}
-	clock, err := launcherPrompt(reader, output, "Clock (blank disables)", os.Getenv("CHESS_CLOCK"))
+	config.Seed, err = launcherPromptOptional(reader, output, "Seed (optional)", config.Seed)
 	if err != nil {
 		return nil, err
 	}
-	increment, err := launcherPrompt(reader, output, "Increment", os.Getenv("CHESS_INCREMENT"))
+	config.Random, err = launcherPromptBool(reader, output, "Vary near-best moves", config.Random)
 	if err != nil {
 		return nil, err
 	}
-	theme, err := launcherPromptChoice(reader, output, "Theme", firstSet(os.Getenv("CHESS_THEME"), "unicode"), "ascii", "unicode")
+	config.Clock, err = launcherPrompt(reader, output, "Clock (blank disables)", config.Clock)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"play", "bot"}
-	if level != "" {
-		args = launcherAppend(args, "--level", level)
-	} else {
-		args = launcherAppend(args, "--depth", depth)
+	config.Increment, err = launcherPrompt(reader, output, "Increment", config.Increment)
+	if err != nil {
+		return nil, err
 	}
-	args = launcherAppend(args, "--color", color)
-	args = launcherAppend(args, "--personality", personality)
-	args = launcherAppend(args, "--seed", seed)
-	args = append(args, "--random="+strconv.FormatBool(randomize))
-	args = launcherAppend(args, "--clock", clock)
-	args = launcherAppend(args, "--increment", increment)
-	args = launcherAppend(args, "--theme", theme)
-	return args, nil
+	config.Theme, err = launcherPromptChoice(reader, output, "Theme", config.Theme, "ascii", "unicode")
+	if err != nil {
+		return nil, err
+	}
+	return config.args(), nil
 }
 
 func launcherRemote(reader *bufio.Reader, output io.Writer) ([]string, error) {
-	address, err := launcherPrompt(reader, output, "Server address", firstSet(os.Getenv("CHESS_NETWORK_URL"), "https://127.0.0.1:8080"))
+	config := remoteConfigFromEnv()
+	var err error
+	config.Address, err = launcherPrompt(reader, output, "Server address", config.Address)
 	if err != nil {
 		return nil, err
 	}
-	match, err := launcherPrompt(reader, output, "Match ID", os.Getenv("CHESS_MATCH_ID"))
+	config.Match, err = launcherPrompt(reader, output, "Match ID", config.Match)
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(match) == "" {
+	if strings.TrimSpace(config.Match) == "" {
 		return nil, errors.New("a match ID is required")
 	}
-	player, err := launcherPrompt(reader, output, "Player ID", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")))
+	config.Player, err = launcherPrompt(reader, output, "Player ID", config.Player)
 	if err != nil {
 		return nil, err
 	}
-	color, err := launcherPromptChoice(reader, output, "Color", firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white"), "white", "black", "spectator")
+	config.Color, err = launcherPromptChoice(reader, output, "Color", config.Color, "white", "black", "spectator")
 	if err != nil {
 		return nil, err
 	}
-	token, err := launcherPromptSecret(reader, output, "Bearer token", os.Getenv("CHESS_NETWORK_TOKEN"))
+	config.Token, err = launcherPromptSecret(reader, output, "Bearer token", config.Token)
 	if err != nil {
 		return nil, err
 	}
-	create, err := launcherPromptBool(reader, output, "Create if missing", false)
+	config.Create, err = launcherPromptBool(reader, output, "Create if missing", false)
 	if err != nil {
 		return nil, err
 	}
@@ -115,128 +109,108 @@ func launcherRemote(reader *bufio.Reader, output io.Writer) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.ClockMillis, err = strconv.ParseInt(clock, 10, 64)
+	if err != nil {
+		return nil, err
+	}
 	increment, err := launcherPromptInt(reader, output, "Increment milliseconds", "0", 0)
 	if err != nil {
 		return nil, err
 	}
-	theme, err := launcherPromptChoice(reader, output, "Theme", firstSet(os.Getenv("CHESS_THEME"), "unicode"), "ascii", "unicode")
+	config.IncrementMillis, err = strconv.ParseInt(increment, 10, 64)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"play", "remote", address, "--match", match}
-	args = launcherAppend(args, "--player", player)
-	args = launcherAppend(args, "--color", color)
-	args = launcherAppend(args, "--token", token)
-	if create {
-		args = append(args, "--create")
+	config.Theme, err = launcherPromptChoice(reader, output, "Theme", config.Theme, "ascii", "unicode")
+	if err != nil {
+		return nil, err
 	}
-	args = launcherAppend(args, "--clock-millis", clock)
-	args = launcherAppend(args, "--increment-millis", increment)
-	args = launcherAppend(args, "--theme", theme)
-	return args, nil
+	return config.args(), nil
 }
 
 func launcherHost(reader *bufio.Reader, output io.Writer) ([]string, error) {
-	address, err := launcherPrompt(reader, output, "Listen address", firstSet(os.Getenv("CHESS_NETWORK_ADDR"), ":8080"))
+	config := hostConfigFromEnv()
+	var err error
+	config.Address, err = launcherPrompt(reader, output, "Listen address", config.Address)
 	if err != nil {
 		return nil, err
 	}
-	token, err := launcherPromptSecret(reader, output, "Bearer token", os.Getenv("CHESS_NETWORK_TOKEN"))
+	config.Token, err = launcherPromptSecret(reader, output, "Bearer token", config.Token)
 	if err != nil {
 		return nil, err
 	}
-	certificate, err := launcherPromptOptional(reader, output, "TLS certificate path", os.Getenv("CHESS_TLS_CERT"))
+	config.Certificate, err = launcherPromptOptional(reader, output, "TLS certificate path", config.Certificate)
 	if err != nil {
 		return nil, err
 	}
-	key, err := launcherPromptOptional(reader, output, "TLS private key path", os.Getenv("CHESS_TLS_KEY"))
+	config.Key, err = launcherPromptOptional(reader, output, "TLS private key path", config.Key)
 	if err != nil {
 		return nil, err
 	}
-	insecure, err := launcherPromptBool(reader, output, "Allow insecure HTTP", envBool("CHESS_NETWORK_INSECURE", false))
+	config.Insecure, err = launcherPromptBool(reader, output, "Allow insecure HTTP", config.Insecure)
 	if err != nil {
 		return nil, err
 	}
-	store, err := launcherPromptOptional(reader, output, "Match store path", os.Getenv("CHESS_MATCH_STORE"))
+	config.Store, err = launcherPromptOptional(reader, output, "Match store path", config.Store)
 	if err != nil {
 		return nil, err
 	}
-	lan, err := launcherPromptBool(reader, output, "Advertise on LAN", envBool("CHESS_LAN_DISCOVERY", false))
+	config.LAN, err = launcherPromptBool(reader, output, "Advertise on LAN", config.LAN)
 	if err != nil {
 		return nil, err
 	}
-	instance, err := launcherPrompt(reader, output, "LAN instance", firstSet(os.Getenv("CHESS_LAN_INSTANCE"), "chess-go"))
+	config.LANInstance, err = launcherPrompt(reader, output, "LAN instance", config.LANInstance)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"host", "--addr", address}
-	args = launcherAppend(args, "--token", token)
-	args = launcherAppend(args, "--cert", certificate)
-	args = launcherAppend(args, "--key", key)
-	if insecure {
-		args = append(args, "--insecure")
-	}
-	args = launcherAppend(args, "--store", store)
-	if lan {
-		args = append(args, "--lan")
-	}
-	args = launcherAppend(args, "--lan-instance", instance)
-	return args, nil
+	return config.args(), nil
 }
 
 func launcherSeat(reader *bufio.Reader, output io.Writer, command string) ([]string, error) {
-	address, err := launcherPrompt(reader, output, "Server address", firstSet(os.Getenv("CHESS_NETWORK_URL"), "https://127.0.0.1:8080"))
+	config := seatConfigFromEnv(command)
+	var err error
+	config.Address, err = launcherPrompt(reader, output, "Server address", config.Address)
 	if err != nil {
 		return nil, err
 	}
-	match, err := launcherPrompt(reader, output, "Match ID", os.Getenv("CHESS_MATCH_ID"))
+	config.Match, err = launcherPrompt(reader, output, "Match ID", config.Match)
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(match) == "" {
+	if strings.TrimSpace(config.Match) == "" {
 		return nil, errors.New("a match ID is required")
 	}
-	player, err := launcherPrompt(reader, output, "Player ID", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")))
+	config.Player, err = launcherPrompt(reader, output, "Player ID", config.Player)
 	if err != nil {
 		return nil, err
 	}
-	colorDefault := firstSet(os.Getenv("CHESS_PLAYER_COLOR"), "white")
-	if command == "spectate" {
-		colorDefault = "spectator"
-	}
-	color, err := launcherPromptChoice(reader, output, "Color", colorDefault, "white", "black", "spectator")
+	config.Color, err = launcherPromptChoice(reader, output, "Color", config.Color, "white", "black", "spectator")
 	if err != nil {
 		return nil, err
 	}
-	token, err := launcherPromptSecret(reader, output, "Bearer token", os.Getenv("CHESS_NETWORK_TOKEN"))
+	config.Token, err = launcherPromptSecret(reader, output, "Bearer token", config.Token)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{command, address, "--match", match}
-	args = launcherAppend(args, "--player", player)
-	if command == "spectate" {
-		args = append(args, "--color", "spectator")
-	} else {
-		args = launcherAppend(args, "--color", color)
-	}
-	args = launcherAppend(args, "--token", token)
-	return args, nil
+	return config.args(), nil
 }
 
 func launcherMatchmake(reader *bufio.Reader, output io.Writer) ([]string, error) {
-	address, err := launcherPrompt(reader, output, "Server address", firstSet(os.Getenv("CHESS_NETWORK_URL"), "https://127.0.0.1:8080"))
+	config := matchmakeConfigFromEnv()
+	var err error
+	config.Address, err = launcherPrompt(reader, output, "Server address", config.Address)
 	if err != nil {
 		return nil, err
 	}
-	player, err := launcherPrompt(reader, output, "Player ID", firstSet(os.Getenv("CHESS_PLAYER_ID"), os.Getenv("CHESS_PLAYER_NAME"), os.Getenv("USER")))
+	config.Player, err = launcherPrompt(reader, output, "Player ID", config.Player)
 	if err != nil {
 		return nil, err
 	}
-	color, err := launcherPromptChoice(reader, output, "Preferred color", os.Getenv("CHESS_PLAYER_COLOR"), "", "white", "black", "random")
+	config.Color, err = launcherPromptChoice(reader, output, "Preferred color", config.Color, "", "white", "black", "random")
 	if err != nil {
 		return nil, err
 	}
-	token, err := launcherPromptSecret(reader, output, "Bearer token", os.Getenv("CHESS_NETWORK_TOKEN"))
+	config.Token, err = launcherPromptSecret(reader, output, "Bearer token", config.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -244,31 +218,33 @@ func launcherMatchmake(reader *bufio.Reader, output io.Writer) ([]string, error)
 	if err != nil {
 		return nil, err
 	}
+	config.ClockMillis, err = strconv.ParseInt(clock, 10, 64)
+	if err != nil {
+		return nil, err
+	}
 	increment, err := launcherPromptInt(reader, output, "Increment milliseconds", "0", 0)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"matchmake", address}
-	args = launcherAppend(args, "--player", player)
-	args = launcherAppend(args, "--color", color)
-	args = launcherAppend(args, "--token", token)
-	args = launcherAppend(args, "--clock-millis", clock)
-	args = launcherAppend(args, "--increment-millis", increment)
-	return args, nil
+	config.IncrementMillis, err = strconv.ParseInt(increment, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return config.args(), nil
 }
 
 func launcherList(reader *bufio.Reader, output io.Writer) ([]string, error) {
-	address, err := launcherPrompt(reader, output, "Server address", firstSet(os.Getenv("CHESS_NETWORK_URL"), "https://127.0.0.1:8080"))
+	config := listConfigFromEnv()
+	var err error
+	config.Address, err = launcherPrompt(reader, output, "Server address", config.Address)
 	if err != nil {
 		return nil, err
 	}
-	token, err := launcherPromptSecret(reader, output, "Bearer token", os.Getenv("CHESS_NETWORK_TOKEN"))
+	config.Token, err = launcherPromptSecret(reader, output, "Bearer token", config.Token)
 	if err != nil {
 		return nil, err
 	}
-	args := []string{"list", address}
-	args = launcherAppend(args, "--token", token)
-	return args, nil
+	return config.args(), nil
 }
 
 func launcherDiscover(reader *bufio.Reader, output io.Writer) ([]string, error) {
@@ -276,7 +252,11 @@ func launcherDiscover(reader *bufio.Reader, output io.Writer) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
-	return []string{"discover", "--seconds", seconds}, nil
+	parsed, err := strconv.Atoi(seconds)
+	if err != nil {
+		return nil, err
+	}
+	return (DiscoverConfig{Seconds: parsed}).args(), nil
 }
 
 func launcherAppend(args []string, flag, value string) []string {

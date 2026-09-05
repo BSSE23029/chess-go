@@ -63,11 +63,15 @@ go install ./cmd/chess
 chess play bot --level Casual
 ```
 
-The terminal board uses real Unicode chess symbols by default. Use
-`--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII borders.
-On terminals with emoji-capable fonts, set `CHESS_PIECE_STYLE=emoji` to use
-the wider emoji presentation; use `CHESS_PIECE_STYLE=text` when text chess
-symbols are clearer.
+The terminal board uses Unicode chess rendering by default. On large Unicode
+boards, `auto` uses scalable block-art piece icons so the pieces remain
+readable even though terminals cannot change an individual glyph's font size.
+Use `CHESS_PIECE_STYLE=text` for literal `♔`/`♟` symbols, or
+`CHESS_PIECE_STYLE=sprite` to force the scalable icons. On terminals with
+emoji-capable fonts, `CHESS_PIECE_STYLE=emoji` opts into the wider emoji
+presentation; Apple Terminal falls back to stable text glyphs for that mode.
+Use `--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII
+borders.
 Set `NO_COLOR=1` when ANSI color is not desired. The TUI scales its board and
 sidebar to the current terminal size, clips safely at very small viewports,
 restores the terminal on exit, and redraws cleanly when state or clocks change.
@@ -283,5 +287,4 @@ GitHub account automatically.
 
 ## License
 
-No license has been selected yet. Until the copyright owner adds one, treat the
-source as all-rights-reserved and do not redistribute it as a public package.
+This project is released under the [MIT License](LICENSE).

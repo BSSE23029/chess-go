@@ -12,7 +12,12 @@ import (
 )
 
 const (
-	tuiReset       = "\x1b[0m"
+	// The renderer owns its surface colors. Relying on the terminal profile
+	// makes the board unreadable in light profiles and leaves white separator
+	// gaps between colored cells.
+	tuiSurface     = "\x1b[48;5;235m\x1b[38;5;252m"
+	tuiFrameStart  = tuiSurface + "\x1b[H\x1b[2J"
+	tuiReset       = "\x1b[0m" + tuiSurface
 	tuiBold        = "\x1b[1m"
 	tuiDim         = "\x1b[2m"
 	tuiTitle       = "\x1b[1;38;5;75m"
@@ -193,7 +198,7 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 
 	// Full-screen redraw keeps the board stable and prevents scrollback from becoming a second UI.
 	var frame strings.Builder
-	fmt.Fprint(&frame, "\x1b[H\x1b[2J")
+	fmt.Fprint(&frame, tuiFrameStart)
 	fmt.Fprintf(&frame, "%s%s  CHESS-GO%s  %s%s\n", tuiTitle, tuiBold, tuiReset, tuiDim, tuiReset)
 	mode := tuiText(ui.mode, 24)
 	if mode == "" {

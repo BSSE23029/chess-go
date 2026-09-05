@@ -59,7 +59,7 @@ func runLauncher(ctx context.Context, input io.Reader, output io.Writer) ([]stri
 	}
 	defer term.Restore(int(in.Fd()), state) //nolint:errcheck -- best effort during shutdown
 	fmt.Fprint(output, "\x1b[?1049h\x1b[?25l")
-	defer fmt.Fprint(output, "\x1b[?25h\x1b[?1049l")
+	defer fmt.Fprint(output, "\x1b[0m\x1b[?25h\x1b[?1049l")
 
 	reader := bufio.NewReader(input)
 	selected := 0
@@ -154,7 +154,7 @@ func renderLauncher(output io.Writer, items []launcherItem, selected int, messag
 	if message != "" {
 		fmt.Fprintf(&frame, "%s%s  %s%s\n", tuiBold, tuiAccent, message, tuiReset)
 	}
-	writeFrame(output, strings.ReplaceAll(formatInteractiveFrame("\x1b[H\x1b[2J"+frame.String(), terminalWidth(output), terminalHeight(output)), "\n", "\r\n"))
+	writeFrame(output, strings.ReplaceAll(formatInteractiveFrame(tuiFrameStart+frame.String(), terminalWidth(output), terminalHeight(output)), "\n", "\r\n"))
 }
 
 func terminalWidth(output io.Writer) int {

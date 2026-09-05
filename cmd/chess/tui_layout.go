@@ -74,8 +74,12 @@ func boardScaleForTerminal(width, height int) (boardScale, bool) {
 	}
 	cellWidth := 4
 	switch {
+	case width >= 250:
+		cellWidth = 20
+	case width >= 230:
+		cellWidth = 18
 	case width >= 210:
-		cellWidth = 16
+		cellWidth = 18
 	case width >= 180:
 		cellWidth = 14
 	case width >= 150:
@@ -117,29 +121,22 @@ func boardLines(position chess.Position, files, ranks []int, ui *boardUI, legal,
 	cellHeight := maxInt(scale.cellHeight, 1)
 	lines := []string{strings.Repeat(" ", 2) + border.leftTop + strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.topJoin, 7) + strings.Repeat(border.horizontal, cellWidth) + border.rightTop}
 	for _, rank := range ranks {
-		var row strings.Builder
-		var blankRow strings.Builder
-		fmt.Fprintf(&row, "%d %s", rank+1, border.vertical)
-		fmt.Fprintf(&blankRow, "  %s", border.vertical)
-		for index, file := range files {
-			square := chess.Square(rank*8 + file)
-			row.WriteString(boardCell(position.PieceAt(square), square, file+rank, ui, legal, last, checkSquare, boardTheme, cellWidth))
-			blankRow.WriteString(boardCellWithoutPiece(position.PieceAt(square), square, file+rank, ui, legal, last, checkSquare, boardTheme, cellWidth))
-			if index < 7 {
-				row.WriteString(border.vertical)
-				blankRow.WriteString(border.vertical)
-			}
-		}
-		row.WriteString(border.vertical)
-		blankRow.WriteString(border.vertical)
-		rankRow := row.String()
-		pieceRow := (cellHeight - 1) / 2
 		for repeat := range cellHeight {
-			if repeat == pieceRow {
-				lines = append(lines, rankRow)
-				continue
+			var row strings.Builder
+			if repeat == (cellHeight-1)/2 {
+				fmt.Fprintf(&row, "%d %s", rank+1, border.vertical)
+			} else {
+				fmt.Fprintf(&row, "  %s", border.vertical)
 			}
-			lines = append(lines, blankRow.String())
+			for index, file := range files {
+				square := chess.Square(rank*8 + file)
+				row.WriteString(boardCellAtRow(position.PieceAt(square), square, file+rank, ui, legal, last, checkSquare, boardTheme, cellWidth, cellHeight, repeat))
+				if index < 7 {
+					row.WriteString(border.vertical)
+				}
+			}
+			row.WriteString(border.vertical)
+			lines = append(lines, row.String())
 		}
 	}
 	lines = append(lines, strings.Repeat(" ", 2)+border.leftBottom+strings.Repeat(strings.Repeat(border.horizontal, cellWidth)+border.bottomJoin, 7)+strings.Repeat(border.horizontal, cellWidth)+border.rightBottom)
@@ -150,11 +147,25 @@ func boardCell(piece chess.Piece, square chess.Square, index int, ui *boardUI, l
 	return boardCellGlyph(piece, square, index, ui, legal, last, checkSquare, boardTheme, boardTheme.glyph(piece), cellWidth)
 }
 
+func boardCellAtRow(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, cellWidth, cellHeight, cellRow int) string {
+	if pieceSpriteEnabled(piece, boardTheme, cellWidth, cellHeight) {
+		return boardCellGlyphText(piece, square, index, ui, legal, last, checkSquare, boardTheme, pieceSpriteRow(piece, cellWidth, cellRow), cellWidth)
+	}
+	if cellRow != (cellHeight-1)/2 {
+		return boardCellGlyph(piece, square, index, ui, legal, last, checkSquare, boardTheme, ' ', cellWidth)
+	}
+	return boardCell(piece, square, index, ui, legal, last, checkSquare, boardTheme, cellWidth)
+}
+
 func boardCellWithoutPiece(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, cellWidth int) string {
 	return boardCellGlyph(piece, square, index, ui, legal, last, checkSquare, boardTheme, ' ', cellWidth)
 }
 
 func boardCellGlyph(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, glyph rune, cellWidth int) string {
+	return boardCellGlyphText(piece, square, index, ui, legal, last, checkSquare, boardTheme, string(glyph), cellWidth)
+}
+
+func boardCellGlyphText(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, glyphText string, cellWidth int) string {
 	cellWidth = maxInt(cellWidth, 1)
 	background := tuiDarkSquare
 	if index%2 == 0 {
@@ -184,7 +195,18 @@ func boardCellGlyph(piece chess.Piece, square chess.Square, index int, ui *board
 	if boardTheme.label() == "unicode" && !piece.IsEmpty() && cellWidth >= 6 {
 		weight = tuiBold
 	}
-	glyphText, glyphWidth := pieceGlyphText(piece, glyph, boardTheme, cellWidth)
+	glyphWidth := len([]rune(glyphText))
+	if glyphWidth == 0 {
+		glyphText = " "
+		glyphWidth = 1
+	}
+	if glyphWidth == 1 {
+		glyphText, glyphWidth = pieceGlyphText(piece, []rune(glyphText)[0], boardTheme, cellWidth)
+	}
+	if glyphWidth > cellWidth {
+		glyphText = string([]rune(glyphText)[:cellWidth])
+		glyphWidth = cellWidth
+	}
 	left := (cellWidth - glyphWidth) / 2
 	right := cellWidth - left - glyphWidth
 	return fmt.Sprintf("%s%s%s%s%s%s%s%s", background, state, foreground, weight, strings.Repeat(" ", left), glyphText, strings.Repeat(" ", right), tuiReset)
@@ -192,7 +214,7 @@ func boardCellGlyph(piece chess.Piece, square chess.Square, index int, ui *board
 
 func pieceGlyphText(piece chess.Piece, glyph rune, boardTheme theme, cellWidth int) (string, int) {
 	text := string(glyph)
-	if boardTheme.label() != "unicode" || piece.IsEmpty() || glyph == ' ' || cellWidth < 10 || unicodePieceStyle() != "emoji" {
+	if boardTheme.label() != "unicode" || piece.IsEmpty() || glyph == ' ' || cellWidth < 10 || unicodePieceStyle() != "emoji" || !terminalSupportsEmoji() {
 		return text, 1
 	}
 	// Emoji presentation is wider and usually has a larger terminal glyph than
@@ -207,12 +229,13 @@ func unicodePieceStyle() string {
 		return "text"
 	case "emoji":
 		return "emoji"
+	case "sprite", "icon", "icons":
+		return "sprite"
 	case "", "auto":
-		if terminalSupportsEmoji() {
-			return "emoji"
-		}
+		return "auto"
+	default:
+		return "text"
 	}
-	return "text"
 }
 
 func terminalSupportsEmoji() bool {

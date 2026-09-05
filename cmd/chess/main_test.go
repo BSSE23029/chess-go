@@ -81,6 +81,29 @@ func TestLauncherRequiresInteractiveTerminalForMenu(t *testing.T) {
 	}
 }
 
+func TestSharedCommandConfigsResolveEnvironmentDefaults(t *testing.T) {
+	clearChessEnv(t)
+	t.Setenv("CHESS_BOT_DEPTH", "5")
+	t.Setenv("CHESS_BOT_RANDOM", "false")
+	t.Setenv("CHESS_PLAYER_COLOR", "black")
+	t.Setenv("CHESS_NETWORK_URL", "https://chess.example")
+	t.Setenv("CHESS_MATCH_ID", "round-1")
+	bot, err := botConfigFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bot.Depth != 5 || bot.Random || bot.Color != "black" {
+		t.Fatalf("bot environment config = %#v", bot)
+	}
+	remote := remoteConfigFromEnv()
+	if remote.Address != "https://chess.example" || remote.Match != "round-1" || remote.Color != "black" {
+		t.Fatalf("remote environment config = %#v", remote)
+	}
+	if got := strings.Join((SeatConfig{Command: "spectate", Address: "https://chess.example", Match: "round-1", Color: "black"}).args(), " "); !strings.Contains(got, "--color spectator") {
+		t.Fatalf("spectator config args = %q", got)
+	}
+}
+
 func TestSubcommandHelpListsAllFlags(t *testing.T) {
 	clearChessEnv(t)
 	for _, test := range []struct {
@@ -403,6 +426,9 @@ func TestInteractiveRendererRedrawsWhenClockChanges(t *testing.T) {
 	if !strings.Contains(text, "CHESS-GO") {
 		t.Fatalf("clock update did not redraw the frame: %q", text)
 	}
+	if !strings.Contains(text, tuiSurface) {
+		t.Fatalf("clock redraw did not set an explicit terminal surface: %q", text)
+	}
 }
 
 func TestInteractiveRendererUsesASCIIChrome(t *testing.T) {
@@ -431,8 +457,12 @@ func TestInteractiveRendererStacksTheRailWhenNarrow(t *testing.T) {
 
 func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 	wide, compact := boardScaleForTerminal(213, 60)
-	if compact || wide.cellWidth != 16 || wide.cellHeight != 4 {
+	if compact || wide.cellWidth != 18 || wide.cellHeight != 4 {
 		t.Fatalf("wide scale = %#v, compact %v", wide, compact)
+	}
+	huge, compact := boardScaleForTerminal(266, 60)
+	if compact || huge.cellWidth != 20 || huge.cellHeight != 4 {
+		t.Fatalf("huge scale = %#v, compact %v", huge, compact)
 	}
 	narrow, compact := boardScaleForTerminal(60, 30)
 	if !compact || narrow.cellWidth != 4 || narrow.cellHeight != 1 {
@@ -495,6 +525,60 @@ func TestScaledUnicodePiecesAreCenteredAndEmphasized(t *testing.T) {
 	}
 }
 
+func TestScaledUnicodeSpritesFillAndCenterLargeCells(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "sprite")
+	ui := boardUI{cursor: chess.NoSquare}
+	position := chess.NewGame().Position()
+	files, ranks := boardOrientation(false)
+	lines := boardLines(position, files, ranks, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, boardScale{cellWidth: 16, cellHeight: 4})
+	for _, line := range lines[1:5] {
+		clean := stripSGR(line)
+		if !strings.ContainsAny(clean, "▀▄█") {
+			continue
+		}
+		cells := strings.Split(clean[strings.Index(clean, "│"):], "│")
+		if len(cells) < 9 {
+			t.Fatalf("sprite row lost board separators: %q", clean)
+		}
+		for _, cell := range cells[1:9] {
+			if got := len([]rune(cell)); got != 16 {
+				t.Fatalf("sprite cell width = %d, want 16: %q", got, cell)
+			}
+		}
+	}
+	if got := pieceSpriteRow(chess.Piece{Type: chess.Rook}, 16, 0); got == "" || strings.TrimSpace(got) == got {
+		t.Fatalf("sprite row lost vertical breathing room: %q", got)
+	}
+}
+
+func TestAutoPieceStyleUsesSpritesOnlyWhenTheyCanScale(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	piece := chess.Piece{Color: chess.Black, Type: chess.Queen}
+	if !pieceSpriteEnabled(piece, unicodeTheme, 18, 4) {
+		t.Fatal("auto style did not select a scalable sprite for a large Unicode cell")
+	}
+	if pieceSpriteEnabled(piece, unicodeTheme, 8, 4) || pieceSpriteEnabled(piece, unicodeTheme, 18, 3) {
+		t.Fatal("auto style selected a sprite where the cell cannot support it")
+	}
+	t.Setenv("CHESS_PIECE_STYLE", "text")
+	if pieceSpriteEnabled(piece, unicodeTheme, 18, 4) {
+		t.Fatal("text style unexpectedly selected a sprite")
+	}
+}
+
+func TestInteractiveFramePaintsTheWholeViewport(t *testing.T) {
+	frame := formatInteractiveFrame("\x1b[H\x1b[2Jone\n", 8, 3)
+	lines := strings.Split(strings.TrimPrefix(frame, "\x1b[H\x1b[2J"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("painted frame has %d lines, want 3", len(lines))
+	}
+	for _, line := range lines {
+		if got := len([]rune(stripSGR(line))); got != 8 {
+			t.Fatalf("painted line width = %d, want 8: %q", got, line)
+		}
+	}
+}
+
 func TestUnicodePiecePresentationScalesForCapableTerminals(t *testing.T) {
 	ui := boardUI{cursor: chess.NoSquare}
 	rook := chess.Piece{Color: chess.Black, Type: chess.Rook}
@@ -503,6 +587,7 @@ func TestUnicodePiecePresentationScalesForCapableTerminals(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("CHESS_PIECE_STYLE", "emoji")
+	t.Setenv("TERM_PROGRAM", "iTerm.app")
 	got := boardCell(rook, square, 0, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, 10)
 	if !strings.Contains(got, "♜\ufe0f") {
 		t.Fatalf("emoji presentation missing from wide Unicode cell: %q", got)
@@ -511,6 +596,12 @@ func TestUnicodePiecePresentationScalesForCapableTerminals(t *testing.T) {
 	got = boardCell(rook, square, 0, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, 10)
 	if strings.Contains(got, "\ufe0f") {
 		t.Fatalf("text presentation unexpectedly contains variation selector: %q", got)
+	}
+	t.Setenv("CHESS_PIECE_STYLE", "emoji")
+	t.Setenv("TERM_PROGRAM", "Apple_Terminal")
+	got = boardCell(rook, square, 0, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, 10)
+	if strings.Contains(got, "\ufe0f") {
+		t.Fatalf("Apple Terminal received a width-unstable emoji presentation: %q", got)
 	}
 }
 

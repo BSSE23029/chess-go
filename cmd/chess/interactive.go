@@ -46,7 +46,7 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 	}
 	defer term.Restore(int(in.Fd()), state) //nolint:errcheck -- best effort during shutdown
 	fmt.Fprint(output, "\x1b[?1049h\x1b[?25l")
-	defer fmt.Fprint(output, "\x1b[?25h\x1b[?1049l")
+	defer fmt.Fprint(output, "\x1b[0m\x1b[?25h\x1b[?1049l")
 
 	ui := boardUI{
 		cursor:    initialCursor(s.human),
