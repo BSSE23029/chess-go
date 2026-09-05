@@ -117,6 +117,7 @@ type HostConfig struct {
 	Store       string
 	LAN         bool
 	LANInstance string
+	LANHost     string
 }
 
 func hostConfigFromEnv() HostConfig {
@@ -129,6 +130,7 @@ func hostConfigFromEnv() HostConfig {
 		Store:       os.Getenv("CHESS_MATCH_STORE"),
 		LAN:         envBool("CHESS_LAN_DISCOVERY", false),
 		LANInstance: firstSet(os.Getenv("CHESS_LAN_INSTANCE"), "chess-go"),
+		LANHost:     os.Getenv("CHESS_LAN_HOST"),
 	}
 }
 

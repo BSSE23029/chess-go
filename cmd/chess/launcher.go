@@ -23,6 +23,7 @@ var launcherItems = []launcherItem{
 	{label: "Remote game", hint: "create or join an online match"},
 	{label: "Network tools", hint: "host, join, spectate, matchmake, list, discover"},
 	{label: "Load PGN", hint: "open a saved game"},
+	{label: "Settings", hint: "theme, pieces, bot variation, and network security"},
 	{label: "Help", hint: "keyboard and command reference"},
 	{label: "Version", hint: "show the installed chess-go version"},
 	{label: "Quit", hint: "leave the launcher"},
@@ -96,7 +97,11 @@ func runLauncher(ctx context.Context, input io.Reader, output io.Writer) ([]stri
 			if len(args) != 0 {
 				return args, nil
 			}
-			message = ""
+			if launcherItems[selected].label == "Settings" {
+				message = "Settings saved"
+			} else {
+				message = ""
+			}
 		}
 	}
 }
@@ -121,16 +126,18 @@ func launcherAction(reader *bufio.Reader, output io.Writer, selected int) ([]str
 		}
 		return []string{"load", path}, nil
 	case 5:
+		return nil, launcherSettings(reader, output)
+	case 6:
 		fmt.Fprint(output, "\r\n")
 		printTopLevelHelp(output)
 		fmt.Fprint(output, "\r\nPress any key to return")
 		_, err := readKey(reader)
 		return nil, err
-	case 6:
+	case 7:
 		fmt.Fprintf(output, "\r\nchess-go %s\r\n\r\nPress any key to return", version)
 		_, err := readKey(reader)
 		return nil, err
-	case 7:
+	case 8:
 		return nil, nil
 	default:
 		return nil, errors.New("unknown launcher selection")

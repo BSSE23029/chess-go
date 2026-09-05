@@ -163,6 +163,11 @@ func launcherHost(reader *bufio.Reader, output io.Writer) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.LANHost, err = launcherPromptOptional(reader, output, "LAN advertised host (optional)", config.LANHost)
+	if err != nil {
+		return nil, err
+	}
+	setLauncherEnv("CHESS_LAN_HOST", config.LANHost)
 	return config.args(), nil
 }
 

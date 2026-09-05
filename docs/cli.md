@@ -38,12 +38,14 @@ keyboard-driven launcher. It is a menu equivalent of the command-line surface:
 | Remote game | `play remote`: address, match, player, color, token, create, clocks, and theme. |
 | Network tools | `host`, `join`, `connect`, `spectate`, `matchmake`, `list`, and `discover`, including their flags. |
 | Load PGN | `load FILE`. |
+| Settings | Board theme, scalable piece style, bot randomness/seed, JSON or protobuf wire format, insecure-local mode, and TLS CA/mTLS paths. |
 | Help | The top-level command reference. |
 | Version | `version`. |
 
 Use Arrow keys or `j`/`k` to move, Enter or Space to select, and `q` or Esc to
 go back. Press `-` or type `none` for optional values such as a seed, token,
-or TLS path. Environment variables remain the defaults, so the launcher is
+or TLS path. The Settings screen validates paired mTLS certificate/key paths
+before saving them. Environment variables remain the defaults, so the launcher is
 convenient without hard-coding identity, paths, or network settings.
 
 ## Local play
