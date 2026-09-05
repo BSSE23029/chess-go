@@ -210,6 +210,9 @@ func (g *Game) StatusWithRules(rules RuleSet) Status {
 // ClaimableDraw reports a draw a player may claim under FIDE rules at the
 // current position, or Ongoing when no claim is available.
 func (g *Game) ClaimableDraw() Status {
+	if g.result != "" {
+		return Ongoing
+	}
 	if g.StatusWithRules(FIDERules) != Ongoing {
 		return Ongoing
 	}
