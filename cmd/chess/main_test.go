@@ -545,6 +545,7 @@ func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 }
 
 func TestScaledBoardRepeatsRanksWithoutFixedClockCoordinates(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "text")
 	game := chess.NewGame()
 	ui := boardUI{cursor: chess.NoSquare}
 	model := ui.model(game, game.Position(), unicodeTheme)
@@ -576,6 +577,7 @@ func TestScaledBoardRepeatsRanksWithoutFixedClockCoordinates(t *testing.T) {
 }
 
 func TestScaledUnicodePiecesAreCenteredAndEmphasized(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "text")
 	game := chess.NewGame()
 	ui := boardUI{cursor: chess.NoSquare}
 	position := game.Position()
@@ -649,18 +651,108 @@ func TestScaledUnicodeSpritesFillAndCenterLargeCells(t *testing.T) {
 	}
 }
 
+func TestSpriteSilhouettesStayHorizontallyCentered(t *testing.T) {
+	for _, pieceType := range []chess.PieceType{chess.Pawn, chess.Knight, chess.Bishop, chess.Rook, chess.Queen, chess.King} {
+		row := centerSpriteRow(pieceSpriteBitmap[pieceType][0])
+		left := strings.IndexByte(row, '#')
+		right := strings.LastIndexByte(row, '#')
+		if left < 0 || right < left {
+			t.Fatalf("piece %v has no silhouette: %q", pieceType, row)
+		}
+		if left > len(row)-right-1+1 || len(row)-right-1 > left+1 {
+			t.Fatalf("piece %v silhouette is not centered: %q", pieceType, row)
+		}
+	}
+}
+
 func TestAutoPieceStyleUsesSpritesOnlyWhenTheyCanScale(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
 	piece := chess.Piece{Color: chess.Black, Type: chess.Queen}
 	if !pieceSpriteEnabled(piece, unicodeTheme, 18, 4) {
 		t.Fatal("auto style did not select a scalable sprite for a large Unicode cell")
 	}
-	if pieceSpriteEnabled(piece, unicodeTheme, 8, 4) || pieceSpriteEnabled(piece, unicodeTheme, 18, 3) {
+	if !pieceSpriteEnabled(piece, unicodeTheme, 5, 2) {
+		t.Fatal("auto style did not select a two-row sprite for a compact dashboard cell")
+	}
+	if pieceSpriteEnabled(piece, unicodeTheme, 4, 2) || pieceSpriteEnabled(piece, unicodeTheme, 5, 1) {
 		t.Fatal("auto style selected a sprite where the cell cannot support it")
 	}
 	t.Setenv("CHESS_PIECE_STYLE", "text")
 	if pieceSpriteEnabled(piece, unicodeTheme, 18, 4) {
 		t.Fatal("text style unexpectedly selected a sprite")
+	}
+}
+
+func TestResponsive106RowBoardUsesCenteredSprites(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	scale, compact := boardScaleForTerminal(106, 30)
+	if compact || scale.cellWidth != 5 || scale.cellHeight != 2 {
+		t.Fatalf("106x30 scale = %#v, compact %v; want 5x2 dashboard cells", scale, compact)
+	}
+	ui := boardUI{cursor: chess.NoSquare}
+	position := chess.NewGame().Position()
+	files, ranks := boardOrientation(false)
+	lines := boardLines(position, files, ranks, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, scale)
+	var spriteRows int
+	for _, line := range lines[1:3] {
+		clean := stripSGR(line)
+		if !strings.ContainsAny(clean, "▀▄█") {
+			continue
+		}
+		spriteRows++
+		cells := strings.Split(clean[strings.Index(clean, "│"):], "│")
+		if len(cells) < 9 {
+			t.Fatalf("sprite row lost board separators: %q", clean)
+		}
+		for _, cell := range cells[1:9] {
+			if got := len([]rune(cell)); got != scale.cellWidth {
+				t.Fatalf("compact sprite cell width = %d, want %d: %q", got, scale.cellWidth, cell)
+			}
+		}
+	}
+	if spriteRows != 2 {
+		t.Fatalf("compact sprite rows = %d, want 2", spriteRows)
+	}
+}
+
+func TestKeyboardGuideReservesRowsForEveryShortcut(t *testing.T) {
+	scale, compact := boardScaleForTerminal(106, 30)
+	guideScale := scaleForInteractiveContent(scale, compact, 30, true)
+	if guideScale.cellHeight != 1 {
+		t.Fatalf("guide scale = %#v, want one-row board to keep all guide lines", guideScale)
+	}
+	normalScale := scaleForInteractiveContent(scale, compact, 30, false)
+	if normalScale.cellHeight != 2 {
+		t.Fatalf("normal scale = %#v, want two-row board", normalScale)
+	}
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare, showHelp: true}
+	model := ui.model(game, game.Position(), unicodeTheme)
+	var output bytes.Buffer
+	renderFullInteractive(&output, game, &ui, model, false, "", unicodeTheme, guideScale, false, 106, 30)
+	frame := formatInteractiveFrame(output.String(), 106, 30)
+	if !strings.Contains(frame, "n  new game") || !strings.Contains(frame, "q / ctrl-c  quit") {
+		t.Fatalf("keyboard guide was clipped:\n%s", stripSGR(frame))
+	}
+}
+
+func TestResponsiveFramesStayWithinTerminalViewport(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Bot", mode: "LOCAL MATCH"}
+	model := ui.model(game, game.Position(), unicodeTheme)
+	for _, size := range [][2]int{{60, 30}, {95, 24}, {106, 30}, {120, 30}, {125, 30}, {150, 30}, {180, 30}, {213, 60}} {
+		width, height := size[0], size[1]
+		scale, compact := boardScaleForTerminal(width, height)
+		scale = scaleForInteractiveContent(scale, compact, height, false)
+		var output bytes.Buffer
+		renderFullInteractive(&output, game, &ui, model, false, "", unicodeTheme, scale, compact, width, height)
+		body := strings.TrimPrefix(output.String(), tuiFrameStart)
+		for index, line := range strings.Split(body, "\r\n") {
+			if got := len([]rune(stripSGR(line))); got > width {
+				t.Fatalf("%dx%d frame line %d is %d columns wide: %q", width, height, index, got, line)
+			}
+		}
 	}
 }
 
@@ -863,6 +955,7 @@ func TestTUITextKeepsTheRailBounded(t *testing.T) {
 }
 
 func TestInteractiveRendererHighlightsBoardState(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "text")
 	game := chess.NewGame()
 	if err := game.PlayUCI("e2e4"); err != nil {
 		t.Fatal(err)

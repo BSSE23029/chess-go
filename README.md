@@ -63,9 +63,11 @@ go install ./cmd/chess
 chess play bot --level Casual
 ```
 
-The terminal board uses Unicode chess rendering by default. On large Unicode
-boards, `auto` uses scalable block-art piece icons so the pieces remain
-readable even though terminals cannot change an individual glyph's font size.
+The terminal board uses Unicode chess rendering by default. When the viewport
+has at least two rows per square, `auto` uses scalable block-art piece icons
+so the pieces remain readable even though terminals cannot change an
+individual glyph's font size. One-row fallback layouts keep the literal
+Unicode glyphs centered and bold.
 Use `CHESS_PIECE_STYLE=text` for literal `♔`/`♟` symbols, or
 `CHESS_PIECE_STYLE=sprite` to force the scalable icons. On terminals with
 emoji-capable fonts, `CHESS_PIECE_STYLE=emoji` opts into the wider emoji

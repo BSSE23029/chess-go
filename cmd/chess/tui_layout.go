@@ -96,14 +96,19 @@ func boardScaleForTerminal(width, height int) (boardScale, bool) {
 	boardWidth := 12 + cellWidth*8
 	compact := width < boardWidth+48
 	cellHeight := 1
-	if height >= 44 && !compact {
-		cellHeight = 2
-	}
-	if height >= 54 && !compact {
-		cellHeight = 3
-	}
-	if height >= 58 && !compact {
-		cellHeight = 4
+	if !compact {
+		// A one-row board leaves the Unicode pieces at the mercy of the
+		// terminal font. Use two rows as soon as the normal dashboard fits,
+		// then grow the board in whole rows without letting the footer fall
+		// outside the viewport.
+		switch {
+		case height >= 58:
+			cellHeight = 4
+		case height >= 44:
+			cellHeight = 3
+		case height >= 30:
+			cellHeight = 2
+		}
 	}
 	return boardScale{cellWidth: cellWidth, cellHeight: cellHeight}, compact
 }
@@ -149,7 +154,7 @@ func boardCell(piece chess.Piece, square chess.Square, index int, ui *boardUI, l
 
 func boardCellAtRow(piece chess.Piece, square chess.Square, index int, ui *boardUI, legal, last [64]bool, checkSquare chess.Square, boardTheme theme, cellWidth, cellHeight, cellRow int) string {
 	if pieceSpriteEnabled(piece, boardTheme, cellWidth, cellHeight) {
-		return boardCellGlyphText(piece, square, index, ui, legal, last, checkSquare, boardTheme, pieceSpriteRow(piece, cellWidth, cellRow), cellWidth)
+		return boardCellGlyphText(piece, square, index, ui, legal, last, checkSquare, boardTheme, pieceSpriteRowScaled(piece, cellWidth, cellHeight, cellRow), cellWidth)
 	}
 	if cellRow != (cellHeight-1)/2 {
 		return boardCellGlyph(piece, square, index, ui, legal, last, checkSquare, boardTheme, ' ', cellWidth)

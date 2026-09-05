@@ -107,6 +107,7 @@ func renderInteractive(output io.Writer, game *chess.Game, ui *boardUI, flipped 
 	model := ui.model(game, position, boardTheme)
 	width, height := terminalSize(output)
 	scale, compact := boardScaleForTerminal(width, height)
+	scale = scaleForInteractiveContent(scale, compact, height, ui.showHelp)
 	state := tuiRenderState{
 		valid:        true,
 		game:         game,
@@ -134,6 +135,16 @@ func renderInteractive(output io.Writer, game *chess.Game, ui *boardUI, flipped 
 	}
 	renderFullInteractive(output, game, ui, model, flipped, clocks, boardTheme, scale, compact, width, height)
 	ui.rendered = state
+}
+
+func scaleForInteractiveContent(scale boardScale, compact bool, height int, showHelp bool) boardScale {
+	if !compact && showHelp && height > 0 && scale.cellHeight > 1 {
+		// The guide is intentionally complete. Give it the rows that would
+		// otherwise be consumed by the largest board tier, instead of letting
+		// the viewport silently truncate the final commands.
+		scale.cellHeight--
+	}
+	return scale
 }
 
 func (s tuiRenderState) sameStatic(other tuiRenderState) bool {

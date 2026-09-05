@@ -38,7 +38,7 @@ var pieceSpriteBitmap = map[chess.PieceType][]string{
 }
 
 func pieceSpriteEnabled(piece chess.Piece, boardTheme theme, cellWidth, cellHeight int) bool {
-	if boardTheme.label() != "unicode" || piece.IsEmpty() || cellWidth < 10 || cellHeight < 4 {
+	if boardTheme.label() != "unicode" || piece.IsEmpty() || cellWidth < 5 || cellHeight < 2 {
 		return false
 	}
 	style := unicodePieceStyle()
@@ -46,12 +46,17 @@ func pieceSpriteEnabled(piece chess.Piece, boardTheme theme, cellWidth, cellHeig
 }
 
 func pieceSpriteRow(piece chess.Piece, cellWidth, cellRow int) string {
+	return pieceSpriteRowScaled(piece, cellWidth, 4, cellRow)
+}
+
+func pieceSpriteRowScaled(piece chess.Piece, cellWidth, cellHeight, cellRow int) string {
 	bitmap := pieceSpriteBitmap[piece.Type]
-	if len(bitmap) == 0 || cellRow < 0 || cellRow >= 4 {
+	if len(bitmap) == 0 || cellRow < 0 || cellRow >= cellHeight {
 		return ""
 	}
-	top := spritePixelRow(bitmap, cellRow*2, spriteWidth(cellWidth))
-	bottom := spritePixelRow(bitmap, cellRow*2+1, spriteWidth(cellWidth))
+	pixelRows := cellHeight * 2
+	top := spritePixelRowScaled(bitmap, cellRow*2, pixelRows, spriteWidth(cellWidth))
+	bottom := spritePixelRowScaled(bitmap, cellRow*2+1, pixelRows, spriteWidth(cellWidth))
 	var rendered strings.Builder
 	for index := range top {
 		topOn := top[index] == '#'
@@ -71,28 +76,41 @@ func pieceSpriteRow(piece chess.Piece, cellWidth, cellRow int) string {
 }
 
 func spritePixelRow(bitmap []string, pixelRow, width int) string {
-	if pixelRow == 0 || pixelRow >= 7 {
-		return strings.Repeat(" ", width)
+	return spritePixelRowScaled(bitmap, pixelRow, 8, width)
+}
+
+func spritePixelRowScaled(bitmap []string, pixelRow, pixelRows, width int) string {
+	if len(bitmap) == 0 || pixelRows < 1 || pixelRow < 0 || pixelRow >= pixelRows {
+		return strings.Repeat(" ", maxInt(width, 0))
 	}
-	// Keep one half-cell of breathing room above and below the six-pixel
-	// silhouette. The mapping preserves the sprite's base instead of simply
-	// cropping its last bitmap row.
-	sourceRow := (pixelRow - 1) * (len(bitmap) - 1) / 5
+	// Reserve the first and last half-row for breathing room, then map the
+	// silhouette onto the rows in between. This preserves the visual baseline
+	// even when a compact two-row cell has to compress the icon.
+	if pixelRows > 2 && (pixelRow == 0 || pixelRow == pixelRows-1) {
+		return strings.Repeat(" ", maxInt(width, 0))
+	}
+	if pixelRows <= 2 {
+		sourceRow := pixelRow * (len(bitmap) - 1) / maxInt(pixelRows-1, 1)
+		return scaleSpriteRow(bitmap[sourceRow], width)
+	}
+	interiorRows := maxInt(pixelRows-2, 1)
+	interiorRow := pixelRow - 1
+	sourceRow := interiorRow * (len(bitmap) - 1) / maxInt(interiorRows-1, 1)
 	return scaleSpriteRow(bitmap[sourceRow], width)
 }
 
 func spriteWidth(cellWidth int) int {
-	width := cellWidth - 4
-	if width < 8 {
-		return 8
+	if cellWidth < 1 {
+		return 1
 	}
-	if width > 15 {
+	if cellWidth > 15 {
 		return 15
 	}
-	return width
+	return cellWidth
 }
 
 func scaleSpriteRow(row string, width int) string {
+	row = centerSpriteRow(row)
 	if width <= 0 || len(row) == width {
 		return row
 	}
@@ -102,4 +120,16 @@ func scaleSpriteRow(row string, width int) string {
 		scaled.WriteByte(row[source])
 	}
 	return scaled.String()
+}
+
+func centerSpriteRow(row string) string {
+	left := strings.IndexByte(row, '#')
+	right := strings.LastIndexByte(row, '#')
+	if left < 0 || right < left {
+		return row
+	}
+	shape := row[left : right+1]
+	padding := len(row) - len(shape)
+	leftPadding := padding / 2
+	return strings.Repeat(" ", leftPadding) + shape + strings.Repeat(" ", padding-leftPadding)
 }
