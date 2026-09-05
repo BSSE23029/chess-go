@@ -173,6 +173,7 @@ Commands that change a finished game are rejected. `fen`, `load`, `save`, and
 | Variable | Used by |
 |---|---|
 | `CHESS_THEME` | Default `unicode`/`ascii` board theme. |
+| `CHESS_PIECE_STYLE` | Unicode piece presentation: `auto` (default), `text`, or `emoji`. |
 | `CHESS_PLAYER_NAME` | Human/player identity. |
 | `CHESS_PLAYER_COLOR` | Human or remote color. |
 | `CHESS_BOT_NAME` | Local bot display name. |

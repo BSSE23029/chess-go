@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"chess-go"
@@ -183,9 +184,43 @@ func boardCellGlyph(piece chess.Piece, square chess.Square, index int, ui *board
 	if boardTheme.label() == "unicode" && !piece.IsEmpty() && cellWidth >= 6 {
 		weight = tuiBold
 	}
-	left := (cellWidth - 1) / 2
-	right := cellWidth - left - 1
-	return fmt.Sprintf("%s%s%s%s%s%c%s%s", background, state, foreground, weight, strings.Repeat(" ", left), glyph, strings.Repeat(" ", right), tuiReset)
+	glyphText, glyphWidth := pieceGlyphText(piece, glyph, boardTheme, cellWidth)
+	left := (cellWidth - glyphWidth) / 2
+	right := cellWidth - left - glyphWidth
+	return fmt.Sprintf("%s%s%s%s%s%s%s%s", background, state, foreground, weight, strings.Repeat(" ", left), glyphText, strings.Repeat(" ", right), tuiReset)
+}
+
+func pieceGlyphText(piece chess.Piece, glyph rune, boardTheme theme, cellWidth int) (string, int) {
+	text := string(glyph)
+	if boardTheme.label() != "unicode" || piece.IsEmpty() || glyph == ' ' || cellWidth < 10 || unicodePieceStyle() != "emoji" {
+		return text, 1
+	}
+	// Emoji presentation is wider and usually has a larger terminal glyph than
+	// text presentation. Reserve two columns so the board remains aligned.
+	return text + "\ufe0f", 2
+}
+
+func unicodePieceStyle() string {
+	style := strings.ToLower(strings.TrimSpace(os.Getenv("CHESS_PIECE_STYLE")))
+	switch style {
+	case "text":
+		return "text"
+	case "emoji":
+		return "emoji"
+	case "", "auto":
+		if terminalSupportsEmoji() {
+			return "emoji"
+		}
+	}
+	return "text"
+}
+
+func terminalSupportsEmoji() bool {
+	program := strings.ToLower(strings.TrimSpace(os.Getenv("TERM_PROGRAM")))
+	if program == "iterm.app" || program == "wezterm" || program == "ghostty" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(os.Getenv("TERM")), "kitty")
 }
 
 func coordinateLine(files []int, cellWidth int) string {

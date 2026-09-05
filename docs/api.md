@@ -240,6 +240,10 @@ symbols are the default; select ASCII with `--theme ascii` or
 dashboard adapts to narrow windows, honors `NO_COLOR`, and redraws the frame
 when position, clocks, or terminal geometry changes. The `:` palette supports `theme`,
 `flip`, `draw`, and `resign`; promotion choices use Left/Right and Enter.
+Wide Unicode cells use larger emoji presentation automatically on terminals
+that advertise iTerm2, WezTerm, Ghostty, or Kitty support. Set
+`CHESS_PIECE_STYLE=text` for strict portable text glyphs or
+`CHESS_PIECE_STYLE=emoji` to force the larger presentation.
 
 ## Network protocol foundation
 

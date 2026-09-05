@@ -466,6 +466,25 @@ func TestScaledUnicodePiecesAreCenteredAndEmphasized(t *testing.T) {
 	}
 }
 
+func TestUnicodePiecePresentationScalesForCapableTerminals(t *testing.T) {
+	ui := boardUI{cursor: chess.NoSquare}
+	rook := chess.Piece{Color: chess.Black, Type: chess.Rook}
+	square, err := chess.ParseSquare("a8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CHESS_PIECE_STYLE", "emoji")
+	got := boardCell(rook, square, 0, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, 10)
+	if !strings.Contains(got, "♜\ufe0f") {
+		t.Fatalf("emoji presentation missing from wide Unicode cell: %q", got)
+	}
+	t.Setenv("CHESS_PIECE_STYLE", "text")
+	got = boardCell(rook, square, 0, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, 10)
+	if strings.Contains(got, "\ufe0f") {
+		t.Fatalf("text presentation unexpectedly contains variation selector: %q", got)
+	}
+}
+
 func TestStripSGRPreservesTerminalControls(t *testing.T) {
 	got := stripSGR("\x1b[31mred\x1b[0m\x1b[2J")
 	if got != "red\x1b[2J" {
@@ -737,7 +756,7 @@ func TestVersionCommand(t *testing.T) {
 
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_BOT_RANDOM", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_NETWORK_INSECURE", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_TLS_CA", "CHESS_TLS_CLIENT_CERT", "CHESS_TLS_CLIENT_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_BOT_RANDOM", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_PIECE_STYLE", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_NETWORK_INSECURE", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_TLS_CA", "CHESS_TLS_CLIENT_CERT", "CHESS_TLS_CLIENT_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
 		t.Setenv(name, "")
 	}
 }
