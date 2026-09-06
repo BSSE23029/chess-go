@@ -251,7 +251,9 @@ The terminal renderer supports ASCII letters and Unicode chess glyphs. Unicode
 rendering is the default; cells with enough width and height use scalable
 block-art icons so pieces remain readable even though terminals cannot change
 an individual glyph's font size. One-row fallback layouts keep the literal
-glyphs centered and bold. Select ASCII with `--theme ascii` or
+glyphs centered and bold. Endgame king-activity terms are tapered by remaining
+non-pawn material, preserving middlegame king safety while making sparse
+positions more precise. Select ASCII with `--theme ascii` or
 `CHESS_THEME=ascii`. An invalid value fails before the game starts. In an interactive terminal, the
 dashboard adapts to narrow windows, honors `NO_COLOR`, and redraws the frame
 when position, clocks, or terminal geometry changes. The `:` palette supports `theme`,

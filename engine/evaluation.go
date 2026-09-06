@@ -132,24 +132,37 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 // Evaluate returns positional evaluation with endgame-specific terms.
 func (EndgameEvaluator) Evaluate(position chess.Position) Score {
 	score := PositionalEvaluator{}.Evaluate(position)
-	queens, rooks, pawns := 0, 0, 0
+	weight := endgameWeight(position)
+	score += scaleEndgameTerm(kingCentralization(position), weight)
+	score += scaleEndgameTerm(kingPawnProximity(position), weight)
+	return score
+}
+
+const maxGamePhase = 20
+
+// endgameWeight returns a 0..maxGamePhase taper based on non-pawn material.
+// Queens and rooks keep king-safety terms in the middlegame, while sparse
+// positions receive the full king-activity and pawn-race signal.
+func endgameWeight(position chess.Position) int {
+	phase := maxGamePhase
 	for square := chess.Square(0); square < 64; square++ {
 		switch position.PieceAt(square).Type {
-		case chess.Queen:
-			queens++
+		case chess.Knight, chess.Bishop:
+			phase--
 		case chess.Rook:
-			rooks++
-		case chess.Pawn:
-			pawns++
+			phase -= 2
+		case chess.Queen:
+			phase -= 4
 		}
 	}
-	if queens == 0 && rooks == 0 {
-		score += kingCentralization(position)
+	if phase < 0 {
+		phase = 0
 	}
-	if pawns > 0 && queens == 0 && rooks == 0 {
-		score += kingPawnProximity(position)
-	}
-	return score
+	return phase
+}
+
+func scaleEndgameTerm(term Score, weight int) Score {
+	return term * Score(weight) / maxGamePhase
 }
 
 func kingCentralization(position chess.Position) Score {

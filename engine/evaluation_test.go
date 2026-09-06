@@ -54,3 +54,16 @@ func TestEndgameEvaluatorPreservesPositionalSignals(t *testing.T) {
 		t.Fatal("advanced profile did not use the endgame evaluator")
 	}
 }
+
+func TestEndgameTermsAreTaperedByRemainingMaterial(t *testing.T) {
+	evaluator := EndgameEvaluator{}
+	sparseActive := mustPosition(t, "4k3/8/8/3P4/3K4/8/8/8 w - - 0 1")
+	sparseCorner := mustPosition(t, "4k3/8/8/3P4/8/8/8/7K w - - 0 1")
+	richActive := mustPosition(t, "3qk3/8/8/3P4/3K4/8/8/3Q4 w - - 0 1")
+	richCorner := mustPosition(t, "3qk3/8/8/3P4/8/8/8/3Q3K w - - 0 1")
+	sparseDelta := evaluator.Evaluate(sparseActive) - evaluator.Evaluate(sparseCorner)
+	richDelta := evaluator.Evaluate(richActive) - evaluator.Evaluate(richCorner)
+	if sparseDelta <= richDelta {
+		t.Fatalf("endgame taper did not increase sparse king activity: sparse %d rich %d", sparseDelta, richDelta)
+	}
+}
