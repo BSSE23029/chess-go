@@ -223,6 +223,10 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 
 	board := boardLines(position, files, ranks, ui, legal, last, model.checkSquare, boardTheme, scale)
 	rail := sidebarLines(position, ui, clocks, model, boardTheme)
+	compactRail := rail
+	if compact {
+		compactRail = compactSidebarLines(rail, width)
+	}
 	if compact {
 		for _, line := range board {
 			fmt.Fprintf(&frame, "  %s\n", line)
@@ -248,7 +252,7 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 	fmt.Fprintf(&frame, "    %s%s%s%s  %s\n", tuiAccent, tuiBold, legendLabel, tuiReset, legend)
 	if compact {
 		fmt.Fprintln(&frame)
-		for _, line := range rail {
+		for _, line := range compactRail {
 			fmt.Fprintf(&frame, "  %s\n", line)
 		}
 	}

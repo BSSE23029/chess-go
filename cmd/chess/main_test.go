@@ -1009,6 +1009,26 @@ func TestCompactFrameFitsTerminalViewport(t *testing.T) {
 	}
 }
 
+func TestNarrowCompactFrameKeepsStatusAndControlsVisible(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Black", mode: "LOCAL MATCH"}
+	model := ui.model(game, game.Position(), unicodeTheme)
+	width, height := 80, 24
+	scale, compact := boardScaleForTerminal(width, height)
+	if !compact {
+		t.Fatal("80x24 viewport unexpectedly selected the dashboard layout")
+	}
+	var output bytes.Buffer
+	renderFullInteractive(&output, game, &ui, model, false, "", unicodeTheme, scale, compact, width, height)
+	frame := stripSGR(formatInteractiveFrame(output.String(), width, height))
+	if !strings.Contains(frame, "CAPTURED") || !strings.Contains(frame, "White to move") {
+		t.Fatalf("narrow frame lost compact status rail:\n%s", frame)
+	}
+	if !strings.Contains(frame, "h/j/k/l move") || !strings.Contains(frame, "? | q") {
+		t.Fatalf("narrow frame lost footer controls:\n%s", frame)
+	}
+}
+
 func TestInteractiveFrameFitsViewport(t *testing.T) {
 	frame := "\x1b[H\x1b[2Jone\ntwo\nthree\n"
 	got := formatInteractiveFrame(frame, 20, 2)

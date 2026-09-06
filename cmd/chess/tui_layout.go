@@ -353,6 +353,28 @@ func sidebarLines(position chess.Position, ui *boardUI, clocks string, model *tu
 	}
 }
 
+func compactSidebarLines(rail []string, width int) []string {
+	if len(rail) < 9 {
+		return rail
+	}
+	clean := func(value string) string {
+		return strings.TrimSpace(stripSGR(value))
+	}
+	players := clean(rail[1]) + "  " + clean(rail[2])
+	status := clean(rail[4]) + " · " + clean(rail[5]) + " · " + clean(rail[6])
+	captured := clean(rail[8])
+	if width > 0 && width < 45 {
+		status = clean(rail[4]) + " · " + clean(rail[5])
+		captured = strings.ReplaceAll(captured, "White:", "W:")
+		captured = strings.ReplaceAll(captured, "Black:", "B:")
+	}
+	return []string{
+		fmt.Sprintf("%s%sMATCH%s  %s", tuiAccent, tuiBold, tuiReset, players),
+		fmt.Sprintf("%s%sSTATUS%s  %s", tuiAccent, tuiBold, tuiReset, status),
+		fmt.Sprintf("%s%sCAPTURED%s  %s", tuiAccent, tuiBold, tuiReset, captured),
+	}
+}
+
 func playerMarker(active bool, boardTheme theme) string {
 	marker := "●"
 	if boardTheme.label() == "ascii" {
