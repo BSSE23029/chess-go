@@ -20,6 +20,18 @@ unset CHESS_TLS_CERT CHESS_TLS_KEY CHESS_TLS_CA CHESS_TLS_CLIENT_CERT CHESS_TLS_
 unset CHESS_LAN_DISCOVERY CHESS_LAN_INSTANCE CHESS_LAN_HOST
 go build -cover -trimpath -buildvcs=false -o "$binary" ./cmd/chess
 
+host_pid=""
+cleanup() {
+	status=$?
+	if [ -n "$host_pid" ]; then
+		kill "$host_pid" 2>/dev/null || true
+		wait "$host_pid" 2>/dev/null || true
+	fi
+	rm -rf "$work"
+	exit "$status"
+}
+trap cleanup EXIT HUP INT TERM
+
 run_case() {
 	GOCOVERDIR="$cover_dir" "$binary" "$@" >/dev/null 2>&1
 }
@@ -45,6 +57,44 @@ pgn="$work/sample.pgn"
 printf '[Event "coverage"]\n\n1. e4 *\n' >"$pgn"
 printf 'quit\n' | GOCOVERDIR="$cover_dir" "$binary" load "$pgn" >/dev/null 2>&1
 
+# Drive the documented network operations through the instrumented binary, not
+# only through package tests. A loopback, plaintext server keeps this harness
+# self-contained; TLS behavior has its own certificate-backed test coverage.
+host_log="$work/host.log"
+GOCOVERDIR="$cover_dir" "$binary" host --addr 127.0.0.1:0 --insecure >"$host_log" 2>&1 &
+host_pid=$!
+host_address=""
+attempt=0
+while [ "$attempt" -lt 100 ]; do
+	if [ -s "$host_log" ]; then
+		host_address=$(sed -n 's/^Hosting chess server on //p' "$host_log" | head -n 1)
+		if [ -n "$host_address" ]; then
+			break
+		fi
+	fi
+	if ! kill -0 "$host_pid" 2>/dev/null; then
+		cat "$host_log" >&2
+		exit 1
+	fi
+	attempt=$((attempt + 1))
+	sleep 0.05
+done
+if [ -z "$host_address" ]; then
+	cat "$host_log" >&2
+	exit 1
+fi
+server_url="http://$host_address"
+
+run_case list "$server_url"
+printf 'quit\n' | GOCOVERDIR="$cover_dir" "$binary" play remote "$server_url" --match coverage-remote --create --player white --color white >/dev/null 2>&1
+run_case join "$server_url" --match coverage-remote --player black --color black
+run_case connect "$server_url" --match coverage-remote --player watcher --color spectator
+run_case spectate "$server_url" --match coverage-remote --player spectator --color spectator
+printf 'quit\n' | GOCOVERDIR="$cover_dir" "$binary" play remote "$server_url" --match coverage-connect --create --player creator --color white >/dev/null 2>&1
+run_case connect "$server_url" --match coverage-connect --player connector --color black
+run_case matchmake "$server_url" --player waiting --color random
+run_case list "$server_url"
+
 # Exercise the real raw-terminal launcher/game path when the host provides the
 # standard BSD/macOS script form. Unit tests still cover rendering on systems
 # without a PTY helper.
@@ -54,6 +104,11 @@ if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	test -s "$work/menu.raw"
 	test -s "$work/game.raw"
 fi
+
+# Flush the host process's instrumented coverage before converting the data.
+kill "$host_pid" 2>/dev/null || true
+wait "$host_pid" 2>/dev/null || true
+host_pid=""
 
 if [ -n "$output_dir" ]; then
 	mkdir -p "$output_dir"

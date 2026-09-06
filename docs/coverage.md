@@ -11,7 +11,7 @@ counted as application behavior.
 | `version`, top-level help, every subcommand help | `cmd/chess/main_test.go`, instrumented binary | `TestSubcommandHelpListsAllFlags`, `scripts/coverage-integration.sh` |
 | Local play, clocks, SAN/UCI, undo/redo, save/load, draw commands | command lifecycle tests | `TestLocalGameLifecycleAndSave`, `TestCommandPaletteCoversDocumentedOperations` |
 | Bot depth/level/personality/color/seed/randomness | config and bot tests | `TestLauncherFormsBuildCLIArguments`, `TestRandomBotSamplesNearBestMoves` |
-| Remote create/join/move/refresh/draw/resign/spectate | real HTTP integration tests | `network_test.go` lifecycle tests with `httptest` service |
+| Remote create/join/move/refresh/draw/resign/spectate | real HTTP integration tests and instrumented binary | `network_test.go` lifecycle tests plus the loopback server/client flow in `scripts/coverage-integration.sh` |
 | Host validation, shutdown, persistence, discovery validation | host/discovery tests | `TestHostAndDiscoveryCommandLifecycle` |
 | TLS, bearer authorization, JSON/protobuf settings | transport and launcher settings tests | `TestLauncherSettingsUpdatesEnvironmentBackedOptions` and transport package tests |
 | Launcher root and network menus | registry, form, and action tests | `TestCommandRegistryDrivesLauncherAndHelp`, `launcher_forms_test.go` |
