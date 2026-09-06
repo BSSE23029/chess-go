@@ -100,13 +100,22 @@ run_case list "$server_url"
 # without a PTY helper.
 if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	printf 'q' | script -q "$work/menu.raw" sh -c "stty cols 60 rows 30; GOCOVERDIR='$cover_dir' '$binary' menu" >/dev/null 2>&1 || true
+	printf 'q' | script -q "$work/game-narrow.raw" sh -c "stty cols 60 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
+	printf 'q' | script -q "$work/game-compact.raw" sh -c "stty cols 80 rows 24; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game.raw" sh -c "stty cols 106 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
+	printf 'q' | script -q "$work/game-wide.raw" sh -c "stty cols 213 rows 60; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	test -s "$work/menu.raw"
+	test -s "$work/game-narrow.raw"
+	test -s "$work/game-compact.raw"
 	test -s "$work/game.raw"
+	test -s "$work/game-wide.raw"
+	grep -a -q 'UNICODE theme · TEXT' "$work/game-narrow.raw"
+	grep -a -q 'UNICODE theme · TEXT' "$work/game-compact.raw"
 	# The normal 106x30 Unicode viewport must select the scalable, centered
 	# icon presentation. This is deliberately checked through a real PTY so a
 	# renderer change cannot pass with only buffer-level snapshot tests.
 	grep -a -q 'UNICODE theme · ICONS' "$work/game.raw"
+	grep -a -q 'UNICODE theme · ICONS' "$work/game-wide.raw"
 	# Keep the key open while changing the PTY size so SIGWINCH redraws the
 	# active game rather than being observed only at process startup.
 	{ sleep 5; printf 'q'; } | script -q "$work/resize.raw" sh -c "stty cols 106 rows 30 </dev/tty; (sleep 2; stty cols 80 rows 24 </dev/tty)& GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
