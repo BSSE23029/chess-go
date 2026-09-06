@@ -123,7 +123,8 @@ fmt.Println(move.UCI())
 The current engine uses fixed-depth alpha-beta search. `engine.New` retains a
 material evaluator for compatibility; named profiles use the deterministic
 `PositionalEvaluator`, which adds piece-square, mobility, pawn-structure,
-bishop-pair, passed-pawn, and king-safety terms. Callers may replace
+bishop-pair, passed-pawn, and king-safety terms (including pawn shelter and
+lightweight king-zone pressure). Callers may replace
 `Bot.Evaluator` with any value implementing `engine.Evaluator`.
 
 `EndgameEvaluator` adds sparse-position king centralization and king-to-pawn
@@ -140,7 +141,8 @@ upper-bound, and preferred-move entries; callers can therefore reuse a single
 `Search` call safely without sharing mutable engine state across games. Its
 statistics include reduced late-move searches, null-move cutoffs, and safe
 quiescence delta-prunes for profiling. Built-in evaluator scores are also
-cached per search by position hash; custom evaluators remain uncached.
+cached per search by position hash; pawn-structure scores are reused across
+positions with the same pawn layout, and custom evaluators remain uncached.
 Quiet cutoffs update per-ply killer and history tables for move ordering, while
 completed iterative scores seed a narrow aspiration window and automatically
 retry with a full window when the score falls outside it.

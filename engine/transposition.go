@@ -87,9 +87,20 @@ func (c *searchControl) evaluate(evaluator Evaluator, position chess.Position) S
 	if entry.valid && entry.key == key {
 		return entry.score
 	}
-	score := evaluator.Evaluate(position)
+	score := evaluateWithPawnCache(evaluator, position, &c.pawnCache)
 	*entry = evaluationEntry{key: key, score: score, valid: true}
 	return score
+}
+
+func evaluateWithPawnCache(evaluator Evaluator, position chess.Position, pawnCache *pawnStructureCache) Score {
+	switch evaluator.(type) {
+	case PositionalEvaluator, *PositionalEvaluator:
+		return evaluatePositional(position, pawnCache)
+	case EndgameEvaluator, *EndgameEvaluator:
+		return evaluateEndgame(position, pawnCache)
+	default:
+		return evaluator.Evaluate(position)
+	}
 }
 
 func cacheableEvaluator(evaluator Evaluator) bool {

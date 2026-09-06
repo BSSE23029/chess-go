@@ -10,6 +10,17 @@ type PositionalEvaluator struct{}
 // positional evaluator for sparse positions.
 type EndgameEvaluator struct{}
 
+type pawnStructureCache struct {
+	entries [1 << 8]pawnStructureEntry
+	hits    uint64
+}
+
+type pawnStructureEntry struct {
+	key   uint64
+	score Score
+	valid bool
+}
+
 var pieceSquare = map[chess.PieceType][64]Score{
 	chess.Pawn: {
 		0, 0, 0, 0, 0, 0, 0, 0,
@@ -76,6 +87,10 @@ var pieceSquare = map[chess.PieceType][64]Score{
 // Evaluate returns material, piece-square, mobility, pawn-structure,
 // bishop-pair, passed-pawn, and king-safety terms from White's perspective.
 func (PositionalEvaluator) Evaluate(position chess.Position) Score {
+	return evaluatePositional(position, nil)
+}
+
+func evaluatePositional(position chess.Position, pawnCache *pawnStructureCache) Score {
 	material := MaterialEvaluator{}.Evaluate(position)
 	var score Score = material
 	var pawns [2][8]int
@@ -120,7 +135,18 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 			bishops[color]++
 		}
 	}
-	score += pawnStructure(pawns)
+	structure := pawnStructure(pawns)
+	if pawnCache != nil {
+		key := pawnStructureKey(pawnRanks)
+		entry := &pawnCache.entries[key&(uint64(len(pawnCache.entries))-1)]
+		if entry.valid && entry.key == key {
+			structure = entry.score
+			pawnCache.hits++
+		} else {
+			*entry = pawnStructureEntry{key: key, score: structure, valid: true}
+		}
+	}
+	score += structure
 	if bishops[0] >= 2 {
 		score += 30
 	}
@@ -130,7 +156,7 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 	if phase < 0 {
 		phase = 0
 	}
-	score += scaleEndgameTerm(kingSafety(pawnRanks, kings), maxGamePhase-phase)
+	score += scaleEndgameTerm(kingSafety(position, pawnRanks, kings), maxGamePhase-phase)
 	score += rookActivity(position, pawns)
 	if position.InCheck() {
 		if position.Turn() == chess.White {
@@ -151,7 +177,11 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 
 // Evaluate returns positional evaluation with endgame-specific terms.
 func (EndgameEvaluator) Evaluate(position chess.Position) Score {
-	score := PositionalEvaluator{}.Evaluate(position)
+	return evaluateEndgame(position, nil)
+}
+
+func evaluateEndgame(position chess.Position, pawnCache *pawnStructureCache) Score {
+	score := evaluatePositional(position, pawnCache)
 	weight := endgameWeight(position)
 	score += scaleEndgameTerm(kingCentralization(position), weight)
 	score += scaleEndgameTerm(kingPawnProximity(position), weight)
@@ -233,7 +263,7 @@ func kingPawnProximity(position chess.Position) Score {
 // kingSafety rewards a pawn shelter in front of each king. It is intentionally
 // small and phase-tapered by the caller: material and tactical search remain
 // decisive, while exposed kings are less attractive in middlegame positions.
-func kingSafety(pawnRanks [2][8]uint16, kings [2]chess.Square) Score {
+func kingSafety(position chess.Position, pawnRanks [2][8]uint16, kings [2]chess.Square) Score {
 	var score Score
 	for color, king := range kings {
 		if king == chess.NoSquare {
@@ -263,6 +293,8 @@ func kingSafety(pawnRanks [2][8]uint16, kings [2]chess.Square) Score {
 		if pawnRanks[color][file]&(1<<shieldRank) == 0 {
 			shelter -= 4
 		}
+		pressure := kingZonePressure(position, king, chess.Color(1-color))
+		shelter -= Score(pressure * 4)
 		if color == int(chess.White) {
 			score += shelter
 		} else {
@@ -270,6 +302,89 @@ func kingSafety(pawnRanks [2][8]uint16, kings [2]chess.Square) Score {
 		}
 	}
 	return score
+}
+
+func kingZonePressure(position chess.Position, king chess.Square, attacker chess.Color) int {
+	file, rank := int(king)%8, int(king)/8
+	pressure := 0
+	for deltaRank := -1; deltaRank <= 1; deltaRank++ {
+		for deltaFile := -1; deltaFile <= 1; deltaFile++ {
+			if deltaFile == 0 && deltaRank == 0 {
+				continue
+			}
+			targetFile, targetRank := file+deltaFile, rank+deltaRank
+			if targetFile < 0 || targetFile > 7 || targetRank < 0 || targetRank > 7 {
+				continue
+			}
+			if squareAttackedBy(position, chess.Square(targetRank*8+targetFile), attacker) {
+				pressure++
+			}
+		}
+	}
+	return pressure
+}
+
+func squareAttackedBy(position chess.Position, target chess.Square, attacker chess.Color) bool {
+	for from := chess.Square(0); from < 64; from++ {
+		piece := position.PieceAt(from)
+		if !piece.IsEmpty() && piece.Color == attacker && pieceAttacksSquare(position, from, target, piece.Type) {
+			return true
+		}
+	}
+	return false
+}
+
+func pieceAttacksSquare(position chess.Position, from, target chess.Square, pieceType chess.PieceType) bool {
+	if from == target {
+		return false
+	}
+	fromFile, fromRank := int(from)%8, int(from)/8
+	targetFile, targetRank := int(target)%8, int(target)/8
+	fileDelta, rankDelta := targetFile-fromFile, targetRank-fromRank
+	fileDistance, rankDistance := abs(fileDelta), abs(rankDelta)
+	switch pieceType {
+	case chess.Pawn:
+		piece := position.PieceAt(from)
+		direction := 1
+		if piece.Color == chess.Black {
+			direction = -1
+		}
+		return rankDelta == direction && fileDistance == 1
+	case chess.Knight:
+		return (fileDistance == 1 && rankDistance == 2) || (fileDistance == 2 && rankDistance == 1)
+	case chess.King:
+		return fileDistance <= 1 && rankDistance <= 1
+	case chess.Bishop:
+		return fileDistance == rankDistance && rayClear(position, fromFile, fromRank, targetFile, targetRank)
+	case chess.Rook:
+		return (fileDelta == 0 || rankDelta == 0) && rayClear(position, fromFile, fromRank, targetFile, targetRank)
+	case chess.Queen:
+		straight := fileDelta == 0 || rankDelta == 0
+		diagonal := fileDistance == rankDistance
+		return (straight || diagonal) && rayClear(position, fromFile, fromRank, targetFile, targetRank)
+	default:
+		return false
+	}
+}
+
+func rayClear(position chess.Position, fromFile, fromRank, targetFile, targetRank int) bool {
+	fileStep, rankStep := sign(targetFile-fromFile), sign(targetRank-fromRank)
+	for file, rank := fromFile+fileStep, fromRank+rankStep; file != targetFile || rank != targetRank; file, rank = file+fileStep, rank+rankStep {
+		if !position.PieceAt(chess.Square(rank*8 + file)).IsEmpty() {
+			return false
+		}
+	}
+	return true
+}
+
+func sign(value int) int {
+	if value < 0 {
+		return -1
+	}
+	if value > 0 {
+		return 1
+	}
+	return 0
 }
 
 func centerDistance(square chess.Square) int {
@@ -312,6 +427,18 @@ func pawnStructure(pawns [2][8]int) Score {
 		}
 	}
 	return score
+}
+
+func pawnStructureKey(pawnRanks [2][8]uint16) uint64 {
+	key := uint64(0x9e3779b97f4a7c15)
+	for color := range pawnRanks {
+		for file, ranks := range pawnRanks[color] {
+			key ^= uint64(ranks) + uint64(color*8+file+1)*0x9e3779b97f4a7c15
+			key = (key ^ key>>30) * 0xbf58476d1ce4e5b9
+			key = (key ^ key>>27) * 0x94d049bb133111eb
+		}
+	}
+	return key ^ key>>31
 }
 
 func passedPawns(position chess.Position, pawnRanks [2][8]uint16) Score {

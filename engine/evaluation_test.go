@@ -63,8 +63,31 @@ func TestKingSafetyRewardsPawnShelterInTheMiddlegame(t *testing.T) {
 	exposed := mustPosition(t, "4k3/8/8/8/8/8/PPP5/5K2 w - - 0 1")
 	shelteredPawns, shelteredKings := pawnEvaluationState(sheltered)
 	exposedPawns, exposedKings := pawnEvaluationState(exposed)
-	if kingSafety(shelteredPawns, shelteredKings) <= kingSafety(exposedPawns, exposedKings) {
-		t.Fatalf("pawn shelter was not rewarded: sheltered %d exposed %d", kingSafety(shelteredPawns, shelteredKings), kingSafety(exposedPawns, exposedKings))
+	if kingSafety(sheltered, shelteredPawns, shelteredKings) <= kingSafety(exposed, exposedPawns, exposedKings) {
+		t.Fatalf("pawn shelter was not rewarded: sheltered %d exposed %d", kingSafety(sheltered, shelteredPawns, shelteredKings), kingSafety(exposed, exposedPawns, exposedKings))
+	}
+}
+
+func TestKingSafetyCountsAttacksIntoTheKingZone(t *testing.T) {
+	pressured := mustPosition(t, "6k1/6r1/8/8/8/8/5PPP/6K1 w - - 0 1")
+	quiet := mustPosition(t, "6k1/r7/8/8/8/8/5PPP/6K1 w - - 0 1")
+	king, err := chess.ParseSquare("g1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := kingZonePressure(pressured, king, chess.Black), kingZonePressure(quiet, king, chess.Black); got <= want {
+		t.Fatalf("king-zone pressure = %d, quiet = %d", got, want)
+	}
+}
+
+func TestSearchPawnCacheReusesPawnLayoutAcrossPositions(t *testing.T) {
+	first := mustPosition(t, "4k3/8/8/8/8/8/4P3/R3K3 w - - 0 1")
+	second := mustPosition(t, "4k3/8/8/8/8/8/4P3/4KR2 w - - 0 1")
+	control := &searchControl{}
+	control.evaluate(PositionalEvaluator{}, first)
+	control.evaluate(PositionalEvaluator{}, second)
+	if control.pawnCache.hits != 1 {
+		t.Fatalf("pawn cache hits = %d, want 1", control.pawnCache.hits)
 	}
 }
 

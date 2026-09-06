@@ -50,6 +50,7 @@ type searchControl struct {
 	moveStorage [32][64]chess.Move
 	pvMove      chess.Move
 	evalCache   [1 << 8]evaluationEntry
+	pawnCache   pawnStructureCache
 	killers     [64][2]chess.Move
 	history     [64 * 64]int
 	reductions  uint64
