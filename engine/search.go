@@ -65,7 +65,7 @@ const (
 	ttExact ttBound = iota
 	ttLower
 	ttUpper
-	searchTableSize = 1 << 12
+	searchTableSize = 1 << 11
 	deltaMargin     = Score(120)
 )
 
