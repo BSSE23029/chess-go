@@ -148,20 +148,40 @@ func TestLauncherFormsBuildCLIArguments(t *testing.T) {
 func TestLauncherSettingsUpdatesEnvironmentBackedOptions(t *testing.T) {
 	clearChessEnv(t)
 	var output bytes.Buffer
-	input := strings.NewReader("ascii\nsprite\nno\n123\nprotobuf\nyes\nca.pem\nclient.pem\nclient.key\n")
+	input := strings.NewReader("ascii\nsprite\nRaza\nblack\nHAL\n5\nClub\nTactician\n123\nno\n10m\n2s\nhttps://example.test\n:9443\ntoken\nprotobuf\nmatch-1\nplayer-1\nserver.crt\nserver.key\nyes\nca.pem\nclient.pem\nclient.key\nmatches.json\nyes\nlab\nboard.local\nyes\n")
 	if err := launcherSettings(bufio.NewReader(input), &output); err != nil {
 		t.Fatal(err)
 	}
 	for name, want := range map[string]string{
 		"CHESS_THEME":            "ascii",
 		"CHESS_PIECE_STYLE":      "sprite",
+		"CHESS_PLAYER_NAME":      "Raza",
+		"CHESS_PLAYER_COLOR":     "black",
+		"CHESS_BOT_NAME":         "HAL",
+		"CHESS_BOT_DEPTH":        "5",
+		"CHESS_BOT_LEVEL":        "Club",
+		"CHESS_BOT_PERSONALITY":  "Tactician",
 		"CHESS_BOT_RANDOM":       "false",
 		"CHESS_BOT_SEED":         "123",
+		"CHESS_CLOCK":            "10m",
+		"CHESS_INCREMENT":        "2s",
+		"CHESS_NETWORK_URL":      "https://example.test",
+		"CHESS_NETWORK_ADDR":     ":9443",
+		"CHESS_NETWORK_TOKEN":    "token",
 		"CHESS_NETWORK_FORMAT":   "protobuf",
 		"CHESS_NETWORK_INSECURE": "true",
+		"CHESS_MATCH_ID":         "match-1",
+		"CHESS_PLAYER_ID":        "player-1",
+		"CHESS_TLS_CERT":         "server.crt",
+		"CHESS_TLS_KEY":          "server.key",
 		"CHESS_TLS_CA":           "ca.pem",
 		"CHESS_TLS_CLIENT_CERT":  "client.pem",
 		"CHESS_TLS_CLIENT_KEY":   "client.key",
+		"CHESS_MATCH_STORE":      "matches.json",
+		"CHESS_LAN_DISCOVERY":    "true",
+		"CHESS_LAN_INSTANCE":     "lab",
+		"CHESS_LAN_HOST":         "board.local",
+		"NO_COLOR":               "1",
 	} {
 		if got := os.Getenv(name); got != want {
 			t.Errorf("%s = %q, want %q", name, got, want)
@@ -171,10 +191,35 @@ func TestLauncherSettingsUpdatesEnvironmentBackedOptions(t *testing.T) {
 
 func TestLauncherSettingsRejectsHalfConfiguredClientCertificate(t *testing.T) {
 	clearChessEnv(t)
+	input := strings.NewReader("unicode\nauto\nnone\nwhite\nnone\n3\nnone\nnone\nnone\nyes\nnone\nnone\nnone\nnone\nnone\njson\nnone\nnone\nnone\nnone\nno\nnone\nclient.pem\nnone\n")
 	var output bytes.Buffer
-	input := strings.NewReader("unicode\nauto\nyes\nnone\njson\nno\nnone\nclient.pem\nnone\n")
 	if err := launcherSettings(bufio.NewReader(input), &output); err == nil || !strings.Contains(err.Error(), "certificate and private key") {
 		t.Fatalf("half-configured client certificate error = %v", err)
+	}
+}
+
+func TestLauncherSettingsRejectsInvalidValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "theme", input: "neon\n", want: "Board theme must be one of"},
+		{name: "depth", input: "unicode\nauto\nnone\nwhite\nnone\n0\n", want: "Bot search depth must be an integer"},
+		{name: "profile", input: "unicode\nauto\nnone\nwhite\nnone\n3\nunknown\n", want: "bot strength profile"},
+		{name: "personality", input: "unicode\nauto\nnone\nwhite\nnone\n3\nnone\nunknown\n", want: "bot personality"},
+		{name: "seed", input: "unicode\nauto\nnone\nwhite\nnone\n3\nnone\nnone\nnot-a-seed\n", want: "bot seed"},
+		{name: "random", input: "unicode\nauto\nnone\nwhite\nnone\n3\nnone\nnone\nnone\nmaybe\n", want: "Vary near-best bot moves must be yes or no"},
+		{name: "clock", input: "unicode\nauto\nnone\nwhite\nnone\n3\nnone\nnone\nnone\nyes\nfast\nnone\n", want: "clock must be"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			clearChessEnv(t)
+			err := launcherSettings(bufio.NewReader(strings.NewReader(test.input)), &bytes.Buffer{})
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("launcher settings error = %v, want substring %q", err, test.want)
+			}
+		})
 	}
 }
 
@@ -1325,7 +1370,7 @@ func TestVersionCommand(t *testing.T) {
 
 func clearChessEnv(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_BOT_RANDOM", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_PIECE_STYLE", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_NETWORK_FORMAT", "CHESS_NETWORK_INSECURE", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_TLS_CA", "CHESS_TLS_CLIENT_CERT", "CHESS_TLS_CLIENT_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST"} {
+	for _, name := range []string{"CHESS_BOT_DEPTH", "CHESS_BOT_LEVEL", "CHESS_BOT_PERSONALITY", "CHESS_BOT_SEED", "CHESS_BOT_RANDOM", "CHESS_PLAYER_COLOR", "CHESS_PLAYER_NAME", "CHESS_BOT_NAME", "CHESS_CLOCK", "CHESS_INCREMENT", "CHESS_THEME", "CHESS_PIECE_STYLE", "CHESS_NETWORK_ADDR", "CHESS_NETWORK_URL", "CHESS_NETWORK_TOKEN", "CHESS_NETWORK_FORMAT", "CHESS_NETWORK_INSECURE", "CHESS_MATCH_ID", "CHESS_PLAYER_ID", "CHESS_TLS_CERT", "CHESS_TLS_KEY", "CHESS_TLS_CA", "CHESS_TLS_CLIENT_CERT", "CHESS_TLS_CLIENT_KEY", "CHESS_MATCH_STORE", "CHESS_LAN_DISCOVERY", "CHESS_LAN_INSTANCE", "CHESS_LAN_HOST", "NO_COLOR"} {
 		t.Setenv(name, "")
 	}
 }

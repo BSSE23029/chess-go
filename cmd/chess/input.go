@@ -2,12 +2,15 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"chess-go"
 )
+
+var errLauncherCancel = errors.New("launcher input cancelled")
 
 type key uint8
 
@@ -110,6 +113,8 @@ func readRawLine(reader *bufio.Reader, output io.Writer) (string, error) {
 		case char == '\r' || char == '\n':
 			fmt.Fprint(output, "\r\n")
 			return string(line), nil
+		case char == 27:
+			return "", errLauncherCancel
 		case (char == 8 || char == 127) && len(line) > 0:
 			line = line[:len(line)-1]
 			fmt.Fprint(output, "\b \b")

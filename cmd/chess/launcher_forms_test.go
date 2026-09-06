@@ -121,3 +121,24 @@ func TestLauncherNetworkDispatchesEverySubmenuItem(t *testing.T) {
 		t.Fatalf("network quit error = %v", err)
 	}
 }
+
+func TestLauncherFormsSupportEscapeCancellation(t *testing.T) {
+	if _, err := launcherAction(bufio.NewReader(strings.NewReader("\x1b")), &bytes.Buffer{}, "local"); !errors.Is(err, errLauncherCancel) {
+		t.Fatalf("local escape error = %v, want launcher cancellation", err)
+	}
+	if _, err := launcherAction(bufio.NewReader(strings.NewReader("\x1b")), &bytes.Buffer{}, "settings"); !errors.Is(err, errLauncherCancel) {
+		t.Fatalf("settings escape error = %v, want launcher cancellation", err)
+	}
+	if _, err := launcherAction(bufio.NewReader(strings.NewReader("\x1b")), &bytes.Buffer{}, "remote"); !errors.Is(err, errLauncherCancel) {
+		t.Fatalf("remote escape error = %v, want launcher cancellation", err)
+	}
+	// Select the first network operation, cancel its form, then leave the
+	// submenu. The form cancellation must not strand the launcher in a dead end.
+	input := strings.NewReader("\n\x1b\x1b")
+	if args, err := launcherNetwork(bufio.NewReader(input), &bytes.Buffer{}); err != nil || len(args) != 0 {
+		t.Fatalf("network form cancellation = %#v, %v", args, err)
+	}
+	if _, err := launcherPromptSecret(bufio.NewReader(strings.NewReader("\x1b")), &bytes.Buffer{}, "Token", "old"); !errors.Is(err, errLauncherCancel) {
+		t.Fatalf("secret escape error = %v, want launcher cancellation", err)
+	}
+}

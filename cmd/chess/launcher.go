@@ -74,6 +74,10 @@ func runLauncher(ctx context.Context, input io.Reader, output io.Writer) ([]stri
 				if errors.Is(err, io.EOF) {
 					return nil, nil
 				}
+				if errors.Is(err, errLauncherCancel) {
+					message = "Cancelled"
+					continue
+				}
 				message = "Error: " + err.Error()
 				continue
 			}
@@ -201,6 +205,9 @@ func launcherPromptSecret(reader *bufio.Reader, output io.Writer, label, default
 	if value == "" {
 		return defaultValue, nil
 	}
+	if strings.EqualFold(value, "none") || value == "-" {
+		return "", nil
+	}
 	return value, nil
 }
 
@@ -212,6 +219,8 @@ func readMaskedLine(reader *bufio.Reader, output io.Writer) (string, error) {
 			return "", err
 		}
 		switch {
+		case character == 27:
+			return "", errLauncherCancel
 		case character == '\r' || character == '\n':
 			fmt.Fprint(output, "\r\n")
 			return string(line), nil
@@ -244,20 +253,26 @@ func launcherNetwork(reader *bufio.Reader, output io.Writer) ([]string, error) {
 		case keyQuit:
 			return nil, io.EOF
 		case keySelect:
+			var args []string
+			var formErr error
 			switch items[selected].action {
 			case "host":
-				return launcherHost(reader, output)
+				args, formErr = launcherHost(reader, output)
 			case "join", "connect", "spectate":
-				return launcherSeat(reader, output, items[selected].action)
+				args, formErr = launcherSeat(reader, output, items[selected].action)
 			case "matchmake":
-				return launcherMatchmake(reader, output)
+				args, formErr = launcherMatchmake(reader, output)
 			case "list":
-				return launcherList(reader, output)
+				args, formErr = launcherList(reader, output)
 			case "discover":
-				return launcherDiscover(reader, output)
+				args, formErr = launcherDiscover(reader, output)
 			case "back":
 				return nil, nil
 			}
+			if errors.Is(formErr, errLauncherCancel) {
+				continue
+			}
+			return args, formErr
 		}
 	}
 }

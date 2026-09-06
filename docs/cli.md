@@ -50,15 +50,17 @@ keyboard-driven launcher. It is a menu equivalent of the command-line surface:
 | Remote game | `play remote`: address, match, player, color, token, create, clocks, and theme. |
 | Network tools | `host`, `join`, `connect`, `spectate`, `matchmake`, `list`, and `discover`, including their flags. |
 | Load PGN | `load FILE`. |
-| Settings | Board theme, scalable piece style, bot randomness/seed, JSON or protobuf wire format, insecure-local mode, and TLS CA/mTLS paths. |
+| Settings | All `CHESS_*` defaults used by `cmd/chess` plus `NO_COLOR`: identity, local clocks, bot strength/personality/variation, network endpoints and credentials, match defaults, TLS, durable storage, and LAN discovery. |
 | Help | The top-level command reference. |
 | Version | `version`. |
 
 Use Arrow keys or `j`/`k` to move, Enter or Space to select, and `q` or Esc to
 go back. Press `-` or type `none` for optional values such as a seed, token,
-or TLS path. The Settings screen validates paired mTLS certificate/key paths
-before saving them. Environment variables remain the defaults, so the launcher is
-convenient without hard-coding identity, paths, or network settings.
+or TLS path; press Esc while entering a value to cancel the current form.
+The Settings screen validates profiles, personalities, depths, durations,
+booleans, seeds, and paired mTLS certificate/key paths before saving them.
+Environment variables remain the defaults, so the launcher is convenient
+without hard-coding identity, paths, or network settings.
 
 The launcher is also a visual command index. This is a real 80x24 Terminal.app
 capture of the menu shipped with the current binary:
@@ -239,6 +241,7 @@ Commands that change a finished game are rejected. `fen`, `load`, `save`, and
 | `CHESS_BOT_RANDOM` | Enable near-best move variation (default `true`). |
 | `CHESS_CLOCK` / `CHESS_INCREMENT` | Local time control. |
 | `CHESS_NETWORK_ADDR` | Host server bind address. |
+| `CHESS_NETWORK_URL` | Default HTTPS endpoint for network client commands. |
 | `CHESS_NETWORK_TOKEN` | HTTP/WebSocket bearer token. |
 | `CHESS_NETWORK_FORMAT` | Envelope framing for environment-backed clients: `json` (default) or `protobuf`. |
 | `CHESS_MATCH_ID` / `CHESS_PLAYER_ID` | Remote match/session defaults. |

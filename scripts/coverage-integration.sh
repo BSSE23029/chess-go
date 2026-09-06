@@ -18,6 +18,7 @@ unset CHESS_PLAYER_COLOR CHESS_PLAYER_NAME CHESS_BOT_NAME CHESS_CLOCK CHESS_INCR
 unset CHESS_NETWORK_ADDR CHESS_NETWORK_URL CHESS_NETWORK_TOKEN CHESS_NETWORK_FORMAT CHESS_NETWORK_INSECURE CHESS_MATCH_ID CHESS_PLAYER_ID
 unset CHESS_TLS_CERT CHESS_TLS_KEY CHESS_TLS_CA CHESS_TLS_CLIENT_CERT CHESS_TLS_CLIENT_KEY CHESS_MATCH_STORE
 unset CHESS_LAN_DISCOVERY CHESS_LAN_INSTANCE CHESS_LAN_HOST
+unset NO_COLOR
 go build -cover -trimpath -buildvcs=false -o "$binary" ./cmd/chess
 
 host_pid=""
@@ -100,15 +101,19 @@ run_case list "$server_url"
 # without a PTY helper.
 if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	printf 'q' | script -q "$work/menu.raw" sh -c "stty cols 60 rows 30; GOCOVERDIR='$cover_dir' '$binary' menu" >/dev/null 2>&1 || true
+	printf '\033[B\033[B\033[B\033[B\033[B\n\033q' | script -q "$work/menu-settings.raw" sh -c "stty cols 80 rows 24; GOCOVERDIR='$cover_dir' '$binary' menu" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game-narrow.raw" sh -c "stty cols 60 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game-compact.raw" sh -c "stty cols 80 rows 24; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game.raw" sh -c "stty cols 106 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game-wide.raw" sh -c "stty cols 213 rows 60; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	test -s "$work/menu.raw"
+	test -s "$work/menu-settings.raw"
 	test -s "$work/game-narrow.raw"
 	test -s "$work/game-compact.raw"
 	test -s "$work/game.raw"
 	test -s "$work/game-wide.raw"
+	grep -a -q 'Settings' "$work/menu-settings.raw"
+	grep -a -q 'Cancelled' "$work/menu-settings.raw"
 	grep -a -q 'UNICODE theme · TEXT' "$work/game-narrow.raw"
 	grep -a -q 'UNICODE theme · TEXT' "$work/game-compact.raw"
 	# The normal 106x30 Unicode viewport must select the scalable, centered
