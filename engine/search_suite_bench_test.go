@@ -29,15 +29,17 @@ func BenchmarkSearchSuiteDepth3(b *testing.B) {
 			bot := New(3)
 			b.ReportAllocs()
 			b.ResetTimer()
-			var nodes uint64
+			var nodes, ttHits uint64
 			for range b.N {
 				_, stats, err := bot.Search(context.Background(), position, SearchLimits{MaxDepth: 3})
 				if err != nil {
 					b.Fatal(err)
 				}
 				nodes += stats.Nodes
+				ttHits += stats.TTHits
 			}
 			b.ReportMetric(float64(nodes)/float64(b.N), "nodes/search")
+			b.ReportMetric(float64(ttHits)/float64(b.N), "tt-hits/search")
 		})
 	}
 }

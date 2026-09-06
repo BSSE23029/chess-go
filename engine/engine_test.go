@@ -134,6 +134,9 @@ func TestTranspositionTableCachesCompletedSearch(t *testing.T) {
 	if err != nil || cached != score || control.nodes != 1 || firstNodes <= control.nodes {
 		t.Fatalf("cached search = score %d nodes %d, first score %d nodes %d, error %v", cached, control.nodes, score, firstNodes, err)
 	}
+	if control.ttHits == 0 {
+		t.Fatal("cached search did not record a transposition-table hit")
+	}
 	if position.Hash() != chess.NewPosition().Hash() {
 		t.Fatal("transposition search mutated its input")
 	}
@@ -150,6 +153,19 @@ func TestTranspositionTablePrefersDeeperCollidingEntries(t *testing.T) {
 	entry, ok := table.lookup(2)
 	if !ok || entry.depth != 5 || entry.score != 30 {
 		t.Fatalf("deeper replacement = %#v, found %v", entry, ok)
+	}
+}
+
+func TestSearchHistoryUsesStableMoveBuckets(t *testing.T) {
+	control := &searchControl{}
+	move := chess.Move{From: 12, To: 28}
+	control.recordHistory(move, 9)
+	control.recordHistory(move, 16)
+	if got := control.historyScore(move); got != 25 {
+		t.Fatalf("history score = %d, want 25", got)
+	}
+	if got := control.historyScore(chess.Move{From: 64, To: 0}); got != 0 {
+		t.Fatalf("invalid history move score = %d, want 0", got)
 	}
 }
 

@@ -38,6 +38,8 @@ type SearchStats struct {
 	NullCutoffs uint64
 	// DeltaPrunes is the number of quiescence captures rejected by delta pruning.
 	DeltaPrunes uint64
+	// TTHits is the number of transposition-table lookups that found a key.
+	TTHits uint64
 }
 
 type searchControl struct {
@@ -49,10 +51,11 @@ type searchControl struct {
 	pvMove      chess.Move
 	evalCache   [1 << 8]evaluationEntry
 	killers     [64][2]chess.Move
-	history     map[chess.Move]int
+	history     [64 * 64]int
 	reductions  uint64
 	nullCutoffs uint64
 	deltaPrunes uint64
+	ttHits      uint64
 	random      uint64
 }
 
@@ -112,7 +115,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		searchCtx, cancel = context.WithTimeout(ctx, limits.Time)
 		defer cancel()
 	}
-	control := &searchControl{limit: limits.MaxNodes, tt: newTranspositionTable(searchTableSize), history: make(map[chess.Move]int), random: b.Seed}
+	control := &searchControl{limit: limits.MaxNodes, tt: newTranspositionTable(searchTableSize), random: b.Seed}
 	evaluator := b.Evaluator
 	if evaluator == nil {
 		evaluator = MaterialEvaluator{}
@@ -128,7 +131,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		for {
 			candidate, score, failLow, failHigh, err := b.iteration(searchCtx, evaluator, &position, moves, depth, alpha, beta, control)
 			if err != nil {
-				stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes
+				stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes, stats.TTHits = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes, control.ttHits
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					return best, stats, err
 				}
@@ -143,7 +146,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 			}
 			best, stats.Depth, stats.Score = candidate, depth, score
 			control.pvMove = candidate
-			stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes
+			stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes, stats.TTHits = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes, control.ttHits
 			break
 		}
 	}
@@ -256,9 +259,6 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 	if err := control.visit(ctx); err != nil {
 		return 0, err
 	}
-	if control.history == nil {
-		control.history = make(map[chess.Move]int)
-	}
 	originalAlpha := alpha
 	var cached ttEntry
 	if depth > 0 {
@@ -337,7 +337,7 @@ func (b *Bot) search(ctx context.Context, evaluator Evaluator, position *chess.P
 		}
 		if alpha >= beta {
 			if move.Flags&chess.Capture == 0 {
-				control.history[move] += depth * depth
+				control.recordHistory(move, depth*depth)
 				if ply < len(control.killers) {
 					if control.killers[ply][0] != move {
 						control.killers[ply][1] = control.killers[ply][0]
@@ -419,7 +419,7 @@ func searchMovePriority(position *chess.Position, move chess.Move, ply int, cont
 			priority += 5000
 		}
 	}
-	priority += control.history[move] / 100
+	priority += control.historyScore(move) / 100
 	return priority
 }
 

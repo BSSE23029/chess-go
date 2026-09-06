@@ -7,6 +7,7 @@ var (
 	kingSteps   = [][2]int{{1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}, {-1, -1}, {0, -1}, {1, -1}}
 	bishopSteps = [][2]int{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}}
 	rookSteps   = [][2]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+	queenSteps  = [][2]int{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}}
 )
 
 // LegalMoves returns every legal move for the side to move.
@@ -163,7 +164,7 @@ func (p Position) pseudoMoves() []Move {
 		case Rook:
 			moves = p.slideMoves(moves, square, rookSteps)
 		case Queen:
-			moves = p.slideMoves(moves, square, append(bishopSteps, rookSteps...))
+			moves = p.slideMoves(moves, square, queenSteps)
 		case King:
 			moves = p.stepMoves(moves, square, kingSteps)
 			moves = p.castleMoves(moves, square, piece.Color)
@@ -188,7 +189,7 @@ func (p Position) pseudoMovesInto(moves []Move) []Move {
 		case Rook:
 			moves = p.slideMoves(moves, square, rookSteps)
 		case Queen:
-			moves = p.slideMoves(moves, square, append(bishopSteps, rookSteps...))
+			moves = p.slideMoves(moves, square, queenSteps)
 		case King:
 			moves = p.stepMoves(moves, square, kingSteps)
 			moves = p.castleMoves(moves, square, piece.Color)

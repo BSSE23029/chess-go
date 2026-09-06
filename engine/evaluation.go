@@ -118,7 +118,8 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 			score += 35
 		}
 	}
-	mobility := Score(len(position.LegalMoves()) * 2)
+	var legalMoves [64]chess.Move
+	mobility := Score(len(position.LegalMovesInto(legalMoves[:0])) * 2)
 	if position.Turn() == chess.White {
 		score += mobility
 	} else {

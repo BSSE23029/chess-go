@@ -8,6 +8,12 @@ positions and reports elapsed time, allocations, and average nodes per search:
 go test ./engine -run '^$' -bench '^BenchmarkSearchSuiteDepth3$' -benchmem
 ```
 
+The suite reports `nodes/search` and `tt-hits/search` in addition to elapsed
+time and allocations. A representative Apple M1 Pro run currently measures
+about 70 allocations for the opening position and 77 for the tactical
+position at depth 3; treat those numbers as a local regression baseline, not a
+portable performance guarantee.
+
 Run the broader benchmark set with:
 
 ```console

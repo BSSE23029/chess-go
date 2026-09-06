@@ -62,12 +62,19 @@ func (c *searchControl) lookup(key uint64) (ttEntry, bool) {
 		return ttEntry{}, false
 	}
 	if c.tt != nil {
-		return c.tt.lookup(key)
+		entry, ok := c.tt.lookup(key)
+		if ok {
+			c.ttHits++
+		}
+		return entry, ok
 	}
 	if c.table == nil {
 		return ttEntry{}, false
 	}
 	entry, ok := c.table[key]
+	if ok {
+		c.ttHits++
+	}
 	return entry, ok
 }
 
