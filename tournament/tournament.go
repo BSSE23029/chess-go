@@ -238,6 +238,12 @@ func timeoutResult(color chess.Color) string {
 func chooseMove(ctx context.Context, player chess.Player, position chess.Position, nodeBudget uint64) (chess.Move, error) {
 	if bot, ok := player.(*engine.Bot); ok && nodeBudget != 0 {
 		move, _, err := bot.Search(ctx, position, engine.SearchLimits{MaxDepth: bot.Depth, MaxNodes: nodeBudget})
+		if errors.Is(err, engine.ErrSearchLimit) && move != (chess.Move{}) {
+			// A tournament node budget can be smaller than one complete
+			// iteration. Search still returns its first legal root candidate;
+			// keep the game moving while preserving the public Search error.
+			return move, nil
+		}
 		return move, err
 	}
 	return player.ChooseMove(ctx, position)
