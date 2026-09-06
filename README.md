@@ -78,6 +78,11 @@ Set `NO_COLOR=1` when ANSI color is not desired. The TUI scales its board and
 sidebar to the current terminal size, clips safely at very small viewports,
 restores the terminal on exit, and redraws cleanly when state or clocks change.
 
+Machine-specific values can be kept out of scripts by copying
+`.env.example` to `.env`, editing it, and sourcing it before starting a
+command (`set -a; . ./.env; set +a`). The binary reads environment variables
+at startup and intentionally does not auto-load dotenv files.
+
 Interactive controls are Arrow keys or `h`/`j`/`k`/`l`, Enter/Space to select,
 `Esc` to clear, `u`/`r` for undo/redo, `n` for a confirmed new game, `:` for
 commands, `?` for help, and `q` or Ctrl-C to quit. Promotion choices use

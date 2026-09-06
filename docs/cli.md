@@ -227,6 +227,11 @@ Commands that change a finished game are rejected. `fen`, `load`, `save`, and
 
 ## Environment variables
 
+For a complete, non-secret starting point, copy [`.env.example`](../.env.example)
+to `.env`, edit it, and source it in the shell with
+`set -a; . ./.env; set +a`. The binary reads these variables at startup; it
+does not auto-load dotenv files or commit local secrets.
+
 | Variable | Used by |
 |---|---|
 | `CHESS_THEME` | Default `unicode`/`ascii` board theme. |
