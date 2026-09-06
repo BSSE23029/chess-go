@@ -87,15 +87,16 @@ func spritePixelRowScaled(bitmap []string, pixelRow, pixelRows, width int) strin
 	if len(bitmap) == 0 || pixelRows < 1 || pixelRow < 0 || pixelRow >= pixelRows {
 		return strings.Repeat(" ", maxInt(width, 0))
 	}
-	// Reserve the first and last half-row for breathing room, then map the
-	// silhouette onto the rows in between. This preserves the visual baseline
-	// even when a compact two-row cell has to compress the icon.
-	if pixelRows > 2 && (pixelRow == 0 || pixelRow == pixelRows-1) {
-		return strings.Repeat(" ", maxInt(width, 0))
-	}
-	if pixelRows <= 2 {
+	// A two-row cell has no room for breathing rows: mapping all four bitmap
+	// rows keeps the compact icon recognizable instead of retaining only its
+	// first and last source rows. Taller cells reserve an outer blank row to
+	// keep the silhouette visually centered against the board border.
+	if pixelRows <= 4 {
 		sourceRow := pixelRow * (len(bitmap) - 1) / maxInt(pixelRows-1, 1)
 		return scaleSpriteRow(bitmap[sourceRow], width)
+	}
+	if pixelRow == 0 || pixelRow == pixelRows-1 {
+		return strings.Repeat(" ", maxInt(width, 0))
 	}
 	interiorRows := maxInt(pixelRows-2, 1)
 	interiorRow := pixelRow - 1

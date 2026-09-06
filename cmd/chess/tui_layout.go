@@ -243,6 +243,25 @@ func unicodePieceStyle() string {
 	}
 }
 
+func piecePresentationLabel(boardTheme theme, scale boardScale) string {
+	if boardTheme.label() != "unicode" {
+		return "letters"
+	}
+	style := unicodePieceStyle()
+	if style == "auto" {
+		if pieceSpriteEnabled(chess.Piece{Color: chess.White, Type: chess.Pawn}, boardTheme, scale.cellWidth, scale.cellHeight) {
+			return "icons"
+		}
+		return "text"
+	}
+	if style == "sprite" || style == "emoji" {
+		if style == "sprite" || (scale.cellWidth >= 10 && terminalSupportsEmoji()) {
+			return style
+		}
+	}
+	return "text"
+}
+
 func terminalSupportsEmoji() bool {
 	program := strings.ToLower(strings.TrimSpace(os.Getenv("TERM_PROGRAM")))
 	if program == "iterm.app" || program == "wezterm" || program == "ghostty" {

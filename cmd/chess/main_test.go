@@ -661,6 +661,23 @@ func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 	}
 }
 
+func TestPiecePresentationLabelExplainsTheActiveUnicodeMode(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 2}); got != "icons" {
+		t.Fatalf("auto presentation = %q, want icons", got)
+	}
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 1}); got != "text" {
+		t.Fatalf("compact presentation = %q, want text", got)
+	}
+	t.Setenv("CHESS_PIECE_STYLE", "text")
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 18, cellHeight: 4}); got != "text" {
+		t.Fatalf("text presentation = %q, want text", got)
+	}
+	if got := piecePresentationLabel(asciiTheme, boardScale{cellWidth: 18, cellHeight: 4}); got != "letters" {
+		t.Fatalf("ASCII presentation = %q, want letters", got)
+	}
+}
+
 func TestScaledBoardRepeatsRanksWithoutFixedClockCoordinates(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "text")
 	game := chess.NewGame()
@@ -882,6 +899,11 @@ func TestResponsive106RowBoardUsesCenteredSprites(t *testing.T) {
 	}
 	if spriteRows != 2 {
 		t.Fatalf("compact sprite rows = %d, want 2", spriteRows)
+	}
+	for row := 0; row < 2; row++ {
+		if rendered := pieceSpriteRowScaled(chess.Piece{Type: chess.Rook}, scale.cellWidth, scale.cellHeight, row); !strings.ContainsAny(rendered, "▀▄█") {
+			t.Fatalf("compact rook row %d lost its silhouette: %q", row, rendered)
+		}
 	}
 }
 

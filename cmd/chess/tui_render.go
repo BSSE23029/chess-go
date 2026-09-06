@@ -215,7 +215,11 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 	if mode == "" {
 		mode = "LOCAL MATCH"
 	}
-	fmt.Fprintf(&frame, "%s  %s%s%s theme%s %d move%s%s\n\n", tuiDim, mode, separator, strings.ToUpper(boardTheme.label()), separator, model.moveCount, plural(model.moveCount), tuiReset)
+	presentation := ""
+	if boardTheme.label() == "unicode" {
+		presentation = separator + strings.ToUpper(piecePresentationLabel(boardTheme, scale))
+	}
+	fmt.Fprintf(&frame, "%s  %s%s%s theme%s%s %d move%s%s\n\n", tuiDim, mode, separator, strings.ToUpper(boardTheme.label()), presentation, separator, model.moveCount, plural(model.moveCount), tuiReset)
 
 	board := boardLines(position, files, ranks, ui, legal, last, model.checkSquare, boardTheme, scale)
 	rail := sidebarLines(position, ui, clocks, model, boardTheme)
