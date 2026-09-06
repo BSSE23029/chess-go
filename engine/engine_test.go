@@ -309,6 +309,25 @@ func TestPersonalityStyleBonusesArePositionAware(t *testing.T) {
 	if styleBonus(position, capture, Aggressive) <= styleBonus(position, quiet, Aggressive) {
 		t.Fatal("aggressive style did not prefer a forcing capture")
 	}
+	if styleBonus(position, capture, Tactician) <= styleBonus(position, quiet, Tactician) {
+		t.Fatal("tactician style did not prefer a winning exchange")
+	}
+	losingPosition, err := chess.ParseFEN("3rk3/8/8/8/8/3p4/3R4/4K3 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var losingCapture, losingQuiet chess.Move
+	for _, move := range losingPosition.LegalMoves() {
+		if move.UCI() == "d2d3" {
+			losingCapture = move
+		}
+		if move.UCI() == "d2d4" {
+			losingQuiet = move
+		}
+	}
+	if styleBonus(losingPosition, losingCapture, Tactician) >= styleBonus(losingPosition, losingQuiet, Tactician) {
+		t.Fatal("tactician style did not discount a losing exchange")
+	}
 	if !tacticalPosition(position) {
 		t.Fatal("capture position was not classified as tactical")
 	}

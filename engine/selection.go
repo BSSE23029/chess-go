@@ -162,6 +162,7 @@ func styleBonus(position chess.Position, move chess.Move, personality Personalit
 	case Tactician:
 		if move.Flags&chess.Capture != 0 {
 			bonus += 30
+			bonus += tacticalExchangeBonus(staticExchange(position, move))
 		}
 		if givesCheck {
 			bonus += 45
@@ -183,6 +184,17 @@ func styleBonus(position chess.Position, move chess.Move, personality Personalit
 		}
 	}
 	return bonus
+}
+
+func tacticalExchangeBonus(exchange Score) Score {
+	const limit = Score(80)
+	if exchange > limit*4 {
+		return limit
+	}
+	if exchange < -limit*4 {
+		return -limit
+	}
+	return exchange / 4
 }
 
 func pieceValue(piece chess.PieceType) Score {
