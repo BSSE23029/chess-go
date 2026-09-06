@@ -103,6 +103,10 @@ if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	printf 'q' | script -q "$work/game.raw" sh -c "stty cols 106 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	test -s "$work/menu.raw"
 	test -s "$work/game.raw"
+	# The normal 106x30 Unicode viewport must select the scalable, centered
+	# icon presentation. This is deliberately checked through a real PTY so a
+	# renderer change cannot pass with only buffer-level snapshot tests.
+	grep -a -q 'UNICODE theme · ICONS' "$work/game.raw"
 fi
 
 # Flush the host process's instrumented coverage before converting the data.
