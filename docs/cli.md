@@ -60,6 +60,24 @@ or TLS path. The Settings screen validates paired mTLS certificate/key paths
 before saving them. Environment variables remain the defaults, so the launcher is
 convenient without hard-coding identity, paths, or network settings.
 
+The launcher is also a visual command index. This is a real 80x24 Terminal.app
+capture of the menu shipped with the current binary:
+
+![Interactive chess-go launcher](images/terminal-launcher.png)
+
+### Responsive terminal rendering
+
+The TUI repaints after a terminal resize. At 106 columns and above, Unicode
+`auto` mode selects the scalable `ICONS` presentation; at compact sizes it
+selects `TEXT` and keeps the sidebar, recent moves, and controls in the
+viewport. The header label tells you which presentation is active. Override it
+with `CHESS_PIECE_STYLE=text`, `sprite`/`icon`, or `emoji` (emoji falls back to
+text on terminals that do not advertise emoji support).
+
+![Wide Unicode game with scalable icons](images/terminal-wide.png)
+
+![Compact Unicode game with centered text glyphs](images/terminal-compact.png)
+
 ## Local play
 
 ```console
@@ -79,9 +97,9 @@ undo/redo, `n` for a confirmed new game, `:` for the command palette, `?` for
 the key guide, and `q` or Ctrl-C to quit. Narrow terminals stack the sidebar
 below the board; redirected output uses the line renderer.
 
-![Wide Unicode terminal layout](images/preview-unicode.svg)
-
-![Narrow ASCII terminal layout](images/preview-ascii.svg)
+The SVG files [`preview-unicode.svg`](images/preview-unicode.svg) and
+[`preview-ascii.svg`](images/preview-ascii.svg) remain available as small,
+rendering-independent previews.
 
 ## Bot play
 
@@ -115,6 +133,8 @@ chess play bot [--level NAME | --depth N] [--color white|black]
 
 The dashboard displays the bot's latest completed depth, node count, and score
 when the built-in engine returns search statistics.
+
+![Chess-go bot game with a completed move](images/terminal-bot.png)
 
 ## Remote play
 

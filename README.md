@@ -83,15 +83,24 @@ Interactive controls are Arrow keys or `h`/`j`/`k`/`l`, Enter/Space to select,
 commands, `?` for help, and `q` or Ctrl-C to quit. Promotion choices use
 Left/Right and Enter.
 
-### Terminal previews
+### Terminal screenshots
 
-The board grows into the available space on a wide terminal and switches to a
-stacked, compact layout when the window is narrow. Both previews are rendered
-from the same themes available at runtime:
+These are real captures from the current `chess` binary running in macOS
+Terminal.app. The same renderer adapts to the viewport: wide terminals use
+large block-art piece icons, while compact terminals switch to centered text
+glyphs so the board and controls remain usable.
 
-![Wide Unicode chess-go terminal board](docs/images/preview-unicode.svg)
+![Wide Unicode chess-go game at 240x56](docs/images/terminal-wide.png)
 
-![Compact ASCII chess-go terminal board](docs/images/preview-ascii.svg)
+![Chess-go bot game at 120x30](docs/images/terminal-bot.png)
+
+![Compact Unicode chess-go game at 80x24](docs/images/terminal-compact.png)
+
+![Interactive chess-go launcher at 80x24](docs/images/terminal-launcher.png)
+
+The repository also keeps lightweight SVG previews for documentation tooling:
+[`preview-unicode.svg`](docs/images/preview-unicode.svg) and
+[`preview-ascii.svg`](docs/images/preview-ascii.svg).
 
 ## Go API quick start
 
