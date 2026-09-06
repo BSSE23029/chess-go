@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"chess-go"
@@ -47,6 +49,9 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 	defer term.Restore(int(in.Fd()), state) //nolint:errcheck -- best effort during shutdown
 	fmt.Fprint(output, "\x1b[?1049h\x1b[?25l")
 	defer fmt.Fprint(output, "\x1b[0m\x1b[?25h\x1b[?1049l")
+	resizes := make(chan os.Signal, 1)
+	signal.Notify(resizes, syscall.SIGWINCH)
+	defer signal.Stop(resizes)
 
 	ui := boardUI{
 		cursor:    initialCursor(s.human),
@@ -109,7 +114,30 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 		var pressed key
 		var err error
 		if s.clock == nil || !gameActive {
-			pressed, err = readKey(reader)
+			keys := make(chan key, 1)
+			keyErrors := make(chan error, 1)
+			go func() {
+				value, readErr := readKey(reader)
+				if readErr != nil {
+					keyErrors <- readErr
+					return
+				}
+				keys <- value
+			}()
+			for {
+				select {
+				case pressed = <-keys:
+					break
+				case err = <-keyErrors:
+					break
+				case <-resizes:
+					renderInteractive(output, s.game, &ui, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
+					continue
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				break
+			}
 		} else {
 			keys := make(chan key, 1)
 			keyErrors := make(chan error, 1)
@@ -134,6 +162,8 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 					s.flag(mover)
 					timedOut = true
 				case <-ticker.C:
+					renderInteractive(output, s.game, &ui, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
+				case <-resizes:
 					renderInteractive(output, s.game, &ui, (s.human == chess.Black) != s.flip, s.clockSummary(), s.theme)
 				case <-ctx.Done():
 					timer.Stop()

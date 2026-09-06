@@ -107,6 +107,12 @@ if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	# icon presentation. This is deliberately checked through a real PTY so a
 	# renderer change cannot pass with only buffer-level snapshot tests.
 	grep -a -q 'UNICODE theme · ICONS' "$work/game.raw"
+	# Keep the key open while changing the PTY size so SIGWINCH redraws the
+	# active game rather than being observed only at process startup.
+	{ sleep 5; printf 'q'; } | script -q "$work/resize.raw" sh -c "stty cols 106 rows 30 </dev/tty; (sleep 2; stty cols 80 rows 24 </dev/tty)& GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
+	test -s "$work/resize.raw"
+	grep -a -q 'UNICODE theme · ICONS' "$work/resize.raw"
+	grep -a -q 'UNICODE theme · TEXT' "$work/resize.raw"
 fi
 
 # Flush the host process's instrumented coverage before converting the data.
