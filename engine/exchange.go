@@ -7,7 +7,9 @@ var exchangePieceValues = [...]Score{0, 100, 320, 330, 500, 900, 0}
 // staticExchange estimates the material result of a capture when both sides
 // repeatedly recapture on the same square. Legal move generation excludes
 // pinned and king-unsafe recaptures, keeping the tactical signal independent
-// of search state and suitable for future ordering or conservative pruning.
+// of search state. It is intentionally used by the Tactician selector today;
+// default quiescence keeps its cheaper capture/delta path until benchmarks
+// justify paying SEE's recursive move-generation cost on every capture.
 func staticExchange(position chess.Position, move chess.Move) Score {
 	if move.Flags&chess.Capture == 0 {
 		return 0

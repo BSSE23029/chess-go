@@ -111,6 +111,7 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 	if bishops[1] >= 2 {
 		score -= 30
 	}
+	score += rookActivity(position, pawns)
 	if position.InCheck() {
 		if position.Turn() == chess.White {
 			score -= 35
@@ -263,12 +264,46 @@ func passedPawns(position chess.Position) Score {
 			}
 		}
 		if passed {
-			bonus := Score(20 + 5*rank)
+			advance := rank
+			if pawn.Color == chess.Black {
+				advance = 7 - rank
+			}
+			bonus := Score(20 + 5*advance)
 			if pawn.Color == chess.White {
 				score += bonus
 			} else {
 				score -= bonus
 			}
+		}
+	}
+	return score
+}
+
+// rookActivity rewards files that let rooks work and rooks that reach the
+// opponent's second rank. The bonus is deliberately modest: material and
+// tactical search remain more important than a purely geometric preference.
+func rookActivity(position chess.Position, pawns [2][8]int) Score {
+	var score Score
+	for square := chess.Square(0); square < 64; square++ {
+		rook := position.PieceAt(square)
+		if rook.Type != chess.Rook {
+			continue
+		}
+		file, rank := int(square)%8, int(square)/8
+		color := int(rook.Color)
+		bonus := Score(0)
+		if pawns[0][file]+pawns[1][file] == 0 {
+			bonus += 18
+		} else if pawns[color][file] == 0 {
+			bonus += 10
+		}
+		if (rook.Color == chess.White && rank == 6) || (rook.Color == chess.Black && rank == 1) {
+			bonus += 20
+		}
+		if rook.Color == chess.White {
+			score += bonus
+		} else {
+			score -= bonus
 		}
 	}
 	return score

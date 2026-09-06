@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"chess-go"
@@ -46,6 +47,31 @@ func TestTacticalStrengthSuite(t *testing.T) {
 			},
 		},
 		{
+			name:  "forcing check",
+			fen:   "6k1/5ppp/8/8/6Q1/8/5PPP/6K1 w - - 0 1",
+			depth: 2,
+			check: func(t *testing.T, position chess.Position, move chess.Move) {
+				next, err := position.Apply(move)
+				if err != nil || !next.InCheck() {
+					t.Fatalf("forcing move %s did not give check: %v", move.UCI(), err)
+				}
+			},
+		},
+		{
+			name:  "defensive block or king move",
+			fen:   "4r1k1/8/8/8/8/8/3Q4/4K3 w - - 0 1",
+			depth: 2,
+			check: func(t *testing.T, position chess.Position, move chess.Move) {
+				if !position.InCheck() {
+					t.Fatal("defensive test position is not in check")
+				}
+				next, err := position.Apply(move)
+				if err != nil || next.InCheck() {
+					t.Fatalf("defensive move %s left the king in check: %v", move.UCI(), err)
+				}
+			},
+		},
+		{
 			name:  "winning capture",
 			fen:   "4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1",
 			depth: 1,
@@ -72,5 +98,49 @@ func TestTacticalStrengthSuite(t *testing.T) {
 			}
 			test.check(t, position, move)
 		})
+	}
+}
+
+func selfPlayLine(t *testing.T, white, black *Bot, plies int) []string {
+	t.Helper()
+	game := chess.NewGame()
+	line := make([]string, 0, plies)
+	for range plies {
+		bot := white
+		if game.Position().Turn() == chess.Black {
+			bot = black
+		}
+		move, err := bot.ChooseMove(context.Background(), game.Position())
+		if err != nil {
+			t.Fatal(err)
+		}
+		line = append(line, move.UCI())
+		if err := game.Play(move); err != nil {
+			t.Fatalf("self-play move %s: %v", move.UCI(), err)
+		}
+		if game.Result() != "*" {
+			break
+		}
+	}
+	return line
+}
+
+func TestSelfPlayRegressionSeparatesDeterministicAndSeededRandomModes(t *testing.T) {
+	deterministic := selfPlayLine(t, New(2), New(2), 12)
+	repeat := selfPlayLine(t, New(2), New(2), 12)
+	if !slices.Equal(deterministic, repeat) {
+		t.Fatalf("deterministic self-play changed: %v then %v", deterministic, repeat)
+	}
+	randomA := selfPlayLine(t, NewRandom(2, 42), NewRandom(2, 99), 12)
+	randomRepeat := selfPlayLine(t, NewRandom(2, 42), NewRandom(2, 99), 12)
+	if !slices.Equal(randomA, randomRepeat) {
+		t.Fatalf("seeded random self-play changed: %v then %v", randomA, randomRepeat)
+	}
+	randomDifferent := selfPlayLine(t, NewRandom(2, 43), NewRandom(2, 100), 12)
+	if slices.Equal(randomA, randomDifferent) {
+		t.Fatalf("different seeds produced the same self-play line: %v", randomA)
+	}
+	if slices.Equal(deterministic, randomA) {
+		t.Fatalf("randomized self-play did not diverge from deterministic line: %v", deterministic)
 	}
 }
