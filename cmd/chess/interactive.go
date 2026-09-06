@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"chess-go"
@@ -50,8 +48,8 @@ func (s *session) playInteractive(ctx context.Context, input io.Reader, output i
 	fmt.Fprint(output, "\x1b[?1049h\x1b[?25l")
 	defer fmt.Fprint(output, "\x1b[0m\x1b[?25h\x1b[?1049l")
 	resizes := make(chan os.Signal, 1)
-	signal.Notify(resizes, syscall.SIGWINCH)
-	defer signal.Stop(resizes)
+	stopResize := watchTerminalResize(resizes)
+	defer stopResize()
 
 	ui := boardUI{
 		cursor:    initialCursor(s.human),
