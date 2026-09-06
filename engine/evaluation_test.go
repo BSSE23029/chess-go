@@ -15,6 +15,21 @@ func mustPosition(t *testing.T, fen string) chess.Position {
 	return position
 }
 
+func pawnEvaluationState(position chess.Position) ([2][8]uint16, [2]chess.Square) {
+	var pawns [2][8]uint16
+	kings := [2]chess.Square{chess.NoSquare, chess.NoSquare}
+	for square := chess.Square(0); square < 64; square++ {
+		piece := position.PieceAt(square)
+		if piece.Type == chess.Pawn {
+			pawns[piece.Color][int(square)%8] |= 1 << (int(square) / 8)
+		}
+		if piece.Type == chess.King {
+			kings[piece.Color] = square
+		}
+	}
+	return pawns, kings
+}
+
 func TestPassedPawnBonusScalesWithTheCorrectAdvanceDirection(t *testing.T) {
 	evaluator := PositionalEvaluator{}
 	whiteAdvanced := mustPosition(t, "4k3/8/8/4P3/8/8/8/4K3 w - - 0 1")
@@ -40,6 +55,16 @@ func TestRookActivityRewardsOpenFilesAndSeventhRank(t *testing.T) {
 	first := mustPosition(t, "4k3/8/8/8/8/8/7P/R3K3 w - - 0 1")
 	if evaluator.Evaluate(seventh) <= evaluator.Evaluate(first) {
 		t.Fatalf("seventh-rank rook was not preferred: seventh %d first %d", evaluator.Evaluate(seventh), evaluator.Evaluate(first))
+	}
+}
+
+func TestKingSafetyRewardsPawnShelterInTheMiddlegame(t *testing.T) {
+	sheltered := mustPosition(t, "4k3/8/8/8/8/8/5PPP/5K2 w - - 0 1")
+	exposed := mustPosition(t, "4k3/8/8/8/8/8/PPP5/5K2 w - - 0 1")
+	shelteredPawns, shelteredKings := pawnEvaluationState(sheltered)
+	exposedPawns, exposedKings := pawnEvaluationState(exposed)
+	if kingSafety(shelteredPawns, shelteredKings) <= kingSafety(exposedPawns, exposedKings) {
+		t.Fatalf("pawn shelter was not rewarded: sheltered %d exposed %d", kingSafety(shelteredPawns, shelteredKings), kingSafety(exposedPawns, exposedKings))
 	}
 }
 

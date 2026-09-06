@@ -79,6 +79,9 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 	material := MaterialEvaluator{}.Evaluate(position)
 	var score Score = material
 	var pawns [2][8]int
+	var pawnRanks [2][8]uint16
+	kings := [2]chess.Square{chess.NoSquare, chess.NoSquare}
+	phase := maxGamePhase
 	var bishops [2]int
 	for square := chess.Square(0); square < 64; square++ {
 		piece := position.PieceAt(square)
@@ -86,6 +89,17 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 			continue
 		}
 		color := int(piece.Color)
+		if piece.Type == chess.King {
+			kings[color] = square
+		}
+		switch piece.Type {
+		case chess.Knight, chess.Bishop:
+			phase--
+		case chess.Rook:
+			phase -= 2
+		case chess.Queen:
+			phase -= 4
+		}
 		index := int(square)
 		if piece.Color == chess.Black {
 			index = 63 - index
@@ -98,7 +112,9 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 			}
 		}
 		if piece.Type == chess.Pawn {
-			pawns[color][int(square)%8]++
+			file, rank := int(square)%8, int(square)/8
+			pawns[color][file]++
+			pawnRanks[color][file] |= 1 << rank
 		}
 		if piece.Type == chess.Bishop {
 			bishops[color]++
@@ -111,6 +127,10 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 	if bishops[1] >= 2 {
 		score -= 30
 	}
+	if phase < 0 {
+		phase = 0
+	}
+	score += scaleEndgameTerm(kingSafety(pawnRanks, kings), maxGamePhase-phase)
 	score += rookActivity(position, pawns)
 	if position.InCheck() {
 		if position.Turn() == chess.White {
@@ -126,7 +146,7 @@ func (PositionalEvaluator) Evaluate(position chess.Position) Score {
 	} else {
 		score -= mobility
 	}
-	return score + passedPawns(position)
+	return score + passedPawns(position, pawnRanks)
 }
 
 // Evaluate returns positional evaluation with endgame-specific terms.
@@ -188,27 +208,65 @@ func kingCentralization(position chess.Position) Score {
 
 func kingPawnProximity(position chess.Position) Score {
 	var score Score
+	kings := [2]chess.Square{chess.NoSquare, chess.NoSquare}
+	for square := chess.Square(0); square < 64; square++ {
+		piece := position.PieceAt(square)
+		if piece.Type == chess.King {
+			kings[piece.Color] = square
+		}
+	}
 	for square := chess.Square(0); square < 64; square++ {
 		pawn := position.PieceAt(square)
-		if pawn.Type != chess.Pawn {
+		if pawn.Type != chess.Pawn || kings[pawn.Color] == chess.NoSquare {
 			continue
 		}
-		king := chess.NoSquare
-		for kingSquare := chess.Square(0); kingSquare < 64; kingSquare++ {
-			piece := position.PieceAt(kingSquare)
-			if piece.Type == chess.King && piece.Color == pawn.Color {
-				king = kingSquare
-				break
-			}
-		}
-		if king == chess.NoSquare {
-			continue
-		}
-		bonus := Score(14 - squareDistance(king, square))
+		bonus := Score(14 - squareDistance(kings[pawn.Color], square))
 		if pawn.Color == chess.White {
 			score += bonus
 		} else {
 			score -= bonus
+		}
+	}
+	return score
+}
+
+// kingSafety rewards a pawn shelter in front of each king. It is intentionally
+// small and phase-tapered by the caller: material and tactical search remain
+// decisive, while exposed kings are less attractive in middlegame positions.
+func kingSafety(pawnRanks [2][8]uint16, kings [2]chess.Square) Score {
+	var score Score
+	for color, king := range kings {
+		if king == chess.NoSquare {
+			continue
+		}
+		file, rank := int(king)%8, int(king)/8
+		direction := 1
+		if color == int(chess.Black) {
+			direction = -1
+		}
+		shieldRank := rank + direction
+		if shieldRank < 0 || shieldRank > 7 {
+			continue
+		}
+		var shelter Score
+		for adjacent := maxInt(file-1, 0); adjacent <= minInt(file+1, 7); adjacent++ {
+			bit := uint16(1 << shieldRank)
+			switch {
+			case pawnRanks[color][adjacent]&bit != 0:
+				shelter += 10
+			case pawnRanks[1-color][adjacent]&bit != 0:
+				shelter -= 8
+			default:
+				shelter -= 5
+			}
+		}
+		if pawnRanks[color][file]&(1<<shieldRank) == 0 {
+			shelter -= 4
+		}
+		if color == int(chess.White) {
+			score += shelter
+		} else {
+			score -= shelter
 		}
 	}
 	return score
@@ -256,7 +314,7 @@ func pawnStructure(pawns [2][8]int) Score {
 	return score
 }
 
-func passedPawns(position chess.Position) Score {
+func passedPawns(position chess.Position, pawnRanks [2][8]uint16) Score {
 	var score Score
 	for square := chess.Square(0); square < 64; square++ {
 		pawn := position.PieceAt(square)
@@ -264,14 +322,16 @@ func passedPawns(position chess.Position) Score {
 			continue
 		}
 		file, rank := int(square)%8, int(square)/8
+		enemy := pawn.Color.Opponent()
+		var enemyAhead uint16
+		if pawn.Color == chess.White {
+			enemyAhead = ^uint16((1 << (rank + 1)) - 1)
+		} else {
+			enemyAhead = (1 << rank) - 1
+		}
 		passed := true
-		for other := chess.Square(0); other < 64; other++ {
-			enemy := position.PieceAt(other)
-			if enemy.Type != chess.Pawn || enemy.Color == pawn.Color || abs(int(other)%8-file) > 1 {
-				continue
-			}
-			otherRank := int(other) / 8
-			if (pawn.Color == chess.White && otherRank > rank) || (pawn.Color == chess.Black && otherRank < rank) {
+		for adjacent := maxInt(file-1, 0); adjacent <= minInt(file+1, 7); adjacent++ {
+			if pawnRanks[enemy][adjacent]&enemyAhead != 0 {
 				passed = false
 				break
 			}
@@ -290,6 +350,20 @@ func passedPawns(position chess.Position) Score {
 		}
 	}
 	return score
+}
+
+func minInt(first, second int) int {
+	if first < second {
+		return first
+	}
+	return second
+}
+
+func maxInt(first, second int) int {
+	if first > second {
+		return first
+	}
+	return second
 }
 
 // rookActivity rewards files that let rooks work and rooks that reach the
