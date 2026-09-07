@@ -106,3 +106,25 @@ toolchain, and treat node counts as the correctness invariant.
 Compare changes on the same machine and Go toolchain. The benchmark is a
 diagnostic baseline, not a strength claim; tactical correctness and legal-move
 tests remain release gates.
+
+## Deterministic self-play smoke check
+
+The tournament runner derives each game's bot seed from the supplied seed and
+game number. Run the same command twice to verify that the archived report and
+PGN are byte-for-byte reproducible without spending a full match budget:
+
+```console
+go run ./cmd/tournament \
+  --profiles Learner,Beginner --games 1 --plies 12 --seed 42 \
+  --node-budget 128 --engine-version v0.1.0 --hardware-class local \
+  --json /tmp/chess-first.json --pgn /tmp/chess-first.pgn
+go run ./cmd/tournament \
+  --profiles Learner,Beginner --games 1 --plies 12 --seed 42 \
+  --node-budget 128 --engine-version v0.1.0 --hardware-class local \
+  --json /tmp/chess-second.json --pgn /tmp/chess-second.pgn
+shasum -a 256 /tmp/chess-first.json /tmp/chess-second.json \
+  /tmp/chess-first.pgn /tmp/chess-second.pgn
+```
+
+The two JSON hashes and two PGN hashes should match. The tournament package
+also asserts this invariant in `TestRoundRobinReportIsReproducibleAndPortable`.
