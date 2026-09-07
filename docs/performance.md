@@ -35,6 +35,11 @@ tuning benchmark compares 2K, 4K, 8K, and 16K entries:
 go test ./engine -run '^$' -bench '^BenchmarkSearchSuiteDepth3TableSizes$' -benchmem
 ```
 
+The default is currently 16K entries: local depth-3 measurements showed less
+replacement churn than 2K while keeping the fixed table under 1 MiB. Set
+`Bot.TranspositionTableSize` explicitly when embedding the engine in a tighter
+memory budget and re-run the benchmark on that target.
+
 Profile work can be compared with the actual Club, Advanced, and Maximum
 presets (the benchmark disables the opening book):
 

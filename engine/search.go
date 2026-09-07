@@ -71,7 +71,10 @@ const (
 	ttExact ttBound = iota
 	ttLower
 	ttUpper
-	searchTableSize = 1 << 11
+	// The 16K default avoids avoidable replacement churn in depth-3/4
+	// searches while keeping the per-search table below 1 MiB. Callers can
+	// override it through Bot.TranspositionTableSize when memory is tighter.
+	searchTableSize = 1 << 14
 	deltaMargin     = Score(120)
 )
 
