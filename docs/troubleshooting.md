@@ -9,6 +9,13 @@ cells. `CHESS_PIECE_STYLE=sprite` opts into the scalable mode explicitly.
 Compact viewports keep centered one-cell text glyphs and show a compact-viewport notice. Make
 the terminal wider or use the launcher Settings screen to select a style.
 
+## The board looks stretched
+
+Terminal columns are narrower than terminal rows. The renderer therefore caps
+wide-board cells at roughly twice their row height and reselects that tier after
+every resize. If a terminal uses an unusual font aspect ratio, set a larger
+font/zoom or choose `CHESS_PIECE_STYLE=text` for the most predictable alignment.
+
 ## The board shifts or clips after resizing
 
 Resize the terminal once more after changing its font or zoom. The renderer
