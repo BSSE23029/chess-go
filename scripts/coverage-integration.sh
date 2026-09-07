@@ -106,12 +106,14 @@ if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	printf 'q' | script -q "$work/game-compact.raw" sh -c "stty cols 80 rows 24; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game.raw" sh -c "stty cols 106 rows 30; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	printf 'q' | script -q "$work/game-wide.raw" sh -c "stty cols 213 rows 60; GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
+	printf 'q' | script -q "$work/game-ascii.raw" sh -c "stty cols 80 rows 24; GOCOVERDIR='$cover_dir' '$binary' play local --theme ascii" >/dev/null 2>&1 || true
 	test -s "$work/menu.raw"
 	test -s "$work/menu-settings.raw"
 	test -s "$work/game-narrow.raw"
 	test -s "$work/game-compact.raw"
 	test -s "$work/game.raw"
 	test -s "$work/game-wide.raw"
+	test -s "$work/game-ascii.raw"
 	grep -a -q 'Settings' "$work/menu-settings.raw"
 	grep -a -q 'Cancelled' "$work/menu-settings.raw"
 	grep -a -q 'UNICODE theme · TEXT' "$work/game-narrow.raw"
@@ -121,6 +123,7 @@ if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	# renderer change cannot pass with only buffer-level snapshot tests.
 	grep -a -q 'UNICODE theme · ICONS' "$work/game.raw"
 	grep -a -q 'UNICODE theme · ICONS' "$work/game-wide.raw"
+	grep -a -q 'ASCII theme |' "$work/game-ascii.raw"
 	# Keep the key open while changing the PTY size so SIGWINCH redraws the
 	# active game rather than being observed only at process startup.
 	{ sleep 5; printf 'q'; } | script -q "$work/resize.raw" sh -c "stty cols 106 rows 30 </dev/tty; (sleep 2; stty cols 80 rows 24 </dev/tty)& GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
