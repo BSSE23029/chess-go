@@ -7,34 +7,41 @@ import (
 )
 
 // Piece sprites use terminal block characters instead of relying on a font's
-// chess-glyph size. A sprite is eight bitmap rows tall; each terminal row
-// carries two bitmap rows with upper/lower half blocks. The silhouettes are
-// deliberately shaped like the six chess pieces rather than generic bars, so
-// the scalable fallback remains recognizable in a real terminal.
+// chess-glyph size. A sprite is twelve bitmap rows tall; each terminal row
+// carries two bitmap rows with upper/lower half blocks. The silhouettes keep
+// each piece's visual cue (pawn head, knight profile, bishop slit, rook
+// crenels, queen crown, and king cross) while remaining legible in a small
+// cell.
 var pieceSpriteBitmap = map[chess.PieceType][]string{
 	chess.Pawn: {
-		"    #    ", "   ###   ", "   ###   ", "    #    ",
-		"   ###   ", "  #####  ", "  #####  ", " ####### ",
+		"    ###    ", "   #####   ", "   #####   ", "    ###    ",
+		"    ###    ", "   #####   ", "  #######  ", "  #######  ",
+		"  #######  ", " ######### ", "  #######  ", "   #####   ",
 	},
 	chess.Knight: {
-		"    ##   ", "   ###   ", "  ####   ", "  #######",
-		"  #####  ", " ######  ", " ####### ", "  #####  ",
+		"    ####   ", "   #####   ", "  ######   ", "  ####     ",
+		"  ######   ", " #######   ", "  #######  ", "   ######  ",
+		"  #######  ", " ######### ", "  #######  ", "   #####   ",
 	},
 	chess.Bishop: {
-		"    #    ", "   ###   ", "   # #   ", "  #####  ",
-		"   ###   ", "  #####  ", "  ###### ", " ####### ",
+		"    ###    ", "   #####   ", "   ## ##   ", "    ###    ",
+		"    #      ", "   #####   ", "   #####   ", "  #######  ",
+		"  #######  ", " ######### ", "  #######  ", "   #####   ",
 	},
 	chess.Rook: {
-		"  # # #  ", "  ###### ", "    #    ", "   ###   ",
-		"   ###   ", "  #####  ", "  ###### ", " ####### ",
+		"  # # # #  ", "  #######  ", "   #####   ", "    ###    ",
+		"    ###    ", "   #####   ", "  #######  ", "  #######  ",
+		"  #######  ", " ######### ", "  #######  ", "   #####   ",
 	},
 	chess.Queen: {
-		"  # # #  ", " #  #  # ", "  #####  ", " ####### ",
-		"   ###   ", "  #####  ", "  ###### ", " ####### ",
+		" # # # # # ", "  #######  ", "   #####   ", "  #######  ",
+		"  #######  ", "   #####   ", "  #######  ", "  #######  ",
+		"  #######  ", " ######### ", "  #######  ", "   #####   ",
 	},
 	chess.King: {
-		"    #    ", "   ###   ", "  #####  ", "    #    ",
-		"   ###   ", "  #####  ", "  ###### ", " ####### ",
+		"    ###    ", "    ###    ", "  #######  ", "    ###    ",
+		"   #####   ", "  #######  ", "  #######  ", "   #####   ",
+		"  #######  ", " ######### ", "  #######  ", "   #####   ",
 	},
 }
 
