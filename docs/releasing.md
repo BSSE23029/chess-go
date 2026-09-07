@@ -20,6 +20,7 @@ VERSION=v0.1.0 make release-all
 find dist/releases/v0.1.0 -maxdepth 1 -type f -print
 cat dist/releases/v0.1.0/SHA256SUMS
 VERSION=v0.1.0 make release-verify
+VERSION=v0.1.0 make release-preflight
 ```
 
 `scripts/verify-release.sh` checks that every archive is listed exactly once
@@ -42,6 +43,11 @@ the project owner's normal repository workflow:
 git tag -a v0.1.0 -m "chess-go v0.1.0"
 git show --stat v0.1.0
 ```
+
+The preflight requires that the tag resolve to the exact reviewed `HEAD`,
+tracked files are clean, and every archive checksum passes. It intentionally
+rejects a stale tag instead of publishing archives built from a different
+commit.
 
 Do not claim a public release until the owner has chosen the canonical
 module/repository URL, reviewed the generated checksums, and published release

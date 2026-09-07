@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size bench benchmark-regression profile pgo pgo-compare coverage coverage-integration coverage-gate verify build release release-all release-verify
+.PHONY: test race vet fmt perft file-size bench benchmark-regression profile pgo pgo-compare coverage coverage-integration coverage-gate verify build release release-all release-verify release-preflight
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -74,3 +74,6 @@ release-all: verify
 
 release-verify:
 	@sh scripts/verify-release.sh "$(DIST)/releases/$(VERSION)"
+
+release-preflight:
+	@VERSION=$(VERSION) DIST=$(DIST) sh scripts/release-preflight.sh
