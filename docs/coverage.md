@@ -16,7 +16,7 @@ counted as application behavior.
 | TLS, bearer authorization, JSON/protobuf settings | transport and launcher settings tests | `TestLauncherSettingsUpdatesEnvironmentBackedOptions` and transport package tests |
 | Launcher root and network menus | registry, form, and action tests | `TestCommandRegistryDrivesLauncherAndHelp`, `launcher_forms_test.go` |
 | Keyboard movement, selection, promotion, help, confirmation, commands | TUI state-machine tests | `TestInteractiveKeyboardStateMachineCoversGuidesAndConfirmation`, promotion tests |
-| Narrow, compact, normal, wide, and resized terminal layouts | renderer tests and PTY harness | `TestResponsiveFramesStayWithinTerminalViewport`, raw cases in `scripts/coverage-integration.sh` |
+| Narrow, compact, normal, wide, and resized terminal layouts | renderer tests and PTY harness | `TestInteractiveRenderingFitsEverySupportedViewport`, golden viewport hashes, and raw cases in `scripts/coverage-integration.sh` |
 | Engine legality, fork/pin/skewer/sacrifice/mate/defense patterns, draw semantics, performance | engine and game suites | `engine/strength_test.go`, `engine/tactical_patterns_test.go`, FIDE rule tests, benchmark suite |
 
 ## Release commands

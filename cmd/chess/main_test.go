@@ -902,6 +902,23 @@ func TestRenderedSpriteRowsStayHorizontallyCentered(t *testing.T) {
 	}
 }
 
+func TestSpriteSilhouettesAvoidFullWidthBars(t *testing.T) {
+	for _, pieceType := range []chess.PieceType{chess.Pawn, chess.Knight, chess.Bishop, chess.Rook, chess.Queen, chess.King} {
+		bitmap := pieceSpriteBitmap[pieceType]
+		if len(bitmap) == 0 {
+			t.Fatalf("piece %v has no sprite rows", pieceType)
+		}
+		for row, pixels := range bitmap {
+			if strings.TrimSpace(pixels) == "" {
+				continue
+			}
+			if strings.Trim(pixels, "#") == "" {
+				t.Fatalf("piece %v row %d is a full-width bar: %q", pieceType, row, pixels)
+			}
+		}
+	}
+}
+
 func TestAutoPieceStyleUsesSpritesOnlyWhenTheyHaveRoom(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
 	piece := chess.Piece{Color: chess.Black, Type: chess.Queen}
