@@ -61,6 +61,15 @@ representative engine CPU profile as Go profile-guided optimization input and
 writes an optimized binary to `dist/chess-pgo`. PGO is an optional last-mile
 build comparison; it does not replace `make verify` or the tactical suite.
 
+Compare the same opening search suite with and without that profile:
+
+```console
+make pgo-compare
+```
+
+The command reports both benchmark lines; compare them on the same machine and
+toolchain, and treat node counts as the correctness invariant.
+
 Compare changes on the same machine and Go toolchain. The benchmark is a
 diagnostic baseline, not a strength claim; tactical correctness and legal-move
 tests remain release gates.

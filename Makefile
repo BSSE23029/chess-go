@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size bench benchmark-regression profile pgo coverage coverage-integration coverage-gate verify build release release-all release-verify
+.PHONY: test race vet fmt perft file-size bench benchmark-regression profile pgo pgo-compare coverage coverage-integration coverage-gate verify build release release-all release-verify
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -42,6 +42,9 @@ pgo:
 	@cp "$(DIST)/profiles/engine.cpu.pprof" "$(DIST)/profiles/default.pgo"
 	@mkdir -p "$(DIST)"
 	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} CGO_ENABLED=0 $(GO) build $(BUILD_FLAGS) -pgo "$(DIST)/profiles/default.pgo" -ldflags "$(LDFLAGS)" -o "$(DIST)/chess-pgo" ./cmd/chess
+
+pgo-compare:
+	@DIST=$(DIST) GO=$(GO) sh scripts/compare-pgo.sh
 
 coverage:
 	@mkdir -p "$(DIST)"
