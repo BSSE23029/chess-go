@@ -106,6 +106,9 @@ The SVG files [`preview-unicode.svg`](images/preview-unicode.svg) and
 [`preview-ascii.svg`](images/preview-ascii.svg) remain available as small,
 rendering-independent previews.
 
+See [`terminal-matrix.md`](terminal-matrix.md) for the platform matrix and
+manual resize checks.
+
 ## Bot play
 
 ```console
