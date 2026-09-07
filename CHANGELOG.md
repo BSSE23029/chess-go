@@ -17,8 +17,8 @@ The first release candidate of the dependency-light Go chess toolkit.
 - UCI-compatible engine mode, local and network match transports, TLS/mTLS,
   tournament orchestration, and storage examples.
 - Responsive terminal UI with launcher settings, live resize handling,
-  Unicode/text/icon piece styles, compact fallbacks, and real terminal
-  screenshots in `docs/images/`.
+  Unicode/text/emoji piece styles, compact fallbacks, and documented terminal
+  compatibility checks.
 - Reproducible multi-platform release archives with SHA-256 manifests.
 
 ### Verification
