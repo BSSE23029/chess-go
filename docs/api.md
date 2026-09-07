@@ -256,11 +256,11 @@ go run ./examples/basic
 The normal `go test ./...` gate compiles this example with the public API.
 
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Unicode
-rendering is the default; `auto` keeps those glyphs centered and bold on
-dashboard-sized cells, switching to a scalable half-block silhouette only when
-the cell is genuinely wide and tall. `sprite` explicitly enables that
-alternative at any supported size. One-row fallback layouts keep the literal
-glyphs centered and bold. Endgame king-activity terms are tapered by remaining
+rendering is the default; `auto` uses compact scalable half-block silhouettes
+on two-row dashboard cells and keeps literal glyphs centered and bold on
+one-row fallback layouts. Extra-wide/tall cells scale the silhouette further.
+`sprite` explicitly enables that alternative at any supported size. Endgame
+king-activity terms are tapered by remaining
 non-pawn material, preserving middlegame king safety while making sparse
 positions more precise. Select ASCII with `--theme ascii` or
 `CHESS_THEME=ascii`. An invalid value fails before the game starts. In an interactive terminal, the

@@ -21,8 +21,8 @@ Resize through these approximate viewport tiers while the game is running:
 
 ```text
 80×24   compact text glyphs and stacked status rail
-106×30  dashboard text glyphs with a side rail
-120×30  larger dashboard text glyphs
+106×30  dashboard icons with a side rail
+120×30  larger dashboard icons
 213×60  proportional board cells with scalable icons
 ```
 

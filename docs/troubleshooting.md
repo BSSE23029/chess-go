@@ -3,11 +3,11 @@
 ## Pieces look small
 
 Terminal programs cannot change the terminal font size. Unicode
-`CHESS_PIECE_STYLE=auto` selects centered `TEXT` chess glyphs on normal
-dashboards and uses scalable half-block pieces only in genuinely wide/tall
-cells. `CHESS_PIECE_STYLE=sprite` opts into the scalable mode explicitly.
-Compact viewports keep centered one-cell text glyphs and show a compact-viewport notice. Make
-the terminal wider or use the launcher Settings screen to select a style.
+`CHESS_PIECE_STYLE=auto` uses compact scalable half-block pieces on two-row
+dashboard cells, while one-row compact viewports keep centered text glyphs.
+Extra-wide/tall cells scale the icons further. `CHESS_PIECE_STYLE=sprite`
+opts into the scalable mode explicitly. Make the terminal taller or wider, or
+use the launcher Settings screen to select a style.
 
 ## The board looks stretched
 

@@ -118,17 +118,17 @@ if script -q "$work/probe" sh -c 'exit 0' >/dev/null 2>&1; then
 	grep -a -q 'Cancelled' "$work/menu-settings.raw"
 	grep -a -q 'UNICODE theme · TEXT' "$work/game-narrow.raw"
 	grep -a -q 'UNICODE theme · TEXT' "$work/game-compact.raw"
-	# The normal 106x30 Unicode viewport keeps stable centered glyphs. This is
+	# The normal 106x30 Unicode viewport uses compact scalable icons. This is
 	# deliberately checked through a real PTY so a renderer change cannot pass
 	# with only buffer-level snapshot tests.
-	grep -a -q 'UNICODE theme · TEXT' "$work/game.raw"
+	grep -a -q 'UNICODE theme · ICONS' "$work/game.raw"
 	grep -a -q 'UNICODE theme · ICONS' "$work/game-wide.raw"
 	grep -a -q 'ASCII theme |' "$work/game-ascii.raw"
 	# Keep the key open while changing the PTY size so SIGWINCH redraws the
 	# active game rather than being observed only at process startup.
 	{ sleep 5; printf 'q'; } | script -q "$work/resize.raw" sh -c "stty cols 106 rows 30 </dev/tty; (sleep 2; stty cols 80 rows 24 </dev/tty)& GOCOVERDIR='$cover_dir' '$binary' play local --theme unicode" >/dev/null 2>&1 || true
 	test -s "$work/resize.raw"
-	grep -a -q 'UNICODE theme · TEXT' "$work/resize.raw"
+	grep -a -q 'UNICODE theme · ICONS' "$work/resize.raw"
 fi
 
 # Flush the host process's instrumented coverage before converting the data.

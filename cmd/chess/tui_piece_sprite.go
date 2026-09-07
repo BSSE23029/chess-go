@@ -48,11 +48,13 @@ func pieceSpriteEnabled(piece chess.Piece, boardTheme theme, cellWidth, cellHeig
 		return false
 	}
 	style := unicodePieceStyle()
-	// Keep ordinary dashboard cells on literal glyphs, which remain
-	// recognizable across terminal fonts. On genuinely wide/tall cells the
-	// scalable silhouette has enough resolution to be useful; users can also
-	// force it with `sprite`.
-	return style == "sprite" || (style == "auto" && cellWidth >= 8 && cellHeight >= 3)
+	// A two-row dashboard cell has enough vertical resolution for a compact
+	// half-block silhouette. This keeps pieces legible at the common 106x30
+	// viewport instead of shrinking them to a single font-dependent glyph.
+	// One-row compact layouts remain on text because there is no vertical room
+	// for a meaningful silhouette. Explicit sprite mode still observes this
+	// minimum so it cannot emit a clipped one-row icon by accident.
+	return style == "sprite" || (style == "auto" && cellWidth >= 5 && cellHeight >= 2)
 }
 
 func pieceSpriteRow(piece chess.Piece, cellWidth, cellRow int) string {
@@ -131,8 +133,23 @@ func scaleSpriteRow(row string, width int) string {
 	}
 	var scaled strings.Builder
 	for index := 0; index < width; index++ {
-		source := index * len(row) / width
-		scaled.WriteByte(row[source])
+		start := index * len(row) / width
+		end := (index + 1) * len(row) / width
+		if end <= start {
+			end = start + 1
+		}
+		occupied := false
+		for _, pixel := range row[start:minInt(end, len(row))] {
+			if pixel == '#' {
+				occupied = true
+				break
+			}
+		}
+		if occupied {
+			scaled.WriteByte('#')
+		} else {
+			scaled.WriteByte(' ')
+		}
 	}
 	return scaled.String()
 }
