@@ -131,8 +131,9 @@ castling potential, and weighted king-zone pressure). Callers may replace
 proximity, and direct king opposition; Advanced, Expert, and Maximum profiles
 use it automatically.
 
-The search horizon uses quiescence search: tactical captures, promotions, and
-forced check evasions are explored before a leaf is statically evaluated.
+The search horizon uses quiescence search: tactical captures, promotions,
+forced check evasions, and one bounded ply of quiet checking moves are explored
+before a leaf is statically evaluated.
 The default quiescence path deliberately uses the cheaper captured-value and
 delta-pruning signal; static exchange evaluation (SEE) remains limited to the
 Tactician selection personality until benchmark evidence shows that applying
