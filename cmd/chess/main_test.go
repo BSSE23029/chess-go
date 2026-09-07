@@ -691,11 +691,11 @@ func TestInteractiveRendererStacksTheRailWhenNarrow(t *testing.T) {
 
 func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 	wide, compact := boardScaleForTerminal(213, 60)
-	if compact || wide.cellWidth != 18 || wide.cellHeight != 4 {
+	if compact || wide.cellWidth != 10 || wide.cellHeight != 4 {
 		t.Fatalf("wide scale = %#v, compact %v", wide, compact)
 	}
 	huge, compact := boardScaleForTerminal(266, 60)
-	if compact || huge.cellWidth != 20 || huge.cellHeight != 4 {
+	if compact || huge.cellWidth != 10 || huge.cellHeight != 4 {
 		t.Fatalf("huge scale = %#v, compact %v", huge, compact)
 	}
 	narrow, compact := boardScaleForTerminal(60, 30)
@@ -1100,7 +1100,7 @@ func TestInteractiveRenderingGoldenViewportHashes(t *testing.T) {
 	}{
 		{name: "unicode-compact", width: 80, height: 24, theme: unicodeTheme, want: "f4d1ae5971afa6bba2e80fc035345640cf83e4d85ca611286c08f8689e2565e7"},
 		{name: "unicode-dashboard", width: 106, height: 30, theme: unicodeTheme, want: "dcd6e6d96d786df8eec7cec4674ca98f4c11d25230dff6dfbb133a4d0bd419ef"},
-		{name: "unicode-wide", width: 213, height: 60, theme: unicodeTheme, want: "a2432ebf2a571c57dfcf5465e1435e2ed667cd8961601ef67cf8cd944e179a52"},
+		{name: "unicode-wide", width: 213, height: 60, theme: unicodeTheme, want: "55193cb8835a18bffa3eb1f8251d1494ba0d85d3ec2783dc67a1c27fc00dae54"},
 		{name: "ascii-compact", width: 80, height: 24, theme: asciiTheme, want: "76762e57d5b3671f71853c927327ee0f5e8fa98e8dbd74b7d4cb76feaf1f1cb4"},
 	}
 	game := chess.NewGame()

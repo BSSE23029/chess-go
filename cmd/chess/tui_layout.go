@@ -109,6 +109,11 @@ func boardScaleForTerminal(width, height int) (boardScale, bool) {
 		case height >= 30:
 			cellHeight = 2
 		}
+		// Terminal cells are taller than they are wide. Keep a chess square
+		// visually close to square instead of letting a wide viewport turn it
+		// into a long horizontal strip. The width tiers above remain an upper
+		// bound for unusually narrow dashboards.
+		cellWidth = minInt(cellWidth, cellHeight*2+2)
 	}
 	return boardScale{cellWidth: cellWidth, cellHeight: cellHeight}, compact
 }
@@ -284,6 +289,13 @@ func coordinateLine(files []int, cellWidth int) string {
 
 func maxInt(left, right int) int {
 	if left > right {
+		return left
+	}
+	return right
+}
+
+func minInt(left, right int) int {
+	if left < right {
 		return left
 	}
 	return right

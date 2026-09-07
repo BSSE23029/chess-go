@@ -52,7 +52,7 @@ func pieceSpriteEnabled(piece chess.Piece, boardTheme theme, cellWidth, cellHeig
 	// recognizable across terminal fonts. On genuinely wide/tall cells the
 	// scalable silhouette has enough resolution to be useful; users can also
 	// force it with `sprite`.
-	return style == "sprite" || (style == "auto" && cellWidth >= 12 && cellHeight >= 3)
+	return style == "sprite" || (style == "auto" && cellWidth >= 8 && cellHeight >= 3)
 }
 
 func pieceSpriteRow(piece chess.Piece, cellWidth, cellRow int) string {
