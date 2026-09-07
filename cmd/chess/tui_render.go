@@ -15,11 +15,14 @@ const (
 	// Keep the surrounding surface on the terminal's configured palette. The
 	// board squares still carry their own contrast colors, but the dashboard
 	// must not force a black/charcoal background on light terminal profiles.
-	tuiSurface     = "\x1b[49m\x1b[39m"
-	tuiFrameStart  = tuiSurface + "\x1b[H\x1b[2J"
-	tuiReset       = "\x1b[0m" + tuiSurface
-	tuiBold        = "\x1b[1m"
-	tuiDim         = "\x1b[2m"
+	tuiSurface    = "\x1b[49m\x1b[39m"
+	tuiFrameStart = tuiSurface + "\x1b[H\x1b[2J"
+	tuiReset      = "\x1b[0m" + tuiSurface
+	tuiBold       = "\x1b[1m"
+	// Use the terminal's own foreground for secondary text. ANSI dim/gray is
+	// often nearly invisible on light profiles and needlessly overrides the
+	// user's palette; hierarchy still comes from bold and the accent color.
+	tuiDim         = "\x1b[39m"
 	tuiTitle       = "\x1b[1;38;5;75m"
 	tuiAccent      = "\x1b[38;5;81m"
 	tuiLightSquare = "\x1b[48;5;252m"
