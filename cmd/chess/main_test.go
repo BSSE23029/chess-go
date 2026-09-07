@@ -1127,7 +1127,7 @@ func TestInteractiveRenderingFitsEverySupportedViewport(t *testing.T) {
 	viewports := []struct {
 		width, height int
 	}{
-		{80, 24}, {106, 30}, {120, 30}, {213, 60},
+		{80, 24}, {95, 24}, {100, 30}, {106, 30}, {120, 30}, {213, 60},
 	}
 	for _, viewport := range viewports {
 		t.Run(fmt.Sprintf("%dx%d", viewport.width, viewport.height), func(t *testing.T) {
