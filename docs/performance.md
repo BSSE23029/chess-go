@@ -14,11 +14,13 @@ currently measures single-digit allocations for the opening and tactical
 positions after deterministic candidate-selection reuse; treat those numbers
 as a local regression baseline, not a portable performance guarantee.
 
-On the current M1 Pro baseline, the default 16K table measured about 6.2 ms for
-the depth-3 opening position, 1,128 nodes/search, and 7 allocations/search.
-PGO reduced one same-suite sample from about 7.2 ms to 6.6 ms without changing
-the node or cache counters; repeat measurements on the target machine before
-drawing conclusions.
+On the current M1 Pro baseline, the default 8K table measures roughly 6.7–7.0
+ms for the depth-3 opening position, 1,128 nodes/search, and 7 allocations/
+search. Repeated table-size runs kept the same node and TT-hit counters while
+the 8K table avoided the 16K table's extra memory footprint. PGO reduced one
+same-suite sample from about 7.2 ms to 6.6 ms without changing the node or
+cache counters; repeat measurements on the target machine before drawing
+conclusions.
 
 Run the broader benchmark set with:
 
@@ -41,8 +43,8 @@ tuning benchmark compares 2K, 4K, 8K, and 16K entries:
 go test ./engine -run '^$' -bench '^BenchmarkSearchSuiteDepth3TableSizes$' -benchmem
 ```
 
-The default is currently 16K entries: local depth-3 measurements showed less
-replacement churn than 2K while keeping the fixed table under 1 MiB. Set
+The default is currently 8K entries: repeated local depth-3 measurements kept
+the same search work as 16K while using less memory. Set
 `Bot.TranspositionTableSize` explicitly when embedding the engine in a tighter
 memory budget and re-run the benchmark on that target.
 
