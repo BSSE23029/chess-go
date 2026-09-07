@@ -404,6 +404,20 @@ func TestPersonalitiesAndSeededCandidateSelection(t *testing.T) {
 	}
 }
 
+func TestStyledSelectionHandlesOversizedCandidateSets(t *testing.T) {
+	position := chess.NewPosition()
+	moves := position.LegalMoves()
+	candidates := make([]scoredMove, 257)
+	for index := range candidates {
+		candidates[index] = scoredMove{move: moves[index%len(moves)], score: Score(100 - index%7)}
+	}
+	control := &searchControl{random: 7}
+	move := chooseCandidateStyled(position, candidates, 20, Trickster, control)
+	if move == (chess.Move{}) {
+		t.Fatal("styled selection returned an empty move for an oversized set")
+	}
+}
+
 func TestOpeningBookUsesLegalEntriesAndFallsBack(t *testing.T) {
 	position := chess.NewPosition()
 	profile := NewProfile(Learner)
