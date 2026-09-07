@@ -1118,6 +1118,10 @@ func TestInteractiveFrameFitsViewport(t *testing.T) {
 }
 
 func TestInteractiveRenderingGoldenViewportHashes(t *testing.T) {
+	// Golden frames describe the portable text baseline, not a developer's
+	// terminal-specific emoji font or variation-selector width.
+	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	t.Setenv("TERM_PROGRAM", "")
 	cases := []struct {
 		name          string
 		width, height int
@@ -1147,6 +1151,8 @@ func TestInteractiveRenderingGoldenViewportHashes(t *testing.T) {
 }
 
 func TestInteractiveRenderingFitsEverySupportedViewport(t *testing.T) {
+	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	t.Setenv("TERM_PROGRAM", "")
 	game := chess.NewGame()
 	ui := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Black", mode: "LOCAL MATCH"}
 	model := ui.model(game, game.Position(), unicodeTheme)
