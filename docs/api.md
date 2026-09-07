@@ -140,7 +140,11 @@ Each search owns a Zobrist-keyed transposition table with exact, lower-bound,
 upper-bound, and preferred-move entries; callers can therefore reuse a single
 `Search` call safely without sharing mutable engine state across games. Its
 statistics include reduced late-move searches, null-move cutoffs, and safe
-quiescence delta-prunes for profiling. Built-in evaluator scores are also
+quiescence delta-prunes for profiling. `SearchStats.TTHits`,
+`SearchStats.EvalCacheHits`, and `SearchStats.PawnCacheHits` expose cache
+reuse without requiring internal instrumentation. `Bot.TranspositionTableSize`
+can override the default table capacity for controlled tuning experiments.
+Built-in evaluator scores are also
 cached per search by position hash; pawn-structure scores are reused across
 positions with the same pawn layout, and custom evaluators remain uncached.
 Quiet cutoffs update per-ply killer and history tables for move ordering, while

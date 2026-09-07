@@ -20,6 +20,28 @@ Run the broader benchmark set with:
 make bench
 ```
 
+The CI guard checks deterministic search work rather than machine-dependent
+wall-clock time:
+
+```console
+make benchmark-regression
+```
+
+It protects the depth-3 opening baseline from excessive node growth and
+requires the transposition table to continue producing hits. The table-size
+tuning benchmark compares 2K, 4K, 8K, and 16K entries:
+
+```console
+go test ./engine -run '^$' -bench '^BenchmarkSearchSuiteDepth3TableSizes$' -benchmem
+```
+
+Profile work can be compared with the actual Club, Advanced, and Maximum
+presets (the benchmark disables the opening book):
+
+```console
+go test ./engine -run '^$' -bench '^BenchmarkStrengthProfiles$' -benchmem
+```
+
 For profiles that can be opened with `go tool pprof`:
 
 ```console

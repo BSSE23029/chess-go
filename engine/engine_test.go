@@ -233,6 +233,22 @@ func TestBuiltInEvaluationCacheReusesPositionScore(t *testing.T) {
 	}
 }
 
+func TestSearchReportsEvaluationCacheHits(t *testing.T) {
+	position, err := chess.ParseFEN("r1bqk2r/pppp1ppp/2n2n2/4p3/3PP3/2B2N2/PPP2PPP/RNBQ1RK1 w kq - 4 6")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bot := New(3)
+	bot.Evaluator = PositionalEvaluator{}
+	_, stats, err := bot.Search(context.Background(), position, SearchLimits{MaxDepth: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.EvalCacheHits == 0 {
+		t.Fatalf("search reported no evaluation-cache hits: %#v", stats)
+	}
+}
+
 func TestStrengthProfiles(t *testing.T) {
 	want := []struct {
 		name  string

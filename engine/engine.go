@@ -70,6 +70,9 @@ type Bot struct {
 	BlunderChance float64
 	// TacticalAwareness reduces mistake risk in positions with forcing moves.
 	TacticalAwareness float64
+	// TranspositionTableSize overrides the default per-search table capacity
+	// when positive. Values are rounded up to the next power of two.
+	TranspositionTableSize int
 }
 
 // New returns a bot with at least depth one and material evaluation.

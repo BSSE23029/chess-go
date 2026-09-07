@@ -20,6 +20,8 @@ jobs:
           cache: true
       - name: Run repository gates
         run: make verify
+      - name: Check search-work regression threshold
+        run: make benchmark-regression
       - name: Build reproducible binary
         run: make build VERSION=ci
       - name: Verify deterministic output

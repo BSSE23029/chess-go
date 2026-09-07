@@ -85,6 +85,7 @@ func (c *searchControl) evaluate(evaluator Evaluator, position chess.Position) S
 	key := position.Hash()
 	entry := &c.evalCache[key&(uint64(len(c.evalCache))-1)]
 	if entry.valid && entry.key == key {
+		c.evalHits++
 		return entry.score
 	}
 	score := evaluateWithPawnCache(evaluator, position, &c.pawnCache)

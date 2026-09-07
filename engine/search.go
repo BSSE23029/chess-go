@@ -40,6 +40,10 @@ type SearchStats struct {
 	DeltaPrunes uint64
 	// TTHits is the number of transposition-table lookups that found a key.
 	TTHits uint64
+	// EvalCacheHits is the number of built-in evaluation-cache hits.
+	EvalCacheHits uint64
+	// PawnCacheHits is the number of pawn-structure cache hits.
+	PawnCacheHits uint64
 }
 
 type searchControl struct {
@@ -57,6 +61,7 @@ type searchControl struct {
 	nullCutoffs uint64
 	deltaPrunes uint64
 	ttHits      uint64
+	evalHits    uint64
 	random      uint64
 }
 
@@ -117,6 +122,9 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		defer cancel()
 	}
 	control := &searchControl{limit: limits.MaxNodes, tt: newTranspositionTable(searchTableSize), random: b.Seed}
+	if tableSize := b.TranspositionTableSize; tableSize > 0 {
+		control.tt = newTranspositionTable(tableSize)
+	}
 	evaluator := b.Evaluator
 	if evaluator == nil {
 		evaluator = MaterialEvaluator{}
@@ -132,7 +140,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 		for {
 			candidate, score, failLow, failHigh, err := b.iteration(searchCtx, evaluator, &position, moves, depth, alpha, beta, control)
 			if err != nil {
-				stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes, stats.TTHits = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes, control.ttHits
+				stats = control.updateStats(stats)
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					return best, stats, err
 				}
@@ -147,7 +155,7 @@ func (b *Bot) Search(ctx context.Context, position chess.Position, limits Search
 			}
 			best, stats.Depth, stats.Score = candidate, depth, score
 			control.pvMove = candidate
-			stats.Nodes, stats.ReducedNodes, stats.NullCutoffs, stats.DeltaPrunes, stats.TTHits = control.nodes, control.reductions, control.nullCutoffs, control.deltaPrunes, control.ttHits
+			stats = control.updateStats(stats)
 			break
 		}
 	}
