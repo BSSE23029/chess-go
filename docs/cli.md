@@ -69,12 +69,12 @@ capture of the menu shipped with the current binary:
 
 ### Responsive terminal rendering
 
-The TUI repaints after a terminal resize. At 106 columns and above, Unicode
-`auto` mode selects the scalable `ICONS` presentation; at compact sizes it
-selects `TEXT` and keeps the sidebar, recent moves, and controls in the
-viewport. The header label tells you which presentation is active. Override it
-with `CHESS_PIECE_STYLE=text`, `sprite`/`icon`, or `emoji` (emoji falls back to
-text on terminals that do not advertise emoji support).
+The TUI repaints after a terminal resize. Unicode `auto` mode selects centered
+`TEXT` glyphs for normal dashboards and switches to `ICONS` only when a cell is
+wide/tall enough to make the silhouette readable. Choose
+`CHESS_PIECE_STYLE=sprite`/`icon` when you prefer icons at any supported size.
+The header label tells you which presentation is active; `emoji` falls back to
+text on terminals that do not advertise emoji support.
 
 Compact dashboards also show `compact viewport · widen for larger pieces`,
 making the one-row fallback explicit instead of leaving glyph size mysterious.
@@ -238,7 +238,7 @@ does not auto-load dotenv files or commit local secrets.
 | Variable | Used by |
 |---|---|
 | `CHESS_THEME` | Default `unicode`/`ascii` board theme. |
-| `CHESS_PIECE_STYLE` | Unicode piece presentation: `auto` (default scalable icons when cells support them), `text`, `sprite`/`icon`, or `emoji`. |
+| `CHESS_PIECE_STYLE` | Unicode piece presentation: `auto` (centered text, with icons on wide/tall cells), `text`, `sprite`/`icon`, or `emoji`. |
 | `CHESS_PLAYER_NAME` | Human/player identity. |
 | `CHESS_PLAYER_COLOR` | Human or remote color. |
 | `CHESS_BOT_NAME` | Local bot display name. |

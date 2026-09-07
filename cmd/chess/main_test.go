@@ -710,8 +710,11 @@ func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 
 func TestPiecePresentationLabelExplainsTheActiveUnicodeMode(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
-	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 2}); got != "icons" {
-		t.Fatalf("auto presentation = %q, want icons", got)
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 2}); got != "text" {
+		t.Fatalf("auto presentation = %q, want text", got)
+	}
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 18, cellHeight: 4}); got != "icons" {
+		t.Fatalf("wide auto presentation = %q, want icons", got)
 	}
 	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 1}); got != "text" {
 		t.Fatalf("compact presentation = %q, want text", got)
@@ -899,14 +902,14 @@ func TestRenderedSpriteRowsStayHorizontallyCentered(t *testing.T) {
 	}
 }
 
-func TestAutoPieceStyleUsesSpritesOnlyWhenTheyCanScale(t *testing.T) {
+func TestAutoPieceStyleUsesSpritesOnlyWhenTheyHaveRoom(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
 	piece := chess.Piece{Color: chess.Black, Type: chess.Queen}
 	if !pieceSpriteEnabled(piece, unicodeTheme, 18, 4) {
-		t.Fatal("auto style did not select a scalable sprite for a large Unicode cell")
+		t.Fatal("auto style did not select a sprite for a large Unicode cell")
 	}
-	if !pieceSpriteEnabled(piece, unicodeTheme, 5, 2) {
-		t.Fatal("auto style did not select a two-row sprite for a compact dashboard cell")
+	if pieceSpriteEnabled(piece, unicodeTheme, 5, 2) {
+		t.Fatal("auto style selected a sprite for a compact dashboard cell")
 	}
 	if pieceSpriteEnabled(piece, unicodeTheme, 4, 2) || pieceSpriteEnabled(piece, unicodeTheme, 5, 1) {
 		t.Fatal("auto style selected a sprite where the cell cannot support it")
@@ -917,7 +920,7 @@ func TestAutoPieceStyleUsesSpritesOnlyWhenTheyCanScale(t *testing.T) {
 	}
 }
 
-func TestResponsive106RowBoardUsesCenteredSprites(t *testing.T) {
+func TestResponsive106RowBoardUsesCenteredGlyphs(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
 	scale, compact := boardScaleForTerminal(106, 30)
 	if compact || scale.cellWidth != 5 || scale.cellHeight != 2 {
@@ -927,30 +930,28 @@ func TestResponsive106RowBoardUsesCenteredSprites(t *testing.T) {
 	position := chess.NewGame().Position()
 	files, ranks := boardOrientation(false)
 	lines := boardLines(position, files, ranks, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, scale)
-	var spriteRows int
+	var glyphRows int
 	for _, line := range lines[1:3] {
 		clean := stripSGR(line)
-		if !strings.ContainsAny(clean, "▀▄█") {
+		if !strings.Contains(clean, "♜") {
 			continue
 		}
-		spriteRows++
+		glyphRows++
 		cells := strings.Split(clean[strings.Index(clean, "│"):], "│")
 		if len(cells) < 9 {
-			t.Fatalf("sprite row lost board separators: %q", clean)
+			t.Fatalf("glyph row lost board separators: %q", clean)
 		}
 		for _, cell := range cells[1:9] {
 			if got := len([]rune(cell)); got != scale.cellWidth {
-				t.Fatalf("compact sprite cell width = %d, want %d: %q", got, scale.cellWidth, cell)
+				t.Fatalf("compact glyph cell width = %d, want %d: %q", got, scale.cellWidth, cell)
 			}
 		}
 	}
-	if spriteRows != 2 {
-		t.Fatalf("compact sprite rows = %d, want 2", spriteRows)
+	if glyphRows != 1 {
+		t.Fatalf("compact glyph rows = %d, want 1 centered row", glyphRows)
 	}
-	for row := 0; row < 2; row++ {
-		if rendered := pieceSpriteRowScaled(chess.Piece{Type: chess.Rook}, scale.cellWidth, scale.cellHeight, row); !strings.ContainsAny(rendered, "▀▄█") {
-			t.Fatalf("compact rook row %d lost its silhouette: %q", row, rendered)
-		}
+	if strings.ContainsAny(strings.Join(lines, "\n"), "▀▄█") {
+		t.Fatal("dashboard auto style unexpectedly emitted half-block sprite glyphs")
 	}
 }
 
@@ -1098,8 +1099,8 @@ func TestInteractiveRenderingGoldenViewportHashes(t *testing.T) {
 		want          string
 	}{
 		{name: "unicode-compact", width: 80, height: 24, theme: unicodeTheme, want: "f4d1ae5971afa6bba2e80fc035345640cf83e4d85ca611286c08f8689e2565e7"},
-		{name: "unicode-dashboard", width: 106, height: 30, theme: unicodeTheme, want: "1848c6b6c11666da203c2dd6010b0834d4587a29feae7f276c3b74002a457b34"},
-		{name: "unicode-wide", width: 213, height: 60, theme: unicodeTheme, want: "cd4cc73942bfaa85e7a57883fb5ea84645fecea98abca0592f25c78704310997"},
+		{name: "unicode-dashboard", width: 106, height: 30, theme: unicodeTheme, want: "dcd6e6d96d786df8eec7cec4674ca98f4c11d25230dff6dfbb133a4d0bd419ef"},
+		{name: "unicode-wide", width: 213, height: 60, theme: unicodeTheme, want: "a2432ebf2a571c57dfcf5465e1435e2ed667cd8961601ef67cf8cd944e179a52"},
 		{name: "ascii-compact", width: 80, height: 24, theme: asciiTheme, want: "76762e57d5b3671f71853c927327ee0f5e8fa98e8dbd74b7d4cb76feaf1f1cb4"},
 	}
 	game := chess.NewGame()

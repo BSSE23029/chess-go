@@ -12,28 +12,34 @@ import (
 // aligned while making pieces visibly scale with the board.
 var pieceSpriteBitmap = map[chess.PieceType][]string{
 	chess.Pawn: {
-		"    ###    ", "   #####   ", "   #####   ", "    ###    ",
-		"    ###    ", "   #####   ", "  #######  ", "###########",
+		"     ##      ", "    ####     ", "   ######    ", "    ####     ",
+		"     ##      ", "    ####     ", "   ######    ", "  ########   ",
+		"   ######    ", "    ####     ",
 	},
 	chess.Knight: {
-		"    ####   ", "   #####   ", "   ##      ", "   ######  ",
-		"    #####  ", "   ####    ", "  #######  ", "###########",
+		"       ##    ", "      ###    ", "     ####    ", "    #####    ",
+		"    ###      ", "   ####      ", "  #######    ", " #########   ",
+		"   ######    ", "    ####     ",
 	},
 	chess.Bishop: {
-		"    ##     ", "   ####    ", "    ##     ", "   ####    ",
-		"  ######   ", "   ####    ", "  #######  ", "###########",
+		"      ##     ", "     ###     ", "    ## ##    ", "      ##     ",
+		"     ###     ", "    #####    ", "   #######   ", "  #########  ",
+		"   #######   ", "    #####    ",
 	},
 	chess.Rook: {
-		"# ## ## ## ", "###########", "   #####   ", "   #####   ",
-		"  #######  ", "  #######  ", " ######### ", "###########",
+		"   ## ## ##   ", "   ########   ", "      ##      ", "      ##      ",
+		"     ####     ", "    ######    ", "   ########   ", "  ##########  ",
+		"   ########   ", "    ######    ",
 	},
 	chess.Queen: {
-		"#  ###  #  ", " ### ###   ", "  #####    ", "   ###     ",
-		"  #####    ", " #######   ", "#########  ", "###########",
+		"   ##  ##  ## ", "    #######   ", "      ##      ", "     ####     ",
+		"    ######    ", "   ########   ", "  ##########  ", "   ########   ",
+		"   ######     ", "    ####      ",
 	},
 	chess.King: {
-		"    ###    ", "  #######  ", "    ###    ", "    ###    ",
-		"   #####   ", "  #######  ", " ######### ", "###########",
+		"      ##      ", "    ######    ", "      ##      ", "      ##      ",
+		"     ####     ", "    ######    ", "   ########   ", "  ##########  ",
+		"   ########   ", "    ######    ",
 	},
 }
 
@@ -42,7 +48,11 @@ func pieceSpriteEnabled(piece chess.Piece, boardTheme theme, cellWidth, cellHeig
 		return false
 	}
 	style := unicodePieceStyle()
-	return style == "auto" || style == "sprite"
+	// Keep ordinary dashboard cells on literal glyphs, which remain
+	// recognizable across terminal fonts. On genuinely wide/tall cells the
+	// scalable silhouette has enough resolution to be useful; users can also
+	// force it with `sprite`.
+	return style == "sprite" || (style == "auto" && cellWidth >= 12 && cellHeight >= 3)
 }
 
 func pieceSpriteRow(piece chess.Piece, cellWidth, cellRow int) string {

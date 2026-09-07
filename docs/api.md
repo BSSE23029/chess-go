@@ -256,9 +256,10 @@ go run ./examples/basic
 The normal `go test ./...` gate compiles this example with the public API.
 
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Unicode
-rendering is the default; cells with enough width and height use scalable
-block-art icons so pieces remain readable even though terminals cannot change
-an individual glyph's font size. One-row fallback layouts keep the literal
+rendering is the default; `auto` keeps those glyphs centered and bold on
+dashboard-sized cells, switching to a scalable half-block silhouette only when
+the cell is genuinely wide and tall. `sprite` explicitly enables that
+alternative at any supported size. One-row fallback layouts keep the literal
 glyphs centered and bold. Endgame king-activity terms are tapered by remaining
 non-pawn material, preserving middlegame king safety while making sparse
 positions more precise. Select ASCII with `--theme ascii` or
@@ -266,11 +267,11 @@ positions more precise. Select ASCII with `--theme ascii` or
 dashboard adapts to narrow windows, honors `NO_COLOR`, and redraws the frame
 when position, clocks, or terminal geometry changes. The `:` palette supports `theme`,
 `flip`, `draw`, and `resign`; promotion choices use Left/Right and Enter.
-Unicode cells with at least two terminal rows use scalable block-art icons
-automatically; this avoids depending on a terminal-specific font-size control.
+Unicode cells keep the text glyph centered by default; this avoids depending on
+a terminal-specific font-size control or a font-specific sprite shape.
 Set
 `CHESS_PIECE_STYLE=text` for literal chess glyphs,
-`CHESS_PIECE_STYLE=sprite` to force the scalable icons, or
+`CHESS_PIECE_STYLE=sprite` to opt into scalable icons, or
 `CHESS_PIECE_STYLE=emoji` to request emoji presentation on terminals that
 support it. Apple Terminal falls back to stable text glyphs for emoji mode.
 

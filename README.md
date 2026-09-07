@@ -63,15 +63,15 @@ go install ./cmd/chess
 chess play bot --level Casual
 ```
 
-The terminal board uses Unicode chess rendering by default. When the viewport
-has at least two rows per square, `auto` uses scalable block-art piece icons
-so the pieces remain readable even though terminals cannot change an
-individual glyph's font size. One-row fallback layouts keep the literal
-Unicode glyphs centered and bold.
-Use `CHESS_PIECE_STYLE=text` for literal `♔`/`♟` symbols, or
-`CHESS_PIECE_STYLE=sprite` to force the scalable icons. On terminals with
-emoji-capable fonts, `CHESS_PIECE_STYLE=emoji` opts into the wider emoji
-presentation; Apple Terminal falls back to stable text glyphs for that mode.
+The terminal board uses centered, bold Unicode chess symbols by default, so
+pieces remain recognizable across terminal fonts and sizes. Extra-wide/tall
+cells automatically switch to the scalable icon renderer; compact dashboards
+stay on text glyphs. Use `CHESS_PIECE_STYLE=text` to request the stable text
+presentation explicitly, or `CHESS_PIECE_STYLE=sprite` to opt into icons at
+any supported size. The sprite mode is useful when a larger silhouette matters
+more than font consistency. On terminals with emoji-capable fonts,
+`CHESS_PIECE_STYLE=emoji` opts into the wider emoji presentation; Apple
+Terminal falls back to stable text glyphs for that mode.
 Use `--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII
 borders.
 Set `NO_COLOR=1` when ANSI color is not desired. The TUI scales its board and
@@ -90,18 +90,24 @@ Left/Right and Enter.
 
 ### Terminal screenshots
 
-These are real captures from the current `chess` binary running in macOS
-Terminal.app. The same renderer adapts to the viewport: wide terminals use
-large block-art piece icons, while compact terminals switch to centered text
-glyphs so the board and controls remain usable.
+These are real captures from the `chess` binary running in macOS
+Terminal.app. The default view uses centered Unicode pieces; the launcher and
+compact game view are the quickest way to see the layout without opening a
+large image.
 
-![Wide Unicode chess-go game at 240x56](docs/images/terminal-wide.png)
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/terminal-compact.png" width="560" alt="Compact Unicode chess-go game at 80 by 24"><br><sub>Compact game · 80×24</sub></td>
+    <td align="center"><img src="docs/images/terminal-launcher.png" width="560" alt="Interactive chess-go launcher at 80 by 24"><br><sub>Interactive launcher · 80×24</sub></td>
+  </tr>
+</table>
 
-![Chess-go bot game at 120x30](docs/images/terminal-bot.png)
+<details>
+  <summary>More real terminal captures</summary>
 
-![Compact Unicode chess-go game at 80x24](docs/images/terminal-compact.png)
-
-![Interactive chess-go launcher at 80x24](docs/images/terminal-launcher.png)
+  <p><img src="docs/images/terminal-bot.png" width="720" alt="Chess-go bot game at 120 by 30"><br><sub>Bot game · explicit scalable icon presentation</sub></p>
+  <p><img src="docs/images/terminal-wide.png" width="900" alt="Wide Unicode chess-go game at 240 by 56"><br><sub>Wide board · scalable icon presentation</sub></p>
+</details>
 
 The repository also keeps lightweight SVG previews for documentation tooling:
 [`preview-unicode.svg`](docs/images/preview-unicode.svg) and
