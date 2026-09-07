@@ -446,9 +446,12 @@ func (p *Position) updateCastling(move Move, piece, captured Piece) {
 			p.castling &^= BlackKingSide | BlackQueenSide
 		}
 	}
-	for square, right := range map[Square]CastlingRights{0: WhiteQueenSide, 7: WhiteKingSide, 56: BlackQueenSide, 63: BlackKingSide} {
-		if move.From == square || (move.To == square && captured.Type == Rook) {
-			p.castling &^= right
+	for _, rook := range [...]struct {
+		square Square
+		right  CastlingRights
+	}{{0, WhiteQueenSide}, {7, WhiteKingSide}, {56, BlackQueenSide}, {63, BlackKingSide}} {
+		if move.From == rook.square || (move.To == rook.square && captured.Type == Rook) {
+			p.castling &^= rook.right
 		}
 	}
 }

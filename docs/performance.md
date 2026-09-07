@@ -16,15 +16,18 @@ and Advanced profiles also avoid validating each styled candidate twice. Treat
 those numbers as a local regression baseline, not a portable performance
 guarantee.
 
-On the current M1 Pro baseline, the default 8K table measures roughly 6.7–7.3
+On the current M1 Pro baseline, the default 8K table measures roughly 3.7–4.0
 ms for the depth-3 opening position, 1,128 nodes/search, and 4 allocations/
 search. Deterministic searches now skip the root candidate buffer entirely;
 randomized profiles still retain candidate scoring for near-best selection.
-Repeated table-size runs kept the same node and TT-hit counters while
+The move-generation path also avoids constructing a castling-rights map for
+every make/unmake operation. Repeated table-size runs kept the same node and
+TT-hit counters while
 the 8K table avoided the 16K table's extra memory footprint. The current
-one-iteration PGO comparison measured about 7.3 ms without PGO versus 9.6 ms
-with PGO, with identical search counters; this is noisy diagnostic data, not a
-claim that PGO improves this workload. Repeat measurements on the target
+one-iteration PGO comparison measured about 3.9 ms without PGO versus 3.9 ms
+with PGO, with identical search counters; this is effectively neutral and
+remains noisy diagnostic data, not a claim that PGO improves this workload.
+Repeat measurements on the target
 machine before drawing conclusions.
 
 Run the broader benchmark set with:
