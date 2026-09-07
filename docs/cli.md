@@ -76,6 +76,9 @@ viewport. The header label tells you which presentation is active. Override it
 with `CHESS_PIECE_STYLE=text`, `sprite`/`icon`, or `emoji` (emoji falls back to
 text on terminals that do not advertise emoji support).
 
+Compact dashboards also show `compact viewport · widen for larger pieces`,
+making the one-row fallback explicit instead of leaving glyph size mysterious.
+
 ![Wide Unicode game with scalable icons](images/terminal-wide.png)
 
 ![Compact Unicode game with centered text glyphs](images/terminal-compact.png)

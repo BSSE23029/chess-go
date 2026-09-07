@@ -1069,6 +1069,9 @@ func TestNarrowCompactFrameKeepsStatusAndControlsVisible(t *testing.T) {
 	if !strings.Contains(frame, "CAPTURED") || !strings.Contains(frame, "White to move") {
 		t.Fatalf("narrow frame lost compact status rail:\n%s", frame)
 	}
+	if !strings.Contains(frame, "compact viewport") {
+		t.Fatalf("narrow frame did not explain compact scaling:\n%s", frame)
+	}
 	if !strings.Contains(frame, "h/j/k/l move") || !strings.Contains(frame, "? | q") {
 		t.Fatalf("narrow frame lost footer controls:\n%s", frame)
 	}

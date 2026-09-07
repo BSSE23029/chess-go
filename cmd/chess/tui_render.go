@@ -220,6 +220,9 @@ func renderFullInteractive(output io.Writer, game *chess.Game, ui *boardUI, mode
 		presentation = separator + strings.ToUpper(piecePresentationLabel(boardTheme, scale))
 	}
 	fmt.Fprintf(&frame, "%s  %s%s%s theme%s%s %d move%s%s\n\n", tuiDim, mode, separator, strings.ToUpper(boardTheme.label()), presentation, separator, model.moveCount, plural(model.moveCount), tuiReset)
+	if compact {
+		fmt.Fprintf(&frame, "%s  compact viewport · widen for larger pieces%s\n\n", tuiDim, tuiReset)
+	}
 
 	board := boardLines(position, files, ranks, ui, legal, last, model.checkSquare, boardTheme, scale)
 	rail := sidebarLines(position, ui, clocks, model, boardTheme)
