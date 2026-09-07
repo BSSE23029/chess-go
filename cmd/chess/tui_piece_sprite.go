@@ -12,34 +12,22 @@ import (
 // aligned while making pieces visibly scale with the board.
 var pieceSpriteBitmap = map[chess.PieceType][]string{
 	chess.Pawn: {
-		"     ##      ", "    ####     ", "   ######    ", "    ####     ",
-		"     ##      ", "    ####     ", "   ######    ", "  ########   ",
-		"   ######    ", "    ####     ",
+		"   ##   ", "  ####  ", "  ####  ", "   ##   ", " ###### ", " ###### ",
 	},
 	chess.Knight: {
-		"       ##    ", "      ###    ", "     ####    ", "    #####    ",
-		"    ###      ", "   ####      ", "  #######    ", " #########   ",
-		"   ######    ", "    ####     ",
+		"    ##  ", "  ####  ", " #####  ", " ###### ", " ###### ", " ###### ",
 	},
 	chess.Bishop: {
-		"      ##     ", "     ###     ", "    ## ##    ", "      ##     ",
-		"     ###     ", "    #####    ", "   #######   ", "  #########  ",
-		"   #######   ", "    #####    ",
+		"   ##   ", "  ####  ", "  #  #  ", "  ####  ", " ###### ", " ###### ",
 	},
 	chess.Rook: {
-		"   ## ## ##   ", "   ########   ", "      ##      ", "      ##      ",
-		"     ####     ", "    ######    ", "   ########   ", "  ##########  ",
-		"   ########   ", "    ######    ",
+		" # # #  ", " ###### ", "  ####  ", "  ####  ", " ###### ", " ###### ",
 	},
 	chess.Queen: {
-		"   ##  ##  ## ", "    #######   ", "      ##      ", "     ####     ",
-		"    ######    ", "   ########   ", "  ##########  ", "   ########   ",
-		"   ######     ", "    ####      ",
+		"# # # # ", " ###### ", "  ####  ", "  ####  ", " ###### ", " ###### ",
 	},
 	chess.King: {
-		"      ##      ", "    ######    ", "      ##      ", "      ##      ",
-		"     ####     ", "    ######    ", "   ########   ", "  ##########  ",
-		"   ########   ", "    ######    ",
+		"   ##   ", "  ####  ", "   ##   ", "  ####  ", " ###### ", " ###### ",
 	},
 }
 
@@ -99,14 +87,15 @@ func spritePixelRowScaled(bitmap []string, pixelRow, pixelRows, width int) strin
 	if len(bitmap) == 0 || pixelRows < 1 || pixelRow < 0 || pixelRow >= pixelRows {
 		return strings.Repeat(" ", maxInt(width, 0))
 	}
-	// A two-row cell has no room for breathing rows: mapping all four bitmap
-	// rows keeps the compact icon recognizable instead of retaining only its
-	// first and last source rows. Taller cells reserve an outer blank row to
-	// keep the silhouette visually centered against the board border.
-	if pixelRows <= 4 {
+	// Small and medium cells need every available bitmap row. Keeping the
+	// silhouette's full vertical detail is more useful than padding it with
+	// blank rows, which otherwise turns a rook or king into stacked bars.
+	if pixelRows <= 8 {
 		sourceRow := pixelRow * (len(bitmap) - 1) / maxInt(pixelRows-1, 1)
 		return scaleSpriteRow(bitmap[sourceRow], width)
 	}
+	// Only very tall cells reserve an outer blank row to keep the silhouette
+	// visually centered against the board border.
 	if pixelRow == 0 || pixelRow == pixelRows-1 {
 		return strings.Repeat(" ", maxInt(width, 0))
 	}

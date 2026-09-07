@@ -691,11 +691,11 @@ func TestInteractiveRendererStacksTheRailWhenNarrow(t *testing.T) {
 
 func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 	wide, compact := boardScaleForTerminal(213, 60)
-	if compact || wide.cellWidth != 10 || wide.cellHeight != 4 {
+	if compact || wide.cellWidth != 12 || wide.cellHeight != 5 {
 		t.Fatalf("wide scale = %#v, compact %v", wide, compact)
 	}
 	huge, compact := boardScaleForTerminal(266, 60)
-	if compact || huge.cellWidth != 10 || huge.cellHeight != 4 {
+	if compact || huge.cellWidth != 12 || huge.cellHeight != 5 {
 		t.Fatalf("huge scale = %#v, compact %v", huge, compact)
 	}
 	narrow, compact := boardScaleForTerminal(60, 30)
@@ -1126,8 +1126,8 @@ func TestInteractiveRenderingGoldenViewportHashes(t *testing.T) {
 		want          string
 	}{
 		{name: "unicode-compact", width: 80, height: 24, theme: unicodeTheme, want: "f4d1ae5971afa6bba2e80fc035345640cf83e4d85ca611286c08f8689e2565e7"},
-		{name: "unicode-dashboard", width: 106, height: 30, theme: unicodeTheme, want: "8edfdc1210b579a960545a7c3647b1b9a736d2d01874acecacb5d25c034b0899"},
-		{name: "unicode-wide", width: 213, height: 60, theme: unicodeTheme, want: "a34616fe919736c1909501afa6526aac9b79f0e382454b3124b9be70a896ebb2"},
+		{name: "unicode-dashboard", width: 106, height: 30, theme: unicodeTheme, want: "13ae61ec8e23aa81bdb08a6f44db5f8e3559ac329513d81b79c12c6fdf2ac8db"},
+		{name: "unicode-wide", width: 213, height: 60, theme: unicodeTheme, want: "1f056e5ab70c6292c1da1894f95b289afd709ebf9227a3e77ebd2e181cb443a0"},
 		{name: "ascii-compact", width: 80, height: 24, theme: asciiTheme, want: "76762e57d5b3671f71853c927327ee0f5e8fa98e8dbd74b7d4cb76feaf1f1cb4"},
 	}
 	game := chess.NewGame()
@@ -1154,7 +1154,7 @@ func TestInteractiveRenderingFitsEverySupportedViewport(t *testing.T) {
 	viewports := []struct {
 		width, height int
 	}{
-		{80, 24}, {95, 24}, {100, 30}, {106, 30}, {120, 30}, {213, 60},
+		{80, 24}, {95, 24}, {100, 30}, {106, 30}, {120, 30}, {162, 44}, {213, 60},
 	}
 	for _, viewport := range viewports {
 		t.Run(fmt.Sprintf("%dx%d", viewport.width, viewport.height), func(t *testing.T) {

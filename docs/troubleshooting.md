@@ -2,12 +2,22 @@
 
 ## Pieces look small
 
-Terminal programs cannot change the terminal font size. Unicode
+Terminal programs cannot resize one Unicode glyph independently of the rest of
+the terminal grid. Unicode defines character width properties, but a terminal
+still places text in fixed-size cells; the selected font controls the glyph's
+actual pixels. Unicode
 `CHESS_PIECE_STYLE=auto` uses compact scalable half-block pieces on two-row
 dashboard cells, while one-row compact viewports keep centered text glyphs.
 Extra-wide/tall cells scale the icons further. `CHESS_PIECE_STYLE=sprite`
 opts into the scalable mode explicitly. Make the terminal taller or wider, or
 use the launcher Settings screen to select a style.
+
+True per-glyph font scaling is terminal-specific. Kitty's text-sizing and
+graphics protocols can render larger text or images in a cell rectangle, while
+iTerm2 exposes a separate inline-image protocol; those features are not
+portable to macOS Terminal, Windows Terminal, or basic SSH/tmux sessions. The
+portable default is therefore a multi-cell half-block sprite, with literal
+Unicode text available through `CHESS_PIECE_STYLE=text`.
 
 ## The board looks stretched
 

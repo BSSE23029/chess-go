@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	// The renderer owns its surface colors. Relying on the terminal profile
-	// makes the board unreadable in light profiles and leaves white separator
-	// gaps between colored cells.
-	tuiSurface     = "\x1b[48;5;235m\x1b[38;5;252m"
+	// Keep the surrounding surface on the terminal's configured palette. The
+	// board squares still carry their own contrast colors, but the dashboard
+	// must not force a black/charcoal background on light terminal profiles.
+	tuiSurface     = "\x1b[49m\x1b[39m"
 	tuiFrameStart  = tuiSurface + "\x1b[H\x1b[2J"
 	tuiReset       = "\x1b[0m" + tuiSurface
 	tuiBold        = "\x1b[1m"

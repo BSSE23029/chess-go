@@ -74,7 +74,8 @@ consistency. On terminals with emoji-capable fonts,
 `CHESS_PIECE_STYLE=emoji` opts into the wider emoji presentation; Apple
 Terminal falls back to stable text glyphs for that mode.
 Use `--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII
-borders.
+borders. The surrounding dashboard inherits the terminal's configured
+background; only board squares and selection states use explicit colors.
 Set `NO_COLOR=1` when ANSI color is not desired. The TUI scales its board and
 sidebar to the current terminal size, clips safely at very small viewports,
 restores the terminal on exit, and redraws cleanly when state or clocks change.

@@ -103,9 +103,9 @@ func boardScaleForTerminal(width, height int) (boardScale, bool) {
 		// outside the viewport.
 		switch {
 		case height >= 58:
-			cellHeight = 4
+			cellHeight = 5
 		case height >= 44:
-			cellHeight = 3
+			cellHeight = 4
 		case height >= 30:
 			cellHeight = 2
 		}
