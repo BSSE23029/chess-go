@@ -1120,6 +1120,31 @@ func TestInteractiveRenderingGoldenViewportHashes(t *testing.T) {
 	}
 }
 
+func TestInteractiveRenderingFitsEverySupportedViewport(t *testing.T) {
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Black", mode: "LOCAL MATCH"}
+	model := ui.model(game, game.Position(), unicodeTheme)
+	viewports := []struct {
+		width, height int
+	}{
+		{80, 24}, {106, 30}, {120, 30}, {213, 60},
+	}
+	for _, viewport := range viewports {
+		t.Run(fmt.Sprintf("%dx%d", viewport.width, viewport.height), func(t *testing.T) {
+			scale, compact := boardScaleForTerminal(viewport.width, viewport.height)
+			var output bytes.Buffer
+			renderFullInteractive(&output, game, &ui, model, false, "", unicodeTheme, scale, compact, viewport.width, viewport.height)
+			frame := formatInteractiveFrame(output.String(), viewport.width, viewport.height)
+			body := strings.TrimPrefix(frame, tuiFrameStart)
+			for index, line := range strings.Split(body, "\n") {
+				if got := terminalTextWidth(stripSGR(line)); got > viewport.width {
+					t.Fatalf("line %d is %d columns wide, want <= %d: %q", index, got, viewport.width, line)
+				}
+			}
+		})
+	}
+}
+
 func TestWriteFrameHonorsNoColorForTerminalWriters(t *testing.T) {
 	reader, writer, err := os.Pipe()
 	if err != nil {
