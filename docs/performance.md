@@ -41,8 +41,8 @@ Run the broader benchmark set with:
 make bench
 ```
 
-The CI guard checks deterministic search work rather than machine-dependent
-wall-clock time:
+The CI guard checks deterministic search work and the stable opening allocation
+count rather than machine-dependent wall-clock time:
 
 ```console
 make benchmark-regression
