@@ -21,13 +21,14 @@ Resize through these approximate viewport tiers while the game is running:
 
 ```text
 80×24   compact text glyphs and stacked status rail
-106×30  dashboard icons with a side rail
-120×30  larger dashboard icons
-213×60  proportional board cells with scalable icons
+106×30  centered Unicode glyphs with a side rail
+120×30  centered Unicode glyphs in larger cells
+213×60  proportional board cells with centered glyphs
 ```
 
-The header reports `TEXT` or `ICONS`. If the font makes chess glyphs look
-misaligned, use the stable text renderer or the ASCII theme:
+The header reports `TEXT` (or `SPRITE` when the experimental style is selected).
+If the font makes chess glyphs look misaligned, use the stable text renderer or
+the ASCII theme:
 
 ```console
 CHESS_PIECE_STYLE=text go run ./cmd/chess play local --theme unicode

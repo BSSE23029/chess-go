@@ -63,14 +63,13 @@ go install ./cmd/chess
 chess play bot --level Casual
 ```
 
-The terminal board uses centered, bold Unicode chess symbols by default. On
-two-row dashboard cells `auto` switches to compact scalable icons so pieces do
-not look like tiny font marks; one-row compact viewports stay on centered text.
-Extra-wide/tall cells use larger scalable icons. Use
-`CHESS_PIECE_STYLE=text` to request the stable text presentation explicitly,
-or `CHESS_PIECE_STYLE=sprite` to opt into icons at any supported size. The
-sprite mode is useful when a larger silhouette matters more than font
-consistency. On terminals with emoji-capable fonts,
+The terminal board uses centered, bold Unicode chess symbols by default. The
+`auto` style keeps those real chess glyphs at every terminal size, because
+portable terminals cannot resize one Unicode glyph independently of its cell.
+`CHESS_PIECE_STYLE=text` requests that stable presentation explicitly.
+`CHESS_PIECE_STYLE=sprite` remains available as an experimental pixel-art
+alternative for terminals where a scalable silhouette is preferable to
+font-rendered chess symbols. On terminals with emoji-capable fonts,
 `CHESS_PIECE_STYLE=emoji` opts into the wider emoji presentation; Apple
 Terminal falls back to stable text glyphs for that mode.
 Use `--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII

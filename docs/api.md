@@ -256,10 +256,9 @@ go run ./examples/basic
 The normal `go test ./...` gate compiles this example with the public API.
 
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Unicode
-rendering is the default; `auto` uses compact scalable half-block silhouettes
-on two-row dashboard cells and keeps literal glyphs centered and bold on
-one-row fallback layouts. Extra-wide/tall cells scale the silhouette further.
-`sprite` explicitly enables that alternative at any supported size. Endgame
+rendering is the default; `auto` keeps recognizable glyphs centered and bold at
+every viewport size. `sprite` explicitly enables an experimental half-block
+pixel alternative when a larger silhouette is preferred. Endgame
 king-activity terms are tapered by remaining
 non-pawn material, preserving middlegame king safety while making sparse
 positions more precise. Select ASCII with `--theme ascii` or
@@ -271,7 +270,7 @@ Unicode cells keep the text glyph centered by default; this avoids depending on
 a terminal-specific font-size control or a font-specific sprite shape.
 Set
 `CHESS_PIECE_STYLE=text` for literal chess glyphs,
-`CHESS_PIECE_STYLE=sprite` to opt into scalable icons, or
+`CHESS_PIECE_STYLE=sprite` to opt into the experimental pixel icons, or
 `CHESS_PIECE_STYLE=emoji` to request emoji presentation on terminals that
 support it. Apple Terminal falls back to stable text glyphs for emoji mode.
 

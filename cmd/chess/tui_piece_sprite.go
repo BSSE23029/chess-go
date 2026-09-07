@@ -8,26 +8,33 @@ import (
 
 // Piece sprites use terminal block characters instead of relying on a font's
 // chess-glyph size. A sprite is eight bitmap rows tall; each terminal row
-// carries two bitmap rows with upper/lower half blocks. This keeps every cell
-// aligned while making pieces visibly scale with the board.
+// carries two bitmap rows with upper/lower half blocks. The silhouettes are
+// deliberately shaped like the six chess pieces rather than generic bars, so
+// the scalable fallback remains recognizable in a real terminal.
 var pieceSpriteBitmap = map[chess.PieceType][]string{
 	chess.Pawn: {
-		"   ##   ", "  ####  ", "  ####  ", "   ##   ", " ###### ", " ###### ",
+		"    #    ", "   ###   ", "   ###   ", "    #    ",
+		"   ###   ", "  #####  ", "  #####  ", " ####### ",
 	},
 	chess.Knight: {
-		"    ##  ", "  ####  ", " #####  ", " ###### ", " ###### ", " ###### ",
+		"    ##   ", "   ###   ", "  ####   ", "  #######",
+		"  #####  ", " ######  ", " ####### ", "  #####  ",
 	},
 	chess.Bishop: {
-		"   ##   ", "  ####  ", "  #  #  ", "  ####  ", " ###### ", " ###### ",
+		"    #    ", "   ###   ", "   # #   ", "  #####  ",
+		"   ###   ", "  #####  ", "  ###### ", " ####### ",
 	},
 	chess.Rook: {
-		" # # #  ", " ###### ", "  ####  ", "  ####  ", " ###### ", " ###### ",
+		"  # # #  ", "  ###### ", "    #    ", "   ###   ",
+		"   ###   ", "  #####  ", "  ###### ", " ####### ",
 	},
 	chess.Queen: {
-		"# # # # ", " ###### ", "  ####  ", "  ####  ", " ###### ", " ###### ",
+		"  # # #  ", " #  #  # ", "  #####  ", " ####### ",
+		"   ###   ", "  #####  ", "  ###### ", " ####### ",
 	},
 	chess.King: {
-		"   ##   ", "  ####  ", "   ##   ", "  ####  ", " ###### ", " ###### ",
+		"    #    ", "   ###   ", "  #####  ", "    #    ",
+		"   ###   ", "  #####  ", "  ###### ", " ####### ",
 	},
 }
 
@@ -36,13 +43,11 @@ func pieceSpriteEnabled(piece chess.Piece, boardTheme theme, cellWidth, cellHeig
 		return false
 	}
 	style := unicodePieceStyle()
-	// A two-row dashboard cell has enough vertical resolution for a compact
-	// half-block silhouette. This keeps pieces legible at the common 106x30
-	// viewport instead of shrinking them to a single font-dependent glyph.
-	// One-row compact layouts remain on text because there is no vertical room
-	// for a meaningful silhouette. Explicit sprite mode still observes this
-	// minimum so it cannot emit a clipped one-row icon by accident.
-	return style == "sprite" || (style == "auto" && cellWidth >= 5 && cellHeight >= 2)
+	// Keep auto on the readable Unicode glyphs. Half-block sprites can occupy
+	// more cells, but their appearance varies with font rasterization and they
+	// do not look like chess pieces in every terminal. Users can still opt into
+	// the experimental pixel treatment explicitly with CHESS_PIECE_STYLE=sprite.
+	return style == "sprite"
 }
 
 func pieceSpriteRow(piece chess.Piece, cellWidth, cellRow int) string {

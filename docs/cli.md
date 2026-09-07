@@ -69,11 +69,10 @@ capture of the menu shipped with the current binary:
 
 ### Responsive terminal rendering
 
-The TUI repaints after a terminal resize. Unicode `auto` mode selects compact
-`ICONS` on two-row dashboard cells and keeps centered `TEXT` glyphs only when a
-compact viewport has one row per square. Wider/taller cells scale the icons
-further. Choose
-`CHESS_PIECE_STYLE=sprite`/`icon` when you prefer icons at any supported size.
+The TUI repaints after a terminal resize. Unicode `auto` mode keeps centered
+`TEXT` chess glyphs at every viewport size, preserving recognizable pieces
+instead of rasterizing font-dependent block art. Choose
+`CHESS_PIECE_STYLE=sprite`/`icon` only for the experimental pixel-art mode.
 The header label tells you which presentation is active; `emoji` falls back to
 text on terminals that do not advertise emoji support.
 
@@ -145,7 +144,9 @@ chess play bot [--level NAME | --depth N] [--color white|black]
 The dashboard displays the bot's latest completed depth, node count, and score
 when the built-in engine returns search statistics.
 
-![Chess-go bot game with a completed move](images/terminal-bot.png)
+The bot screenshot is intentionally omitted until a fresh Terminal.app capture
+is reviewed against the current renderer; the checked-in historical image is
+not representative of the current sprite silhouettes.
 
 ## Remote play
 
@@ -244,7 +245,7 @@ does not auto-load dotenv files or commit local secrets.
 | Variable | Used by |
 |---|---|
 | `CHESS_THEME` | Default `unicode`/`ascii` board theme. |
-| `CHESS_PIECE_STYLE` | Unicode piece presentation: `auto` (compact icons on two-row cells, text on one-row cells), `text`, `sprite`/`icon`, or `emoji`. |
+| `CHESS_PIECE_STYLE` | Unicode piece presentation: `auto` (centered glyphs), `text`, experimental `sprite`/`icon`, or `emoji`. |
 | `CHESS_PLAYER_NAME` | Human/player identity. |
 | `CHESS_PLAYER_COLOR` | Human or remote color. |
 | `CHESS_BOT_NAME` | Local bot display name. |
