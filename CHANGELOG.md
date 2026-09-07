@@ -27,5 +27,3 @@ The first release candidate of the dependency-light Go chess toolkit.
   coverage, integration coverage, and PTY resize gates.
 - Release archives target Darwin amd64/arm64, Linux amd64/arm64, and Windows
   amd64. Verify `SHA256SUMS` before installing an archive.
-
-[v0.1.0]: https://github.com/BSSE23029/chess-go/releases/tag/v0.1.0
