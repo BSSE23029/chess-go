@@ -80,9 +80,11 @@ text on terminals that do not advertise emoji support.
 Compact dashboards also show `compact viewport · widen for larger pieces`,
 making the one-row fallback explicit instead of leaving glyph size mysterious.
 
-![Wide Unicode game with scalable icons](images/terminal-wide.png)
-
 ![Compact Unicode game with centered text glyphs](images/terminal-compact.png)
+
+The wide icon capture is intentionally omitted until a fresh Terminal.app
+capture is reviewed against the current renderer. The automated PTY matrix in
+[`terminal-matrix.md`](terminal-matrix.md) covers that viewport meanwhile.
 
 ## Local play
 

@@ -92,10 +92,12 @@ Left/Right and Enter.
 
 ### Terminal screenshots
 
-These are real captures from the `chess` binary running in macOS
-Terminal.app. The default view uses centered Unicode pieces; the launcher and
-compact game view are the quickest way to see the layout without opening a
-large image.
+These are reference captures from the `chess` binary running in macOS
+Terminal.app. The launcher and compact game view are the quickest way to see
+the layout without opening a large image. Icon-mode captures will be added
+after a fresh Terminal.app capture is reviewed against the current renderer;
+the PTY viewport tests remain the source of truth while the TUI is being
+polished.
 
 <table>
   <tr>
@@ -103,13 +105,6 @@ large image.
     <td align="center"><img src="docs/images/terminal-launcher.png" width="560" alt="Interactive chess-go launcher at 80 by 24"><br><sub>Interactive launcher · 80×24</sub></td>
   </tr>
 </table>
-
-<details>
-  <summary>More real terminal captures</summary>
-
-  <p><img src="docs/images/terminal-bot.png" width="720" alt="Chess-go bot game at 120 by 30"><br><sub>Bot game · explicit scalable icon presentation</sub></p>
-  <p><img src="docs/images/terminal-wide.png" width="900" alt="Wide Unicode chess-go game at 240 by 56"><br><sub>Wide board · scalable icon presentation</sub></p>
-</details>
 
 The repository also keeps lightweight SVG previews for documentation tooling:
 [`preview-unicode.svg`](docs/images/preview-unicode.svg) and
