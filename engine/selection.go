@@ -87,14 +87,6 @@ func chooseCandidateStyled(position chess.Position, candidates []scoredMove, tem
 	if len(candidates) == 1 {
 		return candidates[0].move
 	}
-	adjusted := make([]Score, len(candidates))
-	bestAdjusted := Score(-infinity)
-	for index, candidate := range candidates {
-		adjusted[index] = candidate.score + styleBonus(position, candidate.move, personality)
-		if adjusted[index] > bestAdjusted {
-			bestAdjusted = adjusted[index]
-		}
-	}
 	if temperature <= 0 || control == nil || control.random == 0 {
 		topScore := candidates[0].score
 		for _, candidate := range candidates[1:] {
@@ -108,6 +100,14 @@ func chooseCandidateStyled(position chess.Position, candidates []scoredMove, tem
 			}
 		}
 		return candidates[0].move
+	}
+	adjusted := make([]Score, len(candidates))
+	bestAdjusted := Score(-infinity)
+	for index, candidate := range candidates {
+		adjusted[index] = candidate.score + styleBonus(position, candidate.move, personality)
+		if adjusted[index] > bestAdjusted {
+			bestAdjusted = adjusted[index]
+		}
 	}
 	total := 0.0
 	weights := make([]float64, len(candidates))
