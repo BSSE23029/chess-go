@@ -14,6 +14,13 @@ func terminalTextWidth(text string) int {
 	return width
 }
 
+func minInt(left, right int) int {
+	if left < right {
+		return left
+	}
+	return right
+}
+
 func terminalRuneWidth(r rune) int {
 	switch {
 	case r == '\n' || r == '\r' || r == '\t':

@@ -294,13 +294,6 @@ func maxInt(left, right int) int {
 	return right
 }
 
-func minInt(left, right int) int {
-	if left < right {
-		return left
-	}
-	return right
-}
-
 func sidebarLines(position chess.Position, ui *boardUI, clocks string, model *tuiCache, boardTheme theme) []string {
 	white, black := ui.whiteName, ui.blackName
 	if white == "" {
