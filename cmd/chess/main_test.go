@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -1085,6 +1087,35 @@ func TestInteractiveFrameFitsViewport(t *testing.T) {
 	}
 	if got := truncateTerminalLine("\x1b[31mabcdef\x1b[0m", 3); !strings.Contains(got, "abc") || strings.Contains(got, "def") {
 		t.Fatalf("line was not horizontally fitted: %q", got)
+	}
+}
+
+func TestInteractiveRenderingGoldenViewportHashes(t *testing.T) {
+	cases := []struct {
+		name          string
+		width, height int
+		theme         theme
+		want          string
+	}{
+		{name: "unicode-compact", width: 80, height: 24, theme: unicodeTheme, want: "f4d1ae5971afa6bba2e80fc035345640cf83e4d85ca611286c08f8689e2565e7"},
+		{name: "unicode-dashboard", width: 106, height: 30, theme: unicodeTheme, want: "1848c6b6c11666da203c2dd6010b0834d4587a29feae7f276c3b74002a457b34"},
+		{name: "unicode-wide", width: 213, height: 60, theme: unicodeTheme, want: "cd4cc73942bfaa85e7a57883fb5ea84645fecea98abca0592f25c78704310997"},
+		{name: "ascii-compact", width: 80, height: 24, theme: asciiTheme, want: "76762e57d5b3671f71853c927327ee0f5e8fa98e8dbd74b7d4cb76feaf1f1cb4"},
+	}
+	game := chess.NewGame()
+	ui := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Black", mode: "LOCAL MATCH"}
+	model := ui.model(game, game.Position(), unicodeTheme)
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			scale, compact := boardScaleForTerminal(test.width, test.height)
+			var output bytes.Buffer
+			renderFullInteractive(&output, game, &ui, model, false, "", test.theme, scale, compact, test.width, test.height)
+			frame := stripSGR(formatInteractiveFrame(output.String(), test.width, test.height))
+			got := fmt.Sprintf("%x", sha256.Sum256([]byte(frame)))
+			if got != test.want {
+				t.Fatalf("golden hash = %s, want %s", got, test.want)
+			}
+		})
 	}
 }
 

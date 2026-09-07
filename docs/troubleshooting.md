@@ -1,0 +1,44 @@
+# Troubleshooting
+
+## Pieces look small
+
+Terminal programs cannot change the terminal font size. In a wide Unicode
+viewport, `CHESS_PIECE_STYLE=auto` selects scalable `ICONS` block-art pieces;
+`CHESS_PIECE_STYLE=sprite` forces them. Compact viewports intentionally fall
+back to centered one-cell text glyphs and show a compact-viewport notice. Make
+the terminal wider or use the launcher Settings screen to select a style.
+
+## The board shifts or clips after resizing
+
+Resize the terminal once more after changing its font or zoom. The renderer
+queries the live width and height and redraws on supported resize signals. If
+the terminal reports an unusual size, use the ASCII theme:
+
+```console
+CHESS_THEME=ascii CHESS_PIECE_STYLE=text go run ./cmd/chess play local
+```
+
+## Colors are unreadable
+
+Set `NO_COLOR=1` to disable ANSI colors. The board and status text remain
+usable in monochrome terminals.
+
+## Environment settings are ignored
+
+The binary does not load dotenv files implicitly. Export the values or source a
+local file explicitly:
+
+```console
+set -a; . ./.env; set +a
+go run ./cmd/chess menu
+```
+
+Use `chess help`, `chess <command> --help`, or the launcher Help item for the
+complete command and setting list.
+
+## Network TLS failures
+
+Use `CHESS_TLS_CA` for a private CA and provide both
+`CHESS_TLS_CLIENT_CERT` and `CHESS_TLS_CLIENT_KEY` for mTLS. Keep
+`CHESS_NETWORK_INSECURE` disabled except for an explicitly local development
+server.
