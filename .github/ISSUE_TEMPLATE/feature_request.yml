@@ -1,0 +1,20 @@
+name: Feature request
+description: Propose a focused improvement to chess-go
+title: "feature: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and use case
+      description: What would this enable for a player, library user, or operator?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the API, CLI, TUI, or protocol behavior and compatibility considerations.
+    validations:
+      required: true

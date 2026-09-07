@@ -10,6 +10,11 @@ Before opening a change, run:
 make verify
 ```
 
+Markdown documentation follows the repository
+[`.markdownlint.json`](../.markdownlint.json) configuration. Keep prose
+readable, preserve fenced command examples, and update the live terminal
+previews when the TUI layout changes.
+
 Add focused tests for every behavior change. Keep maintained Go source below the
 500-line hard gate (300 lines is the soft target); split a file when a feature
 would cross that boundary. Use environment variables or explicit flags for

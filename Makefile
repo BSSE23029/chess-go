@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size bench profile pgo coverage coverage-integration coverage-gate verify build release release-all
+.PHONY: test race vet fmt perft file-size bench benchmark-regression profile pgo coverage coverage-integration coverage-gate verify build release release-all release-verify
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -28,6 +28,9 @@ file-size:
 
 bench:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench . -benchmem ./engine ./cmd/chess
+
+benchmark-regression:
+	@sh scripts/benchmark-regression.sh
 
 profile:
 	@mkdir -p "$(DIST)/profiles"
@@ -65,3 +68,6 @@ release: verify build
 
 release-all: verify
 	VERSION=$(VERSION) DIST=$(DIST) sh scripts/release.sh
+
+release-verify:
+	@sh scripts/verify-release.sh "$(DIST)/releases/$(VERSION)"

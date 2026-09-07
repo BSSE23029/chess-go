@@ -19,7 +19,16 @@ packager. It targets macOS, Linux, and Windows by default:
 VERSION=v0.1.0 make release-all
 find dist/releases/v0.1.0 -maxdepth 1 -type f -print
 cat dist/releases/v0.1.0/SHA256SUMS
+VERSION=v0.1.0 make release-verify
 ```
+
+`scripts/verify-release.sh` checks that every archive is listed exactly once
+and validates an optional detached `SHA256SUMS.asc` or `SHA256SUMS.sig` with
+GnuPG. Set `REQUIRE_RELEASE_SIGNATURE=1` in a release environment when a
+detached signature is part of the publication policy; the default release
+workflow always verifies checksums and accepts detached signatures when
+present. GitHub Actions also creates build-provenance attestations for every
+archive and verifies them with `gh attestation verify` after publication.
 
 Override the output directory with `DIST` or the target matrix with
 `RELEASE_TARGETS`, for example `RELEASE_TARGETS="linux/amd64 linux/arm64"`.
