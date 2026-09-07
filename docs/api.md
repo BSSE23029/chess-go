@@ -272,7 +272,8 @@ Set
 `CHESS_PIECE_STYLE=text` for literal chess glyphs,
 `CHESS_PIECE_STYLE=sprite` to opt into the experimental pixel icons, or
 `CHESS_PIECE_STYLE=emoji` to request emoji presentation on terminals that
-support it. Apple Terminal falls back to stable text glyphs for emoji mode.
+support it, including Apple Terminal when the cell is at least six columns
+wide.
 
 ## Network protocol foundation
 

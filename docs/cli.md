@@ -73,7 +73,8 @@ The TUI repaints after a terminal resize. Unicode `auto` mode keeps centered
 instead of rasterizing font-dependent block art. Choose
 `CHESS_PIECE_STYLE=sprite`/`icon` only for the experimental pixel-art mode.
 The header label tells you which presentation is active; `emoji` falls back to
-text on terminals that do not advertise emoji support.
+text on terminals that do not advertise emoji support or have cells narrower
+than six columns.
 
 Compact dashboards also show `compact viewport · widen for more room`, making
 the one-row layout fallback explicit instead of leaving the viewport mode

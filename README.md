@@ -71,7 +71,7 @@ portable terminals cannot resize one Unicode glyph independently of its cell.
 alternative for terminals where a scalable silhouette is preferable to
 font-rendered chess symbols. On terminals with emoji-capable fonts,
 `CHESS_PIECE_STYLE=emoji` opts into the wider emoji presentation; Apple
-Terminal falls back to stable text glyphs for that mode.
+Terminal supports the emoji variation when the board cell has enough width.
 Use `--theme ascii` or `CHESS_THEME=ascii` for plain letters and ASCII
 borders. The surrounding dashboard inherits the terminal's configured
 background; only board squares and selection states use explicit colors.

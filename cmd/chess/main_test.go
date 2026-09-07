@@ -723,6 +723,11 @@ func TestPiecePresentationLabelExplainsTheActiveUnicodeMode(t *testing.T) {
 	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 18, cellHeight: 4}); got != "text" {
 		t.Fatalf("text presentation = %q, want text", got)
 	}
+	t.Setenv("CHESS_PIECE_STYLE", "emoji")
+	t.Setenv("TERM_PROGRAM", "Apple_Terminal")
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 6, cellHeight: 2}); got != "emoji" {
+		t.Fatalf("Apple Terminal emoji presentation = %q, want emoji", got)
+	}
 	if got := piecePresentationLabel(asciiTheme, boardScale{cellWidth: 18, cellHeight: 4}); got != "letters" {
 		t.Fatalf("ASCII presentation = %q, want letters", got)
 	}
@@ -1040,8 +1045,8 @@ func TestUnicodePiecePresentationScalesForCapableTerminals(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "emoji")
 	t.Setenv("TERM_PROGRAM", "Apple_Terminal")
 	got = boardCell(rook, square, 0, &ui, [64]bool{}, [64]bool{}, chess.NoSquare, unicodeTheme, 10)
-	if strings.Contains(got, "\ufe0f") {
-		t.Fatalf("Apple Terminal received a width-unstable emoji presentation: %q", got)
+	if !strings.Contains(got, "\ufe0f") {
+		t.Fatalf("Apple Terminal did not receive its emoji presentation: %q", got)
 	}
 }
 

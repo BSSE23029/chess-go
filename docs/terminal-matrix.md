@@ -5,7 +5,7 @@ The renderer has two kinds of coverage:
 | Environment | Automated coverage | Manual check |
 |---|---|---|
 | Linux terminal with a PTY | `make coverage-integration` exercises 80×24, 95×24, 100×30, 106×30, 120×30, and 213×60 frames plus a live resize. | Run the resize commands below with your terminal font. |
-| macOS Terminal.app | CI compiles and tests `cmd/chess` on `macos-latest`. | Check Unicode text, wide icon mode, and resize in Terminal.app. |
+| macOS Terminal.app | CI compiles and tests `cmd/chess` on `macos-latest`. | Check Unicode text, explicit emoji mode, and resize in Terminal.app. |
 | iTerm2 / WezTerm / Kitty | Renderer tests cover layout and emoji-width fallbacks; the local font is not available in CI. | Check `CHESS_PIECE_STYLE=emoji` and resize. |
 | Windows Terminal | CI compiles and tests the Windows resize build tag. | Check redraw after dragging the window and use ASCII if the font reports unusual widths. |
 
