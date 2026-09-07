@@ -244,7 +244,7 @@ does not auto-load dotenv files or commit local secrets.
 | Variable | Used by |
 |---|---|
 | `CHESS_THEME` | Default `unicode`/`ascii` board theme. |
-| `CHESS_PIECE_STYLE` | Unicode piece presentation: `auto` (centered glyphs), `text`, experimental `sprite`/`icon`, or `emoji`. |
+| `CHESS_PIECE_STYLE` | Unicode piece presentation: `auto` (centered glyphs, native emoji when supported), `text`, experimental `sprite`/`icon`, or `emoji`. |
 | `CHESS_PLAYER_NAME` | Human/player identity. |
 | `CHESS_PLAYER_COLOR` | Human or remote color. |
 | `CHESS_BOT_NAME` | Local bot display name. |
