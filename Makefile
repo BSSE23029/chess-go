@@ -6,7 +6,7 @@ VERSION ?= dev
 BUILD_FLAGS := -trimpath -buildvcs=false
 LDFLAGS := -s -w -buildid= -X main.version=$(VERSION)
 
-.PHONY: test race vet fmt perft file-size bench benchmark-regression profile pgo pgo-compare coverage coverage-integration coverage-gate verify build release release-all release-verify release-preflight
+.PHONY: test race vet fmt perft file-size bench benchmark-regression profile profile-strength pgo pgo-compare coverage coverage-integration coverage-gate verify build release release-all release-verify release-preflight
 
 test:
 	GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test ./...
@@ -35,7 +35,12 @@ benchmark-regression:
 profile:
 	@mkdir -p "$(DIST)/profiles"
 	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench '^BenchmarkSearchSuiteDepth3$$' -benchtime=5s -cpuprofile "$(DIST)/profiles/engine.cpu.pprof" -memprofile "$(DIST)/profiles/engine.mem.pprof" ./engine
+	@$(MAKE) profile-strength
 	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench '^BenchmarkInteractiveRender$$' -benchtime=5s -cpuprofile "$(DIST)/profiles/tui.cpu.pprof" -memprofile "$(DIST)/profiles/tui.mem.pprof" ./cmd/chess
+
+profile-strength:
+	@mkdir -p "$(DIST)/profiles"
+	@GOCACHE=$${GOCACHE:-/tmp/chess-go-build-cache} $(GO) test -run '^$$' -bench '^BenchmarkStrengthProfiles$$' -benchtime=5s -cpuprofile "$(DIST)/profiles/engine-strength.cpu.pprof" -memprofile "$(DIST)/profiles/engine-strength.mem.pprof" ./engine
 
 pgo:
 	@$(MAKE) profile

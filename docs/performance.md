@@ -28,10 +28,10 @@ one-iteration PGO comparison measured about 3.9 ms without PGO versus 3.9 ms
 with PGO, with identical search counters; this is effectively neutral and
 remains noisy diagnostic data, not a claim that PGO improves this workload.
 The current randomized-profile run also keeps the search counters unchanged
-while reducing Club and Advanced from 14 to 10 allocations/search by using
-bounded stack scratch space for near-best move weights; Maximum remains at 4
-allocations/search. These figures are a fresh Apple M1 Pro measurement, not a
-portable timing promise.
+while reducing Club and Advanced from 14 to roughly 10–11 allocations/search
+by using bounded stack scratch space for near-best move weights; Maximum remains
+at 4 allocations/search. These figures are fresh Apple M1 Pro measurements,
+not a portable timing promise.
 Repeat measurements on the target
 machine before drawing conclusions.
 
@@ -80,7 +80,14 @@ For profiles that can be opened with `go tool pprof`:
 ```console
 make profile
 go tool pprof -http=:0 dist/profiles/engine.cpu.pprof
+go tool pprof -http=:0 dist/profiles/engine-strength.cpu.pprof
 ```
+
+`make profile` now profiles both the deterministic depth-3 suite and the real
+Club, Advanced, and Maximum presets (with their opening book disabled). The
+second profile is written separately as `engine-strength.cpu.pprof` and
+`engine-strength.mem.pprof`, so profile-guided builds can continue using the
+stable generic engine profile while strength tuning has its own evidence.
 
 After the baseline and correctness gates are green, `make pgo` reuses the
 representative engine CPU profile as Go profile-guided optimization input and
