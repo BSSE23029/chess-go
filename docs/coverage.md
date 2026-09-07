@@ -17,7 +17,7 @@ counted as application behavior.
 | Launcher root and network menus | registry, form, and action tests | `TestCommandRegistryDrivesLauncherAndHelp`, `launcher_forms_test.go` |
 | Keyboard movement, selection, promotion, help, confirmation, commands | TUI state-machine tests | `TestInteractiveKeyboardStateMachineCoversGuidesAndConfirmation`, promotion tests |
 | Narrow, compact, normal, wide, and resized terminal layouts | renderer tests and PTY harness | `TestResponsiveFramesStayWithinTerminalViewport`, raw cases in `scripts/coverage-integration.sh` |
-| Engine legality, tactical positions, draw semantics, performance | engine and game suites | `engine/strength_test.go`, FIDE rule tests, benchmark suite |
+| Engine legality, fork/pin/skewer/sacrifice/mate/defense patterns, draw semantics, performance | engine and game suites | `engine/strength_test.go`, `engine/tactical_patterns_test.go`, FIDE rule tests, benchmark suite |
 
 ## Release commands
 
