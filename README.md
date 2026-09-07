@@ -278,12 +278,13 @@ and keep maintained production Go files below the 500-line hard limit.
 
 The repository now has CI verification, cross-platform packaging, checksum
 generation, 55 examples, and an automatic tag-triggered release workflow.
-Before a public release, the owner still needs to select the canonical
-repository/module URL, review dependency and security policy, create a version
-tag, and publish release notes. The repository already includes the MIT license.
+The reviewed `v0.1.0` tag is published with cross-platform archives, checksums,
+and build-provenance attestations. The owner still needs to select whether the
+checkout-safe `chess-go` module path should become a canonical public import
+path; the repository already includes the MIT license.
 
-The project does not push tags, publish artifacts, or claim ownership of any
-GitHub account automatically.
+The project does not infer or claim ownership of any GitHub account. Future
+releases are published only when an authorized owner pushes a version tag.
 
 ## Documentation
 

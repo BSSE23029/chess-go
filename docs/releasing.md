@@ -49,8 +49,9 @@ tracked files are clean, and every archive checksum passes. It intentionally
 rejects a stale tag instead of publishing archives built from a different
 commit.
 
-Do not claim a public release until the owner has chosen the canonical
-module/repository URL, reviewed the generated checksums, and published release
-notes. This repository is released under the MIT License; external UCI engines
-such as Stockfish remain separately installed and licensed, configured through
-`CHESS_UCI_ENGINE`.
+The reviewed `v0.1.0` tag is published with verified checksums and build
+provenance. For future releases, do not claim publication until the owner has
+reviewed the generated checksums, selected any canonical module/repository URL,
+and confirmed the generated release notes. This repository is released under
+the MIT License; external UCI engines such as Stockfish remain separately
+installed and licensed, configured through `CHESS_UCI_ENGINE`.
