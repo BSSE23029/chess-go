@@ -1,6 +1,18 @@
 package main
 
-import "unicode"
+import (
+	"os"
+	"strings"
+	"unicode"
+)
+
+func terminalSupportsEmoji() bool {
+	program := strings.ToLower(strings.TrimSpace(os.Getenv("TERM_PROGRAM")))
+	if program == "apple_terminal" || program == "iterm.app" || program == "wezterm" || program == "ghostty" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(os.Getenv("TERM")), "kitty")
+}
 
 // terminalTextWidth returns the number of terminal columns occupied by text.
 // Rune count is not enough for emoji presentation (a chess symbol followed by

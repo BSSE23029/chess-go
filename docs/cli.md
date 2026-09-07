@@ -69,8 +69,10 @@ stale captures are intentionally not embedded here.
 ### Responsive terminal rendering
 
 The TUI repaints after a terminal resize. Unicode `auto` mode keeps centered
-`TEXT` chess glyphs at every viewport size, preserving recognizable pieces
-instead of rasterizing font-dependent block art. Choose
+chess glyphs at every viewport size, choosing `EMOJI` on terminals that
+advertise a larger emoji presentation when the square is wide enough and
+falling back to `TEXT` on compact or unknown terminals. This preserves
+recognizable pieces instead of rasterizing font-dependent block art. Choose
 `CHESS_PIECE_STYLE=sprite`/`icon` only for the experimental pixel-art mode.
 The header label tells you which presentation is active; `emoji` falls back to
 text on terminals that do not advertise emoji support or have cells narrower

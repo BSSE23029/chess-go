@@ -257,8 +257,9 @@ The normal `go test ./...` gate compiles this example with the public API.
 
 The terminal renderer supports ASCII letters and Unicode chess glyphs. Unicode
 rendering is the default; `auto` keeps recognizable glyphs centered and bold at
-every viewport size. `sprite` explicitly enables an experimental half-block
-pixel alternative when a larger silhouette is preferred. Endgame
+every viewport size and selects emoji presentation on terminals that advertise
+it when the cell is wide enough. `sprite` explicitly enables an experimental
+half-block pixel alternative when a larger silhouette is preferred. Endgame
 king-activity terms are tapered by remaining
 non-pawn material, preserving middlegame king safety while making sparse
 positions more precise. Select ASCII with `--theme ascii` or

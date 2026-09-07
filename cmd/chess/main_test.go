@@ -710,6 +710,7 @@ func TestBoardScaleUsesAvailableTerminalSpace(t *testing.T) {
 
 func TestPiecePresentationLabelExplainsTheActiveUnicodeMode(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	t.Setenv("TERM_PROGRAM", "")
 	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 2}); got != "text" {
 		t.Fatalf("dashboard auto presentation = %q, want text", got)
 	}
@@ -718,6 +719,13 @@ func TestPiecePresentationLabelExplainsTheActiveUnicodeMode(t *testing.T) {
 	}
 	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 1}); got != "text" {
 		t.Fatalf("compact presentation = %q, want text", got)
+	}
+	t.Setenv("TERM_PROGRAM", "Apple_Terminal")
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 6, cellHeight: 2}); got != "emoji" {
+		t.Fatalf("Apple Terminal auto presentation = %q, want emoji", got)
+	}
+	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 5, cellHeight: 2}); got != "text" {
+		t.Fatalf("compact Apple Terminal presentation = %q, want text", got)
 	}
 	t.Setenv("CHESS_PIECE_STYLE", "text")
 	if got := piecePresentationLabel(unicodeTheme, boardScale{cellWidth: 18, cellHeight: 4}); got != "text" {
@@ -936,6 +944,7 @@ func TestCompactSpriteResamplingPreservesThinPieceDetails(t *testing.T) {
 
 func TestAutoPieceStyleKeepsReadableUnicodeGlyphs(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	t.Setenv("TERM_PROGRAM", "")
 	piece := chess.Piece{Color: chess.Black, Type: chess.Queen}
 	for _, scale := range []boardScale{{cellWidth: 18, cellHeight: 4}, {cellWidth: 5, cellHeight: 2}, {cellWidth: 5, cellHeight: 1}} {
 		if pieceSpriteEnabled(piece, unicodeTheme, scale.cellWidth, scale.cellHeight) {
@@ -954,6 +963,7 @@ func TestAutoPieceStyleKeepsReadableUnicodeGlyphs(t *testing.T) {
 
 func TestResponsive106RowBoardUsesReadableUnicodeGlyphs(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	t.Setenv("TERM_PROGRAM", "")
 	scale, compact := boardScaleForTerminal(106, 30)
 	if compact || scale.cellWidth != 5 || scale.cellHeight != 2 {
 		t.Fatalf("106x30 scale = %#v, compact %v; want 5x2 dashboard cells", scale, compact)
@@ -993,6 +1003,7 @@ func TestKeyboardGuideReservesRowsForEveryShortcut(t *testing.T) {
 
 func TestResponsiveFramesStayWithinTerminalViewport(t *testing.T) {
 	t.Setenv("CHESS_PIECE_STYLE", "auto")
+	t.Setenv("TERM_PROGRAM", "")
 	game := chess.NewGame()
 	ui := boardUI{cursor: chess.NoSquare, whiteName: "White", blackName: "Bot", mode: "LOCAL MATCH"}
 	model := ui.model(game, game.Position(), unicodeTheme)

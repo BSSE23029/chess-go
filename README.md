@@ -64,9 +64,12 @@ chess play bot --level Casual
 ```
 
 The terminal board uses centered, bold Unicode chess symbols by default. The
-`auto` style keeps those real chess glyphs at every terminal size, because
-portable terminals cannot resize one Unicode glyph independently of its cell.
-`CHESS_PIECE_STYLE=text` requests that stable presentation explicitly.
+`auto` style keeps those real chess glyphs at every terminal size and selects
+the terminal's larger emoji presentation on terminals that advertise it when
+the square is wide enough; compact or unknown terminals fall back to literal
+text. Portable terminals still cannot resize one Unicode glyph independently
+of its cell. `CHESS_PIECE_STYLE=text` requests that stable presentation
+explicitly.
 `CHESS_PIECE_STYLE=sprite` remains available as an experimental pixel-art
 alternative for terminals where a scalable silhouette is preferable to
 font-rendered chess symbols. On terminals with emoji-capable fonts,

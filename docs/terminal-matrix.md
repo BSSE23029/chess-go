@@ -26,7 +26,8 @@ Resize through these approximate viewport tiers while the game is running:
 213×60  proportional board cells with centered glyphs
 ```
 
-The header reports `TEXT` (or `SPRITE` when the experimental style is selected).
+The header reports `TEXT`, `EMOJI` on capable wide terminals, or `SPRITE` when
+the experimental style is selected.
 If the font makes chess glyphs look misaligned, use the stable text renderer or
 the ASCII theme:
 

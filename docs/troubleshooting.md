@@ -6,7 +6,9 @@ Terminal programs cannot resize one Unicode glyph independently of the rest of
 the terminal grid. Unicode defines character width properties, but a terminal
 still places text in fixed-size cells; the selected font controls the glyph's
 actual pixels. `CHESS_PIECE_STYLE=auto` therefore keeps recognizable,
-centered chess glyphs at every size. `CHESS_PIECE_STYLE=sprite` opts into an
+centered chess glyphs at every size and uses the terminal's larger emoji
+presentation when it is advertised and the square is wide enough.
+`CHESS_PIECE_STYLE=sprite` opts into an
 experimental half-block pixel treatment when a larger silhouette matters more
 than looking like a font-rendered chess symbol. Use the launcher Settings
 screen to select a style.

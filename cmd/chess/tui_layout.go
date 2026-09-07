@@ -224,7 +224,11 @@ func boardCellGlyphText(piece chess.Piece, square chess.Square, index int, ui *b
 
 func pieceGlyphText(piece chess.Piece, glyph rune, boardTheme theme, cellWidth int) (string, int) {
 	text := string(glyph)
-	if boardTheme.label() != "unicode" || piece.IsEmpty() || glyph == ' ' || cellWidth < 6 || unicodePieceStyle() != "emoji" || !terminalSupportsEmoji() {
+	style := unicodePieceStyle()
+	if style == "auto" && terminalSupportsEmoji() {
+		style = "emoji"
+	}
+	if boardTheme.label() != "unicode" || piece.IsEmpty() || glyph == ' ' || cellWidth < 6 || style != "emoji" || !terminalSupportsEmoji() {
 		return text, 1
 	}
 	// Emoji presentation is wider and usually has a larger terminal glyph than
@@ -254,8 +258,8 @@ func piecePresentationLabel(boardTheme theme, scale boardScale) string {
 	}
 	style := unicodePieceStyle()
 	if style == "auto" {
-		if pieceSpriteEnabled(chess.Piece{Color: chess.White, Type: chess.Pawn}, boardTheme, scale.cellWidth, scale.cellHeight) {
-			return "icons"
+		if scale.cellWidth >= 6 && terminalSupportsEmoji() {
+			return "emoji"
 		}
 		return "text"
 	}
@@ -265,14 +269,6 @@ func piecePresentationLabel(boardTheme theme, scale boardScale) string {
 		}
 	}
 	return "text"
-}
-
-func terminalSupportsEmoji() bool {
-	program := strings.ToLower(strings.TrimSpace(os.Getenv("TERM_PROGRAM")))
-	if program == "apple_terminal" || program == "iterm.app" || program == "wezterm" || program == "ghostty" {
-		return true
-	}
-	return strings.Contains(strings.ToLower(os.Getenv("TERM")), "kitty")
 }
 
 func coordinateLine(files []int, cellWidth int) string {
