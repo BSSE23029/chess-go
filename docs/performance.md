@@ -14,6 +14,12 @@ currently measures single-digit allocations for the opening and tactical
 positions after deterministic candidate-selection reuse; treat those numbers
 as a local regression baseline, not a portable performance guarantee.
 
+On the current M1 Pro baseline, the default 16K table measured about 6.2 ms for
+the depth-3 opening position, 1,128 nodes/search, and 7 allocations/search.
+PGO reduced one same-suite sample from about 7.2 ms to 6.6 ms without changing
+the node or cache counters; repeat measurements on the target machine before
+drawing conclusions.
+
 Run the broader benchmark set with:
 
 ```console
