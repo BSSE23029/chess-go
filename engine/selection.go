@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	inaccuracyLoss Score = 60
-	mistakeLoss    Score = 140
-	blunderLoss    Score = 300
+	inaccuracyLoss           Score = 60
+	mistakeLoss              Score = 140
+	blunderLoss              Score = 300
+	selectionScratchCapacity       = 256
 )
 
 func (b *Bot) candidateSelectionVaries() bool {
@@ -105,7 +106,13 @@ func chooseCandidateStyled(position chess.Position, candidates []scoredMove, tem
 		}
 		return candidates[0].move
 	}
-	adjusted := make([]Score, len(candidates))
+	var adjustedStorage [selectionScratchCapacity]Score
+	adjusted := adjustedStorage[:0]
+	if len(candidates) <= len(adjustedStorage) {
+		adjusted = adjustedStorage[:len(candidates)]
+	} else {
+		adjusted = make([]Score, len(candidates))
+	}
 	bestAdjusted := Score(-infinity)
 	for index, candidate := range candidates {
 		adjusted[index] = candidate.score + styleBonus(position, candidate.move, personality)
@@ -114,7 +121,13 @@ func chooseCandidateStyled(position chess.Position, candidates []scoredMove, tem
 		}
 	}
 	total := 0.0
-	weights := make([]float64, len(candidates))
+	var weightStorage [selectionScratchCapacity]float64
+	weights := weightStorage[:0]
+	if len(candidates) <= len(weightStorage) {
+		weights = weightStorage[:len(candidates)]
+	} else {
+		weights = make([]float64, len(candidates))
+	}
 	for index, score := range adjusted {
 		weight := math.Exp(float64(score-bestAdjusted) / temperature)
 		weights[index], total = weight, total+weight

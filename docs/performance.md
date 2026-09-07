@@ -27,6 +27,11 @@ the 8K table avoided the 16K table's extra memory footprint. The current
 one-iteration PGO comparison measured about 3.9 ms without PGO versus 3.9 ms
 with PGO, with identical search counters; this is effectively neutral and
 remains noisy diagnostic data, not a claim that PGO improves this workload.
+The current randomized-profile run also keeps the search counters unchanged
+while reducing Club and Advanced from 14 to 10 allocations/search by using
+bounded stack scratch space for near-best move weights; Maximum remains at 4
+allocations/search. These figures are a fresh Apple M1 Pro measurement, not a
+portable timing promise.
 Repeat measurements on the target
 machine before drawing conclusions.
 
