@@ -12,12 +12,15 @@ Extra-wide/tall cells scale the icons further. `CHESS_PIECE_STYLE=sprite`
 opts into the scalable mode explicitly. Make the terminal taller or wider, or
 use the launcher Settings screen to select a style.
 
-True per-glyph font scaling is terminal-specific. Kitty's text-sizing and
-graphics protocols can render larger text or images in a cell rectangle, while
-iTerm2 exposes a separate inline-image protocol; those features are not
-portable to macOS Terminal, Windows Terminal, or basic SSH/tmux sessions. The
-portable default is therefore a multi-cell half-block sprite, with literal
-Unicode text available through `CHESS_PIECE_STYLE=text`.
+True per-glyph font scaling is terminal-specific. [Kitty's text-sizing
+protocol](https://github.com/kovidgoyal/kitty/blob/master/docs/text-sizing-protocol.rst)
+and [graphics protocol](https://github.com/kovidgoyal/kitty/blob/master/docs/graphics-protocol.rst)
+can render larger text or images in a cell rectangle, while [iTerm2's inline
+image protocol](https://iterm2.com/documentation-images.html) exposes a
+separate image path. Those features are not portable to macOS Terminal,
+Windows Terminal, or basic SSH/tmux sessions. The portable default is
+therefore a multi-cell half-block sprite, with literal Unicode text available
+through `CHESS_PIECE_STYLE=text`.
 
 ## The board looks stretched
 
