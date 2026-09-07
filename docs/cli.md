@@ -62,10 +62,9 @@ booleans, seeds, and paired mTLS certificate/key paths before saving them.
 Environment variables remain the defaults, so the launcher is convenient
 without hard-coding identity, paths, or network settings.
 
-The launcher is also a visual command index. This is a real 80x24 Terminal.app
-capture of the menu shipped with the current binary:
-
-![Interactive chess-go launcher](images/terminal-launcher.png)
+The launcher is also a visual command index. A fresh Terminal.app capture will
+be added after the current default-color and glyph presentation is reviewed;
+stale captures are intentionally not embedded here.
 
 ### Responsive terminal rendering
 
@@ -76,14 +75,12 @@ instead of rasterizing font-dependent block art. Choose
 The header label tells you which presentation is active; `emoji` falls back to
 text on terminals that do not advertise emoji support.
 
-Compact dashboards also show `compact viewport · widen for larger pieces`,
-making the one-row fallback explicit instead of leaving glyph size mysterious.
+Compact dashboards also show `compact viewport · widen for more room`, making
+the one-row layout fallback explicit instead of leaving the viewport mode
+mysterious.
 
-![Compact Unicode game with centered text glyphs](images/terminal-compact.png)
-
-The wide icon capture is intentionally omitted until a fresh Terminal.app
-capture is reviewed against the current renderer. The automated PTY matrix in
-[`terminal-matrix.md`](terminal-matrix.md) covers that viewport meanwhile.
+The automated PTY matrix in [`terminal-matrix.md`](terminal-matrix.md) covers
+the responsive viewports meanwhile.
 
 ## Local play
 
@@ -144,9 +141,8 @@ chess play bot [--level NAME | --depth N] [--color white|black]
 The dashboard displays the bot's latest completed depth, node count, and score
 when the built-in engine returns search statistics.
 
-The bot screenshot is intentionally omitted until a fresh Terminal.app capture
-is reviewed against the current renderer; the checked-in historical image is
-not representative of the current sprite silhouettes.
+Fresh bot screenshots will be added after the current renderer is reviewed in a
+real terminal; historical captures are intentionally not embedded here.
 
 ## Remote play
 

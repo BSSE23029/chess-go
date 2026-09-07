@@ -89,23 +89,14 @@ Interactive controls are Arrow keys or `h`/`j`/`k`/`l`, Enter/Space to select,
 commands, `?` for help, and `q` or Ctrl-C to quit. Promotion choices use
 Left/Right and Enter.
 
-### Terminal screenshots
+### Terminal examples
 
-These are reference captures from the `chess` binary running in macOS
-Terminal.app. The launcher and compact game view are the quickest way to see
-the layout without opening a large image. Icon-mode captures will be added
-after a fresh Terminal.app capture is reviewed against the current renderer;
-the PTY viewport tests remain the source of truth while the TUI is being
-polished.
+Fresh screenshots are intentionally deferred until they are captured from the
+current renderer in a real terminal profile. The PTY viewport tests are the
+source of truth for layout while the TUI is being polished; stale historical
+captures are not displayed as current examples.
 
-<table>
-  <tr>
-    <td align="center"><img src="docs/images/terminal-compact.png" width="560" alt="Compact Unicode chess-go game at 80 by 24"><br><sub>Compact game · 80×24</sub></td>
-    <td align="center"><img src="docs/images/terminal-launcher.png" width="560" alt="Interactive chess-go launcher at 80 by 24"><br><sub>Interactive launcher · 80×24</sub></td>
-  </tr>
-</table>
-
-The repository also keeps lightweight SVG previews for documentation tooling:
+The repository keeps lightweight SVG previews for documentation tooling:
 [`preview-unicode.svg`](docs/images/preview-unicode.svg) and
 [`preview-ascii.svg`](docs/images/preview-ascii.svg).
 

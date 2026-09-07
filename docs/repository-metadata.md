@@ -22,7 +22,8 @@ path and does not invent a GitHub owner or public package URL.
 
 The repository now includes the local files GitHub can surface directly:
 
-- [`README.md`](../README.md) with the live terminal previews.
+- [`README.md`](../README.md) with terminal rendering notes and the current
+  preview policy.
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) and issue/PR templates.
 - [`SECURITY.md`](../SECURITY.md) linking the security policy.
 - [`docs/releasing.md`](releasing.md) for release archives and checksums.
