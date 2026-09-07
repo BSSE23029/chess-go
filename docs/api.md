@@ -127,8 +127,9 @@ bishop-pair, passed-pawn, and king-safety terms (including pawn shelter,
 castling potential, and weighted king-zone pressure). Callers may replace
 `Bot.Evaluator` with any value implementing `engine.Evaluator`.
 
-`EndgameEvaluator` adds sparse-position king centralization and king-to-pawn
-proximity; Advanced, Expert, and Maximum profiles use it automatically.
+`EndgameEvaluator` adds sparse-position king centralization, king-to-pawn
+proximity, and direct king opposition; Advanced, Expert, and Maximum profiles
+use it automatically.
 
 The search horizon uses quiescence search: tactical captures, promotions, and
 forced check evasions are explored before a leaf is statically evaluated.

@@ -185,6 +185,7 @@ func evaluateEndgame(position chess.Position, pawnCache *pawnStructureCache) Sco
 	weight := endgameWeight(position)
 	score += scaleEndgameTerm(kingCentralization(position), weight)
 	score += scaleEndgameTerm(kingPawnProximity(position), weight)
+	score += scaleEndgameTerm(kingOpposition(position), weight)
 	return score
 }
 

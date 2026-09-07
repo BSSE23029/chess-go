@@ -68,6 +68,30 @@ func castlingPotential(position chess.Position, color chess.Color, king chess.Sq
 	return -4
 }
 
+func kingOpposition(position chess.Position) Score {
+	kings := [2]chess.Square{chess.NoSquare, chess.NoSquare}
+	for square := chess.Square(0); square < 64; square++ {
+		piece := position.PieceAt(square)
+		if piece.Type == chess.King {
+			kings[piece.Color] = square
+		}
+	}
+	if kings[0] == chess.NoSquare || kings[1] == chess.NoSquare {
+		return 0
+	}
+	whiteFile, whiteRank := int(kings[0])%8, int(kings[0])/8
+	blackFile, blackRank := int(kings[1])%8, int(kings[1])/8
+	direct := (whiteFile == blackFile && abs(whiteRank-blackRank) == 2) ||
+		(whiteRank == blackRank && abs(whiteFile-blackFile) == 2)
+	if !direct {
+		return 0
+	}
+	if position.Turn() == chess.Black {
+		return 12
+	}
+	return -12
+}
+
 func pieceAttacksSquare(position chess.Position, from, target chess.Square, pieceType chess.PieceType) bool {
 	if from == target {
 		return false

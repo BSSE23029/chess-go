@@ -125,3 +125,11 @@ func TestEndgameTermsAreTaperedByRemainingMaterial(t *testing.T) {
 		t.Fatalf("endgame taper did not increase sparse king activity: sparse %d rich %d", sparseDelta, richDelta)
 	}
 }
+
+func TestEndgameRewardsTheSideWithKingOpposition(t *testing.T) {
+	whiteToMove := mustPosition(t, "8/8/4k3/8/4K3/8/8/8 w - - 0 1")
+	blackToMove := mustPosition(t, "8/8/4k3/8/4K3/8/8/8 b - - 0 1")
+	if got, want := kingOpposition(whiteToMove), kingOpposition(blackToMove); got >= want {
+		t.Fatalf("opposition did not favor the side not to move: white-to-move %d black-to-move %d", got, want)
+	}
+}
