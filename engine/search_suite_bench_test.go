@@ -103,6 +103,38 @@ func BenchmarkStrengthProfiles(b *testing.B) {
 	}
 }
 
+// BenchmarkQuiescenceCaptureScoring keeps SEE's extra cost visible before it
+// is considered for every default quiescence capture.
+func BenchmarkQuiescenceCaptureScoring(b *testing.B) {
+	position, err := chess.ParseFEN("4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1")
+	if err != nil {
+		b.Fatal(err)
+	}
+	var captures []chess.Move
+	for _, move := range position.LegalMoves() {
+		if move.Flags&chess.Capture != 0 {
+			captures = append(captures, move)
+		}
+	}
+	if len(captures) == 0 {
+		b.Fatal("benchmark position has no captures")
+	}
+	b.Run("captured-value", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for index := 0; index < b.N; index++ {
+			_ = captureGain(position, captures[index%len(captures)])
+		}
+	})
+	b.Run("static-exchange", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for index := 0; index < b.N; index++ {
+			_ = staticExchange(position, captures[index%len(captures)])
+		}
+	})
+}
+
 func formatTableSize(size int) string {
 	return fmt.Sprintf("tt-%dk", size/1024)
 }

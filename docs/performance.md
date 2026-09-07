@@ -42,6 +42,13 @@ presets (the benchmark disables the opening book):
 go test ./engine -run '^$' -bench '^BenchmarkStrengthProfiles$' -benchmem
 ```
 
+SEE remains opt-in for the tactical personality until its cost is measured
+against the cheap default capture signal:
+
+```console
+go test ./engine -run '^$' -bench '^BenchmarkQuiescenceCaptureScoring$' -benchmem
+```
+
 For profiles that can be opened with `go tool pprof`:
 
 ```console
