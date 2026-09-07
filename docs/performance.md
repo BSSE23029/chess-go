@@ -11,12 +11,16 @@ go test ./engine -run '^$' -bench '^BenchmarkSearchSuiteDepth3$' -benchmem
 The suite reports `nodes/search`, cache-hit metrics, and `tt-hits/search` in
 addition to elapsed time and allocations. A representative Apple M1 Pro run
 currently measures single-digit allocations for the opening and tactical
-positions after deterministic candidate-selection reuse; treat those numbers
-as a local regression baseline, not a portable performance guarantee.
+positions after deterministic candidate-selection reuse; the randomized Club
+and Advanced profiles also avoid validating each styled candidate twice. Treat
+those numbers as a local regression baseline, not a portable performance
+guarantee.
 
 On the current M1 Pro baseline, the default 8K table measures roughly 6.7–7.3
-ms for the depth-3 opening position, 1,128 nodes/search, and 7 allocations/
-search. Repeated table-size runs kept the same node and TT-hit counters while
+ms for the depth-3 opening position, 1,128 nodes/search, and 4 allocations/
+search. Deterministic searches now skip the root candidate buffer entirely;
+randomized profiles still retain candidate scoring for near-best selection.
+Repeated table-size runs kept the same node and TT-hit counters while
 the 8K table avoided the 16K table's extra memory footprint. The current
 one-iteration PGO comparison measured about 7.3 ms without PGO versus 9.6 ms
 with PGO, with identical search counters; this is noisy diagnostic data, not a

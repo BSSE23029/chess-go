@@ -12,6 +12,10 @@ const (
 	blunderLoss    Score = 300
 )
 
+func (b *Bot) candidateSelectionVaries() bool {
+	return b.MaxLoss > 0 || b.Temperature > 0 || b.InaccuracyChance > 0 || b.MistakeChance > 0 || b.BlunderChance > 0
+}
+
 // selectCandidate applies the profile's bounded imperfection and personality
 // style after search has scored the root candidates.
 func (b *Bot) selectCandidate(position chess.Position, candidates []scoredMove, bestScore Score, control *searchControl) chess.Move {
@@ -135,8 +139,10 @@ func styleBonus(position chess.Position, move chess.Move, personality Personalit
 	if move.Promotion != chess.NoPiece {
 		bonus += 80
 	}
-	next, err := position.Apply(move)
-	givesCheck := err == nil && next.InCheck()
+	next := position
+	undo := next.MakeLegalMove(move)
+	givesCheck := next.InCheck()
+	next.UnmakeMove(undo)
 	if givesCheck {
 		bonus += 25
 	}
