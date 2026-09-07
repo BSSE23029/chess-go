@@ -210,13 +210,34 @@ func TestStaticExchangeEvaluatesRecaptureSequences(t *testing.T) {
 }
 
 func TestQuiescenceReusesPerPlyMoveStorage(t *testing.T) {
-	position := chess.NewPosition()
+	position, err := chess.ParseFEN("4k3/8/8/8/3q4/8/3R4/4K3 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	control := &searchControl{}
 	first := quiescenceMoves(&position, 0, control)
 	second := quiescenceMoves(&position, 0, control)
 	if len(first) == 0 || len(second) == 0 || &first[0] != &second[0] {
 		t.Fatalf("quiescence move buffers were not reused: first %p second %p", &first[0], &second[0])
 	}
+}
+
+func TestQuiescenceIncludesQuietChecksBeforeExtensionLimit(t *testing.T) {
+	position, err := chess.ParseFEN("6k1/5ppp/8/8/6Q1/8/5PPP/6K1 w - - 0 1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	moves := quiescenceMoves(&position, 0, &searchControl{})
+	for _, move := range moves {
+		if move.Flags&chess.Capture != 0 || move.Promotion != chess.NoPiece {
+			continue
+		}
+		next, err := position.Apply(move)
+		if err == nil && next.InCheck() {
+			return
+		}
+	}
+	t.Fatalf("quiescence moves omitted all quiet checks: %v", moves)
 }
 
 func TestBuiltInEvaluationCacheReusesPositionScore(t *testing.T) {

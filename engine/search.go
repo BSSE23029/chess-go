@@ -436,14 +436,11 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 	if err := control.visit(ctx); err != nil {
 		return 0, err
 	}
-	moves := quiescenceMoves(position, ply, control)
-	if len(moves) == 0 {
-		if position.InCheck() {
-			return -MateScore + Score(ply), nil
-		}
-		return 0, nil
-	}
 	inCheck := position.InCheck()
+	moves := quiescenceMoves(position, ply, control)
+	if inCheck && len(moves) == 0 {
+		return -MateScore + Score(ply), nil
+	}
 	standPat := Score(0)
 	if !inCheck {
 		standPat = control.evaluate(evaluator, *position)
@@ -457,10 +454,13 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 			alpha = standPat
 		}
 	}
-	for _, move := range moves {
-		if !inCheck && move.Flags&chess.Capture == 0 && move.Promotion == chess.NoPiece {
-			continue
+	if len(moves) == 0 {
+		if len(position.LegalMoves()) == 0 {
+			return 0, nil
 		}
+		return alpha, nil
+	}
+	for _, move := range moves {
 		gain := Score(0)
 		canDeltaPrune := !inCheck && move.Flags&chess.Capture != 0 && move.Promotion == chess.NoPiece
 		if canDeltaPrune {
