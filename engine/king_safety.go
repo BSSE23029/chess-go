@@ -14,22 +14,58 @@ func kingZonePressure(position chess.Position, king chess.Square, attacker chess
 			if targetFile < 0 || targetFile > 7 || targetRank < 0 || targetRank > 7 {
 				continue
 			}
-			if squareAttackedBy(position, chess.Square(targetRank*8+targetFile), attacker) {
-				pressure++
-			}
+			pressure += squareAttackWeight(position, chess.Square(targetRank*8+targetFile), attacker)
 		}
 	}
 	return pressure
 }
 
 func squareAttackedBy(position chess.Position, target chess.Square, attacker chess.Color) bool {
+	return squareAttackWeight(position, target, attacker) > 0
+}
+
+func squareAttackWeight(position chess.Position, target chess.Square, attacker chess.Color) int {
+	weight := 0
 	for from := chess.Square(0); from < 64; from++ {
 		piece := position.PieceAt(from)
 		if !piece.IsEmpty() && piece.Color == attacker && pieceAttacksSquare(position, from, target, piece.Type) {
-			return true
+			if value := attackWeight(piece.Type); value > weight {
+				weight = value
+			}
 		}
 	}
-	return false
+	return weight
+}
+
+func attackWeight(piece chess.PieceType) int {
+	switch piece {
+	case chess.Queen:
+		return 4
+	case chess.Rook:
+		return 3
+	case chess.Bishop, chess.Knight, chess.King:
+		return 2
+	case chess.Pawn:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func castlingPotential(position chess.Position, color chess.Color, king chess.Square) Score {
+	home := chess.Square(4)
+	rights := chess.WhiteKingSide | chess.WhiteQueenSide
+	if color == chess.Black {
+		home = chess.Square(60)
+		rights = chess.BlackKingSide | chess.BlackQueenSide
+	}
+	if king != home {
+		return 0
+	}
+	if position.Castling()&rights != 0 {
+		return 8
+	}
+	return -4
 }
 
 func pieceAttacksSquare(position chess.Position, from, target chess.Square, pieceType chess.PieceType) bool {

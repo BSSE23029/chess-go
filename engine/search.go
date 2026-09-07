@@ -51,7 +51,7 @@ type searchControl struct {
 	limit       uint64
 	tt          *transpositionTable
 	table       map[uint64]ttEntry
-	moveStorage [32][64]chess.Move
+	moveStorage [64][64]chess.Move
 	pvMove      chess.Move
 	evalCache   [1 << 8]evaluationEntry
 	pawnCache   pawnStructureCache
@@ -455,7 +455,7 @@ func (b *Bot) quiescence(ctx context.Context, evaluator Evaluator, position *che
 		}
 	}
 	if len(moves) == 0 {
-		if len(position.LegalMoves()) == 0 {
+		if len(position.LegalMovesInto(moves[:0])) == 0 {
 			return 0, nil
 		}
 		return alpha, nil

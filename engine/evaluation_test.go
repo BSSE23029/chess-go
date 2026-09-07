@@ -80,6 +80,16 @@ func TestKingSafetyCountsAttacksIntoTheKingZone(t *testing.T) {
 	}
 }
 
+func TestKingSafetyRewardsAvailableCastlingRights(t *testing.T) {
+	withRights := mustPosition(t, "r3k2r/8/8/8/8/8/8/R3K2R w KQ - 0 1")
+	withoutRights := mustPosition(t, "r3k2r/8/8/8/8/8/8/R3K2R w - - 0 1")
+	withPawns, withKings := pawnEvaluationState(withRights)
+	withoutPawns, withoutKings := pawnEvaluationState(withoutRights)
+	if got, want := kingSafety(withRights, withPawns, withKings), kingSafety(withoutRights, withoutPawns, withoutKings); got <= want {
+		t.Fatalf("castling rights were not rewarded: with %d without %d", got, want)
+	}
+}
+
 func TestSearchPawnCacheReusesPawnLayoutAcrossPositions(t *testing.T) {
 	first := mustPosition(t, "4k3/8/8/8/8/8/4P3/R3K3 w - - 0 1")
 	second := mustPosition(t, "4k3/8/8/8/8/8/4P3/4KR2 w - - 0 1")

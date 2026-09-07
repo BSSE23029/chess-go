@@ -2,7 +2,7 @@ package engine
 
 import "chess-go"
 
-const quiescenceCheckLimit = 8
+const quiescenceCheckLimit = 1
 
 func quiescenceMoves(position *chess.Position, ply int, control *searchControl) []chess.Move {
 	var buffer []chess.Move

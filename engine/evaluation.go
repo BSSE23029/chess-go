@@ -295,6 +295,7 @@ func kingSafety(position chess.Position, pawnRanks [2][8]uint16, kings [2]chess.
 		}
 		pressure := kingZonePressure(position, king, chess.Color(1-color))
 		shelter -= Score(pressure * 4)
+		shelter += castlingPotential(position, chess.Color(color), king)
 		if color == int(chess.White) {
 			score += shelter
 		} else {

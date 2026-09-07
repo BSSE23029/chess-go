@@ -123,8 +123,8 @@ fmt.Println(move.UCI())
 The current engine uses fixed-depth alpha-beta search. `engine.New` retains a
 material evaluator for compatibility; named profiles use the deterministic
 `PositionalEvaluator`, which adds piece-square, mobility, pawn-structure,
-bishop-pair, passed-pawn, and king-safety terms (including pawn shelter and
-lightweight king-zone pressure). Callers may replace
+bishop-pair, passed-pawn, and king-safety terms (including pawn shelter,
+castling potential, and weighted king-zone pressure). Callers may replace
 `Bot.Evaluator` with any value implementing `engine.Evaluator`.
 
 `EndgameEvaluator` adds sparse-position king centralization and king-to-pawn
